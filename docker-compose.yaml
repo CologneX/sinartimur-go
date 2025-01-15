@@ -2,7 +2,6 @@ services:
   api_container:
     build:
       context: .
-      # Correct the path to your Dockerfile
       dockerfile: Dockerfile
     command: air
     ports:
