@@ -1,4 +1,4 @@
-package user
+package auth
 
 import "github.com/google/uuid"
 
@@ -15,4 +15,9 @@ type RegisterUserRequest struct {
 	Username        string `json:"username" validate:"required"`
 	Password        string `json:"password" validate:"required"`
 	ConfirmPassword string `json:"confirm_password" validate:"required"`
+}
+
+type LoginUserRequest struct {
+	Username string `json:"username" validate:"required"`
+	Password string `json:"password" validate:"required"`
 }

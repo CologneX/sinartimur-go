@@ -22,14 +22,8 @@ func StartPostgres() *sql.DB {
 		log.Fatalf("Failed to open database: %v", err)
 	}
 	log.Println("Connected to database")
-	//if err = db.Ping(); err != nil {
-	//	log.Fatalf("Failed to ping database: %v", err)
-	//}
-
+	if err = db.Ping(); err != nil {
+		log.Fatalf("Failed to ping database: %v", err)
+	}
 	return db
-}
-
-func StartRedis() {
-	// Start a connection to Redis
-
 }

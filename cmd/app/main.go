@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 	"log"
@@ -8,12 +9,12 @@ import (
 	"os"
 	v1 "sinartimur-go/api/v1"
 	"sinartimur-go/config"
-	"sinartimur-go/internal/user"
+	"sinartimur-go/internal/auth"
 	"sinartimur-go/utils"
 )
 
 type Services struct {
-	UserService *user.UserService
+	UserService *auth.AuthService
 }
 
 func main() {
@@ -24,9 +25,10 @@ func main() {
 			log.Fatalf("Failed to close database: %v", err)
 		}
 	}()
-
+	// start a connection to Redis
+	redisClient := config.NewRedisClient()
 	// register services
-	services := registerServices()
+	services := registerServices(db, redisClient)
 
 	// define routes
 	router := mux.NewRouter().PathPrefix("/api/v1").Subrouter()
@@ -39,9 +41,12 @@ func main() {
 	log.Fatal(http.ListenAndServe(":8080", handlers.CORS()(loggedRouter)))
 }
 
-func registerServices() *Services {
-	userRepo := user.NewUserRepository()
-	userService := user.NewUserService(userRepo)
+func registerServices(
+	db *sql.DB,
+	redis *config.RedisClient,
+) *Services {
+	userRepo := auth.NewUserRepository(db)
+	userService := auth.NewAuthService(userRepo, redis)
 	// Initialize other services here
 
 	return &Services{
