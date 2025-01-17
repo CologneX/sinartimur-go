@@ -3,6 +3,7 @@ package auth
 import (
 	"errors"
 	"fmt"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/lib/pq"
 	"net/http"
 	"sinartimur-go/config"
@@ -73,41 +74,31 @@ func (s *AuthService) LoginUserService(username, password string) (int, string, 
 }
 
 // RefreshAuthService refreshes the access token
-//func (s *AuthService) RefreshAuthService(refreshToken string) (int, error) {
-//	// Validate refresh token
-//	token, err := ValidateToken(refreshToken)
-//	if err != nil {
-//		return http.StatusUnauthorized, errors.New("Invalid refresh token")
-//	}
-//
-//	claims, ok := token.Claims.(jwt.MapClaims)
-//	if !ok || !token.Valid {
-//		return http.StatusUnauthorized, errors.New("Invalid refresh token")
-//	}
-//
-//	userID := claims["user_id"].(string)
-//
-//	// Check refresh token in Redis
-//	storedToken, err := s.redisClient.Get(userID)
-//	if err != nil || storedToken != refreshToken {
-//		return http.StatusUnauthorized, errors.New("Invalid refresh token")
-//	}
-//
-//	// Generate new access token
-//	accessToken, err := GenerateAccessToken(userID)
-//	if err != nil {
-//		return http.StatusInternalServerError, fmt.Errorf("Failed to generate access token: %w", err)
-//	}
-//
-//	// Set new access token cookie
-//	http.SetCookie(w, &http.Cookie{
-//		Name:     "access_token",
-//		Value:    accessToken,
-//		Expires:  time.Now().Add(time.Minute * 15),
-//		HttpOnly: true,
-//		Secure:   true,
-//		SameSite: http.SameSiteStrictMode,
-//	})
-//
-//	return http.StatusOK, nil
-//}
+func (s *AuthService) RefreshAuthService(refreshToken string) (int, string, error) {
+	// Validate refresh token
+	token, err := ValidateToken(refreshToken)
+	if err != nil {
+		return http.StatusUnauthorized, "", errors.New("Invalid refresh token")
+	}
+
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return http.StatusUnauthorized, "", errors.New("Invalid refresh token")
+	}
+
+	userID := claims["user_id"].(string)
+
+	// Check refresh token in Redis
+	storedToken, err := s.redisClient.Get(userID)
+	if err != nil || storedToken != refreshToken {
+		return http.StatusUnauthorized, "", errors.New("Invalid refresh token")
+	}
+
+	// Generate new access token
+	accessToken, err := GenerateAccessToken(userID)
+	if err != nil {
+		return http.StatusInternalServerError, "", fmt.Errorf("Failed to generate access token: %w", err)
+	}
+
+	return http.StatusOK, accessToken, nil
+}

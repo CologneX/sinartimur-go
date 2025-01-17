@@ -15,6 +15,7 @@ var validate *validator.Validate
 func RegisterUserRoutes(router *mux.Router, userService *auth.AuthService) {
 	router.HandleFunc("/auth/create", RegisterUserHandler(userService)).Methods("POST")
 	router.HandleFunc("/auth/login", LoginHandler(userService)).Methods("GET")
+	router.HandleFunc("/auth/refresh", RefreshTokenHandler(userService)).Methods("GET")
 }
 
 func RegisterUserHandler(userService *auth.AuthService) http.HandlerFunc {
@@ -80,6 +81,36 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 			Name:     "refresh_token",
 			Value:    refreshToken,
 			Expires:  time.Now().Add(time.Hour * 24 * 7),
+			HttpOnly: true,
+			Secure:   true,
+			Path:     "/",
+			SameSite: http.SameSiteStrictMode,
+		})
+
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func RefreshTokenHandler(userService *auth.AuthService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		refreshTokenCookie, err := r.Cookie("refresh_token")
+		if err != nil {
+			utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Refresh token not found"})
+			return
+		}
+
+		refreshToken := refreshTokenCookie.Value
+		status, accessToken, err := userService.RefreshAuthService(refreshToken)
+		if err != nil {
+			utils.WriteJSON(w, status, map[string]string{"error": err.Error()})
+			return
+		}
+
+		// Set new access token cookie
+		http.SetCookie(w, &http.Cookie{
+			Name:     "access_token",
+			Value:    accessToken,
+			Expires:  time.Now().Add(time.Minute * 1),
 			HttpOnly: true,
 			Secure:   true,
 			Path:     "/",
