@@ -30,7 +30,7 @@ func (s *AuthService) CreateUserService(request RegisterUserRequest) (int, error
 	}
 
 	// Insert user to database
-	err := s.repo.CreateUser(request.Username, utils.HashPassword(request.Password))
+	err := s.repo.Create(request.Username, utils.HashPassword(request.Password))
 	if err != nil {
 		// Check returned error if Unique Constraint Violation
 		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
@@ -44,7 +44,7 @@ func (s *AuthService) CreateUserService(request RegisterUserRequest) (int, error
 // LoginUserService logs in a user
 func (s *AuthService) LoginUserService(username, password string) (int, string, string, error) {
 	// Fetch user from database
-	user, err := s.repo.GetUserByUsername(username)
+	user, err := s.repo.GetByUsername(username)
 	if err != nil {
 		return http.StatusUnauthorized, "", "", errors.New("username atau password salah")
 	}
@@ -54,12 +54,12 @@ func (s *AuthService) LoginUserService(username, password string) (int, string, 
 		return http.StatusUnauthorized, "", "", errors.New("username atau password salah")
 	}
 	// Generate tokens
-	accessToken, err := GenerateAccessToken(user.ID.String())
+	accessToken, err := utils.GenerateAccessToken(user.ID.String())
 	if err != nil {
 		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to generate access token: %w", err)
 	}
 
-	refreshToken, err := GenerateRefreshToken(user.ID.String())
+	refreshToken, err := utils.GenerateRefreshToken(user.ID.String())
 	if err != nil {
 		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to generate refresh token: %w", err)
 	}
@@ -76,7 +76,7 @@ func (s *AuthService) LoginUserService(username, password string) (int, string, 
 // RefreshAuthService refreshes the access token
 func (s *AuthService) RefreshAuthService(refreshToken string) (int, string, error) {
 	// Validate refresh token
-	token, err := ValidateToken(refreshToken)
+	token, err := utils.ValidateToken(refreshToken)
 	if err != nil {
 		return http.StatusUnauthorized, "", errors.New("Invalid refresh token")
 	}
@@ -95,7 +95,7 @@ func (s *AuthService) RefreshAuthService(refreshToken string) (int, string, erro
 	}
 
 	// Generate new access token
-	accessToken, err := GenerateAccessToken(userID)
+	accessToken, err := utils.GenerateAccessToken(userID)
 	if err != nil {
 		return http.StatusInternalServerError, "", fmt.Errorf("Failed to generate access token: %w", err)
 	}

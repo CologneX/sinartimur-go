@@ -10,11 +10,11 @@ import (
 	v1 "sinartimur-go/api/v1"
 	"sinartimur-go/config"
 	"sinartimur-go/internal/auth"
-	"sinartimur-go/utils"
+	"sinartimur-go/middleware"
 )
 
 type Services struct {
-	UserService *auth.AuthService
+	AuthService *auth.AuthService
 }
 
 func main() {
@@ -32,10 +32,13 @@ func main() {
 
 	// define routes
 	router := mux.NewRouter().PathPrefix("/api/v1").Subrouter()
-	v1.RegisterUserRoutes(router, services.UserService)
 
 	// Add logging middleware from gorilla/mux
-	loggedRouter := handlers.CustomLoggingHandler(os.Stdout, router, utils.Logger)
+	loggedRouter := handlers.CustomLoggingHandler(os.Stdout, router, middleware.Logger)
+	v1.RegisterUserRoutes(router, services.AuthService)
+	protectedRoutes := router.PathPrefix("/protected").Subrouter()
+	// Add auth middleware
+	protectedRoutes.Use(middleware.AuthMiddleware)
 
 	// serve the router on port 8080
 	log.Fatal(http.ListenAndServe(":8080", handlers.CORS()(loggedRouter)))
@@ -45,11 +48,11 @@ func registerServices(
 	db *sql.DB,
 	redis *config.RedisClient,
 ) *Services {
-	userRepo := auth.NewUserRepository(db)
-	userService := auth.NewAuthService(userRepo, redis)
+	authRepo := auth.NewUserRepository(db)
+	authService := auth.NewAuthService(authRepo, redis)
 	// Initialize other services here
 
 	return &Services{
-		UserService: userService,
+		AuthService: authService,
 	}
 }
