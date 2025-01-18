@@ -10,11 +10,13 @@ import (
 	v1 "sinartimur-go/api/v1"
 	"sinartimur-go/config"
 	"sinartimur-go/internal/auth"
+	"sinartimur-go/internal/employee"
 	"sinartimur-go/middleware"
 )
 
 type Services struct {
-	AuthService *auth.AuthService
+	AuthService     *auth.AuthService
+	EmployeeService *employee.EmployeeService
 }
 
 func main() {
@@ -36,9 +38,10 @@ func main() {
 	// Add logging middleware from gorilla/mux
 	loggedRouter := handlers.CustomLoggingHandler(os.Stdout, router, middleware.Logger)
 	v1.RegisterUserRoutes(router, services.AuthService)
-	protectedRoutes := router.PathPrefix("/protected").Subrouter()
 	// Add auth middleware
+	protectedRoutes := router.PathPrefix("/protected").Subrouter()
 	protectedRoutes.Use(middleware.AuthMiddleware)
+	v1.RegisterEmployeeRoutes(protectedRoutes, services.EmployeeService)
 
 	// serve the router on port 8080
 	log.Fatal(http.ListenAndServe(":8080", handlers.CORS()(loggedRouter)))
@@ -50,9 +53,11 @@ func registerServices(
 ) *Services {
 	authRepo := auth.NewUserRepository(db)
 	authService := auth.NewAuthService(authRepo, redis)
-	// Initialize other services here
+	employeeRepo := employee.NewEmployeeRepository(db)
+	employeeService := employee.NewEmployeeService(employeeRepo)
 
 	return &Services{
-		AuthService: authService,
+		AuthService:     authService,
+		EmployeeService: employeeService,
 	}
 }
