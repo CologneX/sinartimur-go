@@ -41,7 +41,7 @@ func (r *userRepositoryImpl) GetByUsername(username string) (*User, error) {
 // GetRolesByID fetches role by user ID
 func (r *userRepositoryImpl) GetRolesByID(userID string) ([]string, error) {
 	var roles []string
-	rows, err := r.db.Query("SELECT r.name FROM role r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = $1", userID)
+	rows, err := r.db.Query("SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = $1", userID)
 	if err != nil {
 		return nil, err
 	}

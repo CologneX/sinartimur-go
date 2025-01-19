@@ -42,35 +42,43 @@ func (s *AuthService) CreateUserService(request RegisterUserRequest) (int, error
 }
 
 // LoginUserService logs in a user
-func (s *AuthService) LoginUserService(username, password string) (int, string, string, error) {
+func (s *AuthService) LoginUserService(username, password string) (int, string, string, error, []string) {
 	// Fetch user from database
 	user, err := s.repo.GetByUsername(username)
 	if err != nil {
-		return http.StatusUnauthorized, "", "", errors.New("username atau password salah")
+		return http.StatusUnauthorized, "", "", errors.New("username atau password salah"), nil
 	}
 
 	// Verify password
 	if !utils.ComparePasswords(user.PasswordHash, password) {
-		return http.StatusUnauthorized, "", "", errors.New("username atau password salah")
+		return http.StatusUnauthorized, "", "", errors.New("username atau password salah"), nil
 	}
+
+	// Get user roles
+	roles, err := s.repo.GetRolesByID(user.ID.String())
+	fmt.Println(err)
+	if err != nil {
+		return http.StatusInternalServerError, "", "", errors.New("Gagal mengambil role user"), nil
+	}
+
 	// Generate tokens
 	accessToken, err := utils.GenerateAccessToken(user.ID.String())
 	if err != nil {
-		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to generate access token: %w", err)
+		return http.StatusInternalServerError, "", "", errors.New("Gagal login. Silahkan coba lagi"), nil
 	}
 
 	refreshToken, err := utils.GenerateRefreshToken(user.ID.String())
 	if err != nil {
-		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to generate refresh token: %w", err)
+		return http.StatusInternalServerError, "", "", errors.New("Gagal login. Silahkan coba lagi"), nil
 	}
 
 	// Store refresh token in Redis
 	err = s.redisClient.Set(user.ID.String(), refreshToken, time.Hour*24*7)
 	if err != nil {
-		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to store refresh token: %w", err)
+		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to store refresh token: %w", err), nil
 	}
 
-	return http.StatusOK, accessToken, refreshToken, nil
+	return http.StatusOK, accessToken, refreshToken, nil, roles
 }
 
 // RefreshAuthService refreshes the access token

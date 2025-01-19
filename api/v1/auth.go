@@ -60,7 +60,7 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 		username := req.Username
 		password := req.Password
 
-		status, accessToken, refreshToken, err := userService.LoginUserService(username, password)
+		status, accessToken, refreshToken, err, roles := userService.LoginUserService(username, password)
 		if err != nil {
 			utils.WriteJSON(w, status, map[string]string{"error": err.Error()})
 			return
@@ -70,7 +70,7 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 		http.SetCookie(w, &http.Cookie{
 			Name:     "access_token",
 			Value:    accessToken,
-			Expires:  time.Now().Add(time.Minute * 15),
+			Expires:  time.Now().Add(time.Minute * 1),
 			HttpOnly: true,
 			Secure:   true,
 			Path:     "/",
@@ -87,7 +87,12 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 			SameSite: http.SameSiteStrictMode,
 		})
 
-		w.WriteHeader(http.StatusOK)
+		// Return JSON response with username and roles
+		response := map[string]interface{}{
+			"username": &username,
+			"roles":    &roles,
+		}
+		utils.WriteJSON(w, http.StatusOK, response)
 	}
 }
 
