@@ -13,7 +13,7 @@ CREATE TABLE users (
 );
 
 CREATE TABLE roles (
-                       id SERIAL PRIMARY KEY,
+                       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                        name VARCHAR(50) UNIQUE NOT NULL,
                        description TEXT,
                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
@@ -21,24 +21,14 @@ CREATE TABLE roles (
 );
 
 CREATE TABLE user_roles (
-                            id SERIAL PRIMARY KEY,
+                            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                             user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-                            role_id INT REFERENCES roles(id) ON DELETE CASCADE,
+                            role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
                             assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                             UNIQUE (user_id, role_id)
 );
 
 -- Table: HR
-CREATE TABLE employees (
-                           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                           name VARCHAR(150) NOT NULL,
-                           position VARCHAR(100) NOT NULL, -- Posisi karyawan, e.g., "Manager", "Staff"
-                           hired_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                           created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                           updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                           deleted_at TIMESTAMPTZ DEFAULT NULL
-);
-
 CREATE TABLE employees (
                            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                            name VARCHAR(150) NOT NULL,
@@ -144,9 +134,8 @@ CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
 CREATE INDEX idx_employees_name ON employees(name);
 CREATE INDEX idx_employees_position ON employees(position);
 CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
-CREATE INDEX idx_employees_name ON employees(name);
-CREATE INDEX idx_employees_position ON employees(position);
 CREATE INDEX idx_wages_employee_id ON wages(employee_id);
 CREATE INDEX idx_wages_period ON wages(period_start, period_end);
 CREATE INDEX idx_wage_details_wage_id ON wage_details(wage_id);
 CREATE INDEX idx_wage_details_component_name ON wage_details(component_name);
+

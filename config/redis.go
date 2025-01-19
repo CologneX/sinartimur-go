@@ -16,9 +16,8 @@ type RedisClient struct {
 
 func NewRedisClient() *RedisClient {
 	redisAddr := fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT"))
-	fmt.Println(redisAddr)
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     os.Getenv("REDIS_HOST") + ":" + os.Getenv("REDIS_PORT"),
+		Addr:     redisAddr,
 		Password: "",
 		DB:       0,
 	})

@@ -2,6 +2,7 @@ package v1
 
 import (
 	"encoding/json"
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/role"
@@ -20,6 +21,11 @@ func CreateRoleHandler(roleService *role.RoleService) http.HandlerFunc {
 		var req role.CreateRoleRequest
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
+			return
+		}
+		// Validate request
+		if req.Name == "" {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama role tidak boleh kosong"})
 			return
 		}
 
@@ -42,7 +48,22 @@ func UpdateRoleHandler(roleService *role.RoleService) http.HandlerFunc {
 			return
 		}
 
-		err := roleService.UpdateRole(req)
+		// Validate request
+		if req.Name == "" {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama role tidak boleh kosong"})
+			return
+		}
+
+		// Get role ID from search query
+		params := mux.Vars(r)
+		id, err := uuid.Parse(params["id"])
+		if err != nil {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak valid"})
+			return
+		}
+		req.ID = id
+
+		err = roleService.UpdateRole(req)
 		if err != nil {
 			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
 			return
