@@ -11,12 +11,14 @@ import (
 	"sinartimur-go/config"
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/internal/employee"
+	"sinartimur-go/internal/role"
 	"sinartimur-go/middleware"
 )
 
 type Services struct {
 	AuthService     *auth.AuthService
 	EmployeeService *employee.EmployeeService
+	RoleService     *role.RoleService
 }
 
 func main() {
@@ -42,6 +44,7 @@ func main() {
 	protectedRoutes := router.PathPrefix("/protected").Subrouter()
 	protectedRoutes.Use(middleware.AuthMiddleware)
 	v1.RegisterEmployeeRoutes(protectedRoutes, services.EmployeeService)
+	v1.RegisterRoleRoutes(protectedRoutes, services.RoleService)
 
 	// serve the router on port 8080
 	log.Fatal(http.ListenAndServe(":8080", handlers.CORS()(loggedRouter)))
@@ -55,9 +58,12 @@ func registerServices(
 	authService := auth.NewAuthService(authRepo, redis)
 	employeeRepo := employee.NewEmployeeRepository(db)
 	employeeService := employee.NewEmployeeService(employeeRepo)
+	roleRepo := role.NewRoleRepository(db)
+	roleService := role.NewRoleService(roleRepo)
 
 	return &Services{
 		AuthService:     authService,
 		EmployeeService: employeeService,
+		RoleService:     roleService,
 	}
 }

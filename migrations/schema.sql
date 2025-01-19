@@ -6,7 +6,7 @@ CREATE TABLE users (
                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                        username VARCHAR(100) UNIQUE NOT NULL,
                        password_hash TEXT NOT NULL,
-                       is_active BOOLEAN DEFAULT TRUE, -- Status user aktif/nonaktif
+                       is_active BOOLEAN DEFAULT TRUE,
                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                        updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                        deleted_at TIMESTAMPTZ DEFAULT NULL
