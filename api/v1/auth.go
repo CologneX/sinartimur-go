@@ -12,34 +12,9 @@ import (
 
 var validate *validator.Validate
 
-func RegisterUserRoutes(router *mux.Router, userService *auth.AuthService) {
-	router.HandleFunc("/auth/create", RegisterUserHandler(userService)).Methods("POST")
+func RegisterAuthRoutes(router *mux.Router, userService *auth.AuthService) {
 	router.HandleFunc("/auth/login", LoginHandler(userService)).Methods("GET")
 	router.HandleFunc("/auth/refresh", RefreshTokenHandler(userService)).Methods("GET")
-}
-
-func RegisterUserHandler(userService *auth.AuthService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req auth.RegisterUserRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-
-		validate = validator.New()
-		if err := validate.Struct(req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-
-		httpCode, err := userService.CreateUserService(req)
-		if err != nil {
-			utils.WriteJSON(w, httpCode, map[string]string{"error": err.Error()})
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "User berhasil didaftarkan"})
-	}
 }
 
 // LoginHandler logs in a user
@@ -60,7 +35,7 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 		username := req.Username
 		password := req.Password
 
-		status, accessToken, refreshToken, err, roles := userService.LoginUserService(username, password)
+		status, accessToken, refreshToken, err, roles := userService.LoginUser(username, password)
 		if err != nil {
 			utils.WriteJSON(w, status, map[string]string{"error": err.Error()})
 			return
@@ -105,7 +80,7 @@ func RefreshTokenHandler(userService *auth.AuthService) http.HandlerFunc {
 		}
 
 		refreshToken := refreshTokenCookie.Value
-		status, accessToken, err := userService.RefreshAuthService(refreshToken)
+		status, accessToken, err := userService.RefreshAuth(refreshToken)
 		if err != nil {
 			utils.WriteJSON(w, status, map[string]string{"error": err.Error()})
 			return

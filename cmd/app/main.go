@@ -12,11 +12,13 @@ import (
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/internal/employee"
 	"sinartimur-go/internal/role"
+	"sinartimur-go/internal/user"
 	"sinartimur-go/middleware"
 )
 
 type Services struct {
 	AuthService     *auth.AuthService
+	UserService     *user.UserService
 	EmployeeService *employee.EmployeeService
 	RoleService     *role.RoleService
 }
@@ -39,10 +41,11 @@ func main() {
 
 	// Add logging middleware from gorilla/mux
 	loggedRouter := handlers.CustomLoggingHandler(os.Stdout, router, middleware.Logger)
-	v1.RegisterUserRoutes(router, services.AuthService)
+	v1.RegisterAuthRoutes(router, services.AuthService)
 	// Add auth middleware
-	protectedRoutes := router.PathPrefix("/protected").Subrouter()
+	protectedRoutes := router.PathPrefix("").Subrouter()
 	protectedRoutes.Use(middleware.AuthMiddleware)
+	v1.RegisterUserRoutes(protectedRoutes, services.UserService)
 	v1.RegisterEmployeeRoutes(protectedRoutes, services.EmployeeService)
 	v1.RegisterRoleRoutes(protectedRoutes, services.RoleService)
 
@@ -54,8 +57,10 @@ func registerServices(
 	db *sql.DB,
 	redis *config.RedisClient,
 ) *Services {
-	authRepo := auth.NewUserRepository(db)
+	authRepo := auth.NewAuthRepository(db)
 	authService := auth.NewAuthService(authRepo, redis)
+	userRepo := user.NewUserRepository(db)
+	userService := user.NewUserService(userRepo)
 	employeeRepo := employee.NewEmployeeRepository(db)
 	employeeService := employee.NewEmployeeService(employeeRepo)
 	roleRepo := role.NewRoleRepository(db)
@@ -63,6 +68,7 @@ func registerServices(
 
 	return &Services{
 		AuthService:     authService,
+		UserService:     userService,
 		EmployeeService: employeeService,
 		RoleService:     roleService,
 	}

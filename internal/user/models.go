@@ -1,4 +1,4 @@
-package auth
+package user
 
 import "github.com/google/uuid"
 
@@ -11,7 +11,8 @@ type User struct {
 	UpdatedAt    string    `json:"updated_at"`
 }
 
-type LoginUserRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+type CreateUserRequest struct {
+	Username        string `json:"username"`
+	Password        string `json:"password"`
+	ConfirmPassword string `json:"confirm_password"`
 }

@@ -57,8 +57,8 @@ func (s *RoleService) GetRoleByID(id string) (*GetRoleRequest, error) {
 	return role, nil
 }
 
-// AssignRole assigns a role to a user
-func (s *RoleService) AssignRole(request AssignRoleRequest) error {
+// AssignRoleToUser assigns a role to a user
+func (s *RoleService) AssignRoleToUser(request AssignRoleRequest) error {
 	// Check if role exists
 	_, err := s.repo.GetByID(request.RoleID.String())
 	if err != nil {
@@ -71,8 +71,8 @@ func (s *RoleService) AssignRole(request AssignRoleRequest) error {
 	return nil
 }
 
-// UnassignRole unassigns a role from a user
-func (s *RoleService) UnassignRole(request UnassignRoleRequest) error {
+// UnassignRoleFromUser unassigns a role from a user
+func (s *RoleService) UnassignRoleFromUser(request UnassignRoleRequest) error {
 	// Check if role exists
 	_, err := s.repo.GetByID(request.ID.String())
 	if err != nil {

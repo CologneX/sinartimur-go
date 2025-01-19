@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"github.com/golang-jwt/jwt/v5"
-	"github.com/lib/pq"
 	"net/http"
 	"sinartimur-go/config"
 	"sinartimur-go/utils"
@@ -13,36 +12,17 @@ import (
 
 // AuthService is a service that handles user authentication
 type AuthService struct {
-	repo        UserRepository
+	repo        AuthRepository
 	redisClient *config.RedisClient
 }
 
 // NewAuthService creates a new instance of AuthService
-func NewAuthService(repo UserRepository, redisClient *config.RedisClient) *AuthService {
+func NewAuthService(repo AuthRepository, redisClient *config.RedisClient) *AuthService {
 	return &AuthService{repo: repo, redisClient: redisClient}
 }
 
-// CreateUserService registers a new user
-func (s *AuthService) CreateUserService(request RegisterUserRequest) (int, error) {
-	// Check if password and confirm password match
-	if request.Password != request.ConfirmPassword {
-		return http.StatusBadRequest, errors.New("Password dan konfirmasi password tidak sama")
-	}
-
-	// Insert user to database
-	err := s.repo.Create(request.Username, utils.HashPassword(request.Password))
-	if err != nil {
-		// Check returned error if Unique Constraint Violation
-		if pqErr, ok := err.(*pq.Error); ok && pqErr.Code == "23505" {
-			return http.StatusConflict, errors.New("User sudah terdaftar")
-		}
-		return http.StatusInternalServerError, fmt.Errorf("Gagal membuat user: %w", err)
-	}
-	return http.StatusOK, nil
-}
-
-// LoginUserService logs in a user
-func (s *AuthService) LoginUserService(username, password string) (int, string, string, error, []string) {
+// LoginUser logs in a user
+func (s *AuthService) LoginUser(username, password string) (int, string, string, error, []string) {
 	// Fetch user from database
 	user, err := s.repo.GetByUsername(username)
 	if err != nil {
@@ -81,8 +61,8 @@ func (s *AuthService) LoginUserService(username, password string) (int, string, 
 	return http.StatusOK, accessToken, refreshToken, nil, roles
 }
 
-// RefreshAuthService refreshes the access token
-func (s *AuthService) RefreshAuthService(refreshToken string) (int, string, error) {
+// RefreshAuth refreshes the access token
+func (s *AuthService) RefreshAuth(refreshToken string) (int, string, error) {
 	// Validate refresh token
 	token, err := utils.ValidateToken(refreshToken)
 	if err != nil {

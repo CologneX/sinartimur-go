@@ -10,9 +10,11 @@ import (
 )
 
 func RegisterRoleRoutes(router *mux.Router, roleService *role.RoleService) {
-	router.HandleFunc("/role", CreateRoleHandler(roleService)).Methods("POST")
-	router.HandleFunc("/role/{id}", UpdateRoleHandler(roleService)).Methods("PUT")
-	router.HandleFunc("/roles", GetAllRolesHandler(roleService)).Methods("GET")
+	router.HandleFunc("/admin/role", CreateRoleHandler(roleService)).Methods("POST")
+	router.HandleFunc("/admin/role/{id}", UpdateRoleHandler(roleService)).Methods("PUT")
+	router.HandleFunc("/admin/roles", GetAllRolesHandler(roleService)).Methods("GET")
+	router.HandleFunc("/admin/role/assign", AssignRoleToUserHandler(roleService)).Methods("POST")
+	router.HandleFunc("/admin/role/unassign", UnassignRoleFromUserHandler(roleService)).Methods("POST")
 }
 
 // CreateRoleHandler creates a new role
@@ -84,5 +86,55 @@ func GetAllRolesHandler(roleService *role.RoleService) http.HandlerFunc {
 			return
 		}
 		utils.WriteJSON(w, http.StatusOK, roles)
+	}
+}
+
+// AssignRoleToUserHandler assigns a role to a user
+func AssignRoleToUserHandler(roleService *role.RoleService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req role.AssignRoleRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
+			return
+		}
+
+		// Validate request
+		if req.RoleID.String() == "" || req.UserID.String() == "" {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak boleh kosong"})
+			return
+		}
+
+		err := roleService.AssignRoleToUser(req)
+		if err != nil {
+			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Role berhasil ditambahkan ke user"})
+	}
+}
+
+// UnassignRoleFromUserHandler unassigns a role from a user
+func UnassignRoleFromUserHandler(roleService *role.RoleService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req role.UnassignRoleRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
+			return
+		}
+
+		// Validate request
+		if req.ID.String() == "" {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak boleh kosong"})
+			return
+		}
+
+		err := roleService.UnassignRoleFromUser(req)
+		if err != nil {
+			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Role berhasil dihapus dari user"})
 	}
 }
