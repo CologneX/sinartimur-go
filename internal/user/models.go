@@ -16,3 +16,19 @@ type CreateUserRequest struct {
 	Password        string `json:"password"`
 	ConfirmPassword string `json:"confirm_password"`
 }
+
+type UpdateUserRequest struct {
+	ID       uuid.UUID `json:"id"`
+	Password string    `json:"password"`
+	Username string    `json:"username"`
+	IsActive bool      `json:"is_active"`
+}
+
+type GetUserResponse struct {
+	ID        uuid.UUID `json:"id"`
+	Username  string    `json:"username"`
+	Role      []string  `json:"role"`
+	IsActive  bool      `json:"is_active"`
+	CreatedAt string    `json:"created_at"`
+	UpdatedAt string    `json:"updated_at"`
+}
