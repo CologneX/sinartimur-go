@@ -36,7 +36,6 @@ func (s *AuthService) LoginUser(username, password string) (int, string, string,
 
 	// Get user roles
 	roles, err := s.repo.GetRolesByID(user.ID.String())
-	fmt.Println(err)
 	if err != nil {
 		return http.StatusInternalServerError, "", "", errors.New("Gagal mengambil role user"), nil
 	}
@@ -53,7 +52,7 @@ func (s *AuthService) LoginUser(username, password string) (int, string, string,
 	}
 
 	// Store refresh token in Redis
-	err = s.redisClient.Set(user.ID.String(), refreshToken, time.Hour*24*7)
+	err = s.redisClient.Set(user.ID.String(), refreshToken, time.Minute*1)
 	if err != nil {
 		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to store refresh token: %w", err), nil
 	}

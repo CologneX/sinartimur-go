@@ -55,7 +55,7 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 		http.SetCookie(w, &http.Cookie{
 			Name:     "refresh_token",
 			Value:    refreshToken,
-			Expires:  time.Now().Add(time.Hour * 24 * 7),
+			Expires:  time.Now().Add(time.Hour * 24),
 			HttpOnly: true,
 			Secure:   true,
 			Path:     "/",

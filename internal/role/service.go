@@ -2,7 +2,6 @@ package role
 
 import (
 	"errors"
-	"fmt"
 )
 
 // RoleService is a service that provides role operations
@@ -27,7 +26,6 @@ func (s *RoleService) CreateRole(request CreateRoleRequest) error {
 // UpdateRole updates a role
 func (s *RoleService) UpdateRole(request UpdateRoleRequest) error {
 	// Check if role exists
-	fmt.Println(request.ID.String())
 	_, err := s.repo.GetByID(request.ID.String())
 	if err != nil {
 		return errors.New("Role tidak ditemukan")

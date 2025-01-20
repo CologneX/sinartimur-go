@@ -11,7 +11,7 @@ var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 func GenerateAccessToken(userID string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(time.Minute * 15).Unix(),
+		"exp":     time.Now().Add(time.Minute * 1).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)
@@ -20,7 +20,7 @@ func GenerateAccessToken(userID string) (string, error) {
 func GenerateRefreshToken(userID string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
-		"exp":     time.Now().Add(time.Hour * 24 * 7).Unix(),
+		"exp":     time.Now().Add(time.Hour * 24).Unix(),
 	}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	return token.SignedString(jwtSecret)
