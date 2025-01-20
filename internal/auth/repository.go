@@ -35,7 +35,7 @@ func (r *authRepositoryImpl) GetRolesByID(userID string) ([]string, error) {
 	}
 	for rows.Next() {
 		var role string
-		err := rows.Scan(&role)
+		err = rows.Scan(&role)
 		if err != nil {
 			return nil, err
 		}

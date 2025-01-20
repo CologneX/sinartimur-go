@@ -39,20 +39,19 @@ func (s *AuthService) LoginUser(username, password string) (int, string, string,
 	if err != nil {
 		return http.StatusInternalServerError, "", "", errors.New("Gagal mengambil role user"), nil
 	}
-
 	// Generate tokens
-	accessToken, err := utils.GenerateAccessToken(user.ID.String())
+	accessToken, err := utils.GenerateAccessToken(user.ID.String(), roles)
 	if err != nil {
 		return http.StatusInternalServerError, "", "", errors.New("Gagal login. Silahkan coba lagi"), nil
 	}
 
-	refreshToken, err := utils.GenerateRefreshToken(user.ID.String())
+	refreshToken, err := utils.GenerateRefreshToken(user.ID.String(), roles)
 	if err != nil {
 		return http.StatusInternalServerError, "", "", errors.New("Gagal login. Silahkan coba lagi"), nil
 	}
 
 	// Store refresh token in Redis
-	err = s.redisClient.Set(user.ID.String(), refreshToken, time.Minute*1)
+	err = s.redisClient.Set(user.ID.String(), refreshToken, time.Hour*24*7)
 	if err != nil {
 		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to store refresh token: %w", err), nil
 	}
@@ -74,6 +73,13 @@ func (s *AuthService) RefreshAuth(refreshToken string) (int, string, error) {
 	}
 
 	userID := claims["user_id"].(string)
+	rolesClaim, ok := claims["roles"].([]interface{})
+	var roles []string
+	if ok {
+		for _, role := range rolesClaim {
+			roles = append(roles, role.(string))
+		}
+	}
 
 	// Check refresh token in Redis
 	storedToken, err := s.redisClient.Get(userID)
@@ -82,7 +88,7 @@ func (s *AuthService) RefreshAuth(refreshToken string) (int, string, error) {
 	}
 
 	// Generate new access token
-	accessToken, err := utils.GenerateAccessToken(userID)
+	accessToken, err := utils.GenerateAccessToken(userID, roles)
 	if err != nil {
 		return http.StatusInternalServerError, "", fmt.Errorf("Failed to generate access token: %w", err)
 	}

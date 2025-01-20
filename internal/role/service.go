@@ -18,6 +18,9 @@ func NewRoleService(repo RoleRepository) *RoleService {
 func (s *RoleService) CreateRole(request CreateRoleRequest) error {
 	err := s.repo.Create(request)
 	if err != nil {
+		if err.Code == "23505" {
+			return errors.New("Role sudah ada")
+		}
 		return err
 	}
 	return nil
