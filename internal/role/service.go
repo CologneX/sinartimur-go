@@ -74,12 +74,7 @@ func (s *RoleService) AssignRoleToUser(request AssignRoleRequest) error {
 
 // UnassignRoleFromUser unassigns a role from a user
 func (s *RoleService) UnassignRoleFromUser(request UnassignRoleRequest) error {
-	// Check if role exists
-	_, err := s.repo.GetByID(request.ID.String())
-	if err != nil {
-		return errors.New("Role tidak ditemukan")
-	}
-	err = s.repo.RemoveRoleFromUser(request)
+	err := s.repo.RemoveRoleFromUser(request)
 	if err != nil {
 		return err
 	}

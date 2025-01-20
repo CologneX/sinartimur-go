@@ -24,11 +24,16 @@ type UpdateUserRequest struct {
 	IsActive bool      `json:"is_active"`
 }
 
+type UserRole struct {
+	ID   uuid.UUID `json:"id"`
+	Name string    `json:"name"`
+}
+
 type GetUserResponse struct {
-	ID        uuid.UUID `json:"id"`
-	Username  string    `json:"username"`
-	Role      []string  `json:"role"`
-	IsActive  bool      `json:"is_active"`
-	CreatedAt string    `json:"created_at"`
-	UpdatedAt string    `json:"updated_at"`
+	ID        uuid.UUID   `json:"id"`
+	Username  string      `json:"username"`
+	Role      *[]UserRole `json:"role"`
+	IsActive  bool        `json:"is_active"`
+	CreatedAt string      `json:"created_at"`
+	UpdatedAt string      `json:"updated_at"`
 }
