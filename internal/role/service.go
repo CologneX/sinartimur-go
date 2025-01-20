@@ -35,6 +35,9 @@ func (s *RoleService) UpdateRole(request UpdateRoleRequest) error {
 	}
 	err = s.repo.Update(request)
 	if err != nil {
+		if err.Code == "23505" {
+			return errors.New("Role sudah ada")
+		}
 		return err
 	}
 	return nil
