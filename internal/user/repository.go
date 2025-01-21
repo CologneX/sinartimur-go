@@ -10,7 +10,7 @@ type UserRepository interface {
 	Create(username, hashedPassword string) *pq.Error
 	GetByUsername(username string) (*GetUserResponse, *pq.Error)
 	Update(req UpdateUserRequest) *pq.Error
-	GetAll(search string) ([]*GetUserResponse, error)
+	GetAll(search string) ([]*GetUserResponse, *pq.Error)
 }
 
 type userRepositoryImpl struct {
@@ -53,7 +53,7 @@ func (r *userRepositoryImpl) Update(req UpdateUserRequest) *pq.Error {
 }
 
 // GetAll fetches all users
-func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
+func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, *pq.Error) {
 	query := `
 		SELECT u.id, u.username, u.is_active, u.created_at, u.updated_at,
 		       COALESCE(json_agg(json_build_object('id', ur.id, 'name', r.name)) FILTER (WHERE r.name IS NOT NULL), '[]') AS roles
@@ -65,7 +65,7 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 	`
 	rows, err := r.db.Query(query, search)
 	if err != nil {
-		return nil, err
+		return nil, err.(*pq.Error)
 	}
 	defer rows.Close()
 
@@ -75,19 +75,19 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 		var rolesJSON []byte
 		err = rows.Scan(&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &rolesJSON)
 		if err != nil {
-			return nil, err
+			return nil, err.(*pq.Error)
 		}
 		var roles []UserRole
 		err = json.Unmarshal(rolesJSON, &roles)
 		if err != nil {
-			return nil, err
+			return nil, err.(*pq.Error)
 		}
 		user.Role = &roles
 		users = append(users, user)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, err.(*pq.Error)
 	}
 
 	return users, nil
