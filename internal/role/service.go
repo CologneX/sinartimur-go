@@ -1,7 +1,8 @@
 package role
 
 import (
-	"errors"
+	"net/http"
+	"sinartimur-go/pkg/dto"
 )
 
 // RoleService is a service that provides role operations
@@ -19,7 +20,7 @@ func (s *RoleService) CreateRole(request CreateRoleRequest) error {
 	err := s.repo.Create(request)
 	if err != nil {
 		if err.Code == "23505" {
-			return errors.New("Role sudah ada")
+			return dto.NewAPIError(http.StatusConflict, "Role sudah ada")
 		}
 		return err
 	}
@@ -31,12 +32,12 @@ func (s *RoleService) UpdateRole(request UpdateRoleRequest) error {
 	// Check if role exists
 	_, err := s.repo.GetByID(request.ID.String())
 	if err != nil {
-		return errors.New("Role tidak ditemukan")
+		return dto.NewAPIError(http.StatusNotFound, "Role tidak ditemukan")
 	}
 	err = s.repo.Update(request)
 	if err != nil {
 		if err.Code == "23505" {
-			return errors.New("Role sudah ada")
+			return dto.NewAPIError(http.StatusConflict, "Role sudah ada")
 		}
 		return err
 	}
@@ -66,7 +67,7 @@ func (s *RoleService) AssignRoleToUser(request AssignRoleRequest) error {
 	// Check if role exists
 	_, err := s.repo.GetByID(request.RoleID.String())
 	if err != nil {
-		return errors.New("Role tidak ditemukan")
+		return dto.NewAPIError(http.StatusNotFound, "Role tidak ditemukan")
 	}
 	err = s.repo.AddRoleToUser(request)
 	if err != nil {

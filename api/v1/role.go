@@ -2,10 +2,12 @@ package v1
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/role"
+	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 )
 
@@ -66,8 +68,12 @@ func UpdateRoleHandler(roleService *role.RoleService) http.HandlerFunc {
 		req.ID = id
 
 		err = roleService.UpdateRole(req)
-		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		var apiErr *dto.APIError
+		if errors.As(err, &apiErr) {
+			utils.WriteJSON(w, apiErr.StatusCode, map[string]string{"error": apiErr.Message})
+			return
+		} else if err != nil {
+			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
 			return
 		}
 
