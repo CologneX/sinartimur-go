@@ -1,13 +1,11 @@
 package v1
 
 import (
-	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/employee"
 	"sinartimur-go/utils"
-	"time"
 )
 
 func RegisterEmployeeRoutes(router *mux.Router, employeeService *employee.EmployeeService) {
@@ -21,37 +19,27 @@ func RegisterEmployeeRoutes(router *mux.Router, employeeService *employee.Employ
 func CreateEmployeeHandler(employeeService *employee.EmployeeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req employee.CreateEmployeeRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-		// Check every field in the request manually
-		if req.Name == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama tidak boleh kosong"})
-			return
-		}
-		if req.Position == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Posisi Karyawan tidak boleh kosong"})
+
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]interface{}{
+				"errors": validationErrors,
+			})
 			return
 		}
 
-		if req.HiredDate == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Tanggal harus diisi"})
-			return
-		}
-
-		if _, err := time.Parse(time.RFC3339, req.HiredDate); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Format tanggal salah"})
-			return
-		}
-
+		// Call the service
 		err := employeeService.CreateEmployee(req)
 		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			utils.WriteJSON(w, err.StatusCode, map[string]interface{}{
+				"errors": err.Details,
+			})
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Employee berhasil didaftarkan"})
+		utils.WriteJSON(w, http.StatusOK, map[string]interface{}{
+			"message": "Employee berhasil didaftarkan",
+		})
 	}
 }
 
@@ -59,26 +47,12 @@ func CreateEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 func UpdateEmployeeHandler(employeeService *employee.EmployeeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req employee.UpdateEmployeeRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
 
-		// Check every field in the request manually
-		if req.Name == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama tidak boleh kosong"})
-			return
-		}
-		if req.Position == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Posisi Karyawan tidak boleh kosong"})
-			return
-		}
-		if req.HiredDate == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Tanggal harus diisi"})
-			return
-		}
-		if _, err := time.Parse(time.RFC3339, req.HiredDate); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Format tanggal salah"})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]interface{}{
+				"errors": validationErrors,
+			})
 			return
 		}
 
@@ -90,9 +64,9 @@ func UpdateEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 		}
 		req.ID = id
 
-		err = employeeService.UpdateEmployee(req)
-		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		errService := employeeService.UpdateEmployee(req)
+		if errService != nil {
+			utils.WriteJSON(w, errService.StatusCode, map[string]string{"error": errService.Message})
 			return
 		}
 
@@ -110,9 +84,9 @@ func DeleteEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 			return
 		}
 
-		err = employeeService.DeleteEmployee(employee.DeleteEmployeeRequest{ID: id})
-		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+		errService := employeeService.DeleteEmployee(employee.DeleteEmployeeRequest{ID: id})
+		if errService != nil {
+			utils.WriteJSON(w, errService.StatusCode, map[string]string{"error": errService.Message})
 			return
 		}
 
@@ -126,7 +100,7 @@ func GetAllEmployeesHandler(employeeService *employee.EmployeeService) http.Hand
 		name := r.URL.Query().Get("name")
 		employees, err := employeeService.GetAllEmployees(name)
 		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			utils.WriteJSON(w, err.StatusCode, map[string]string{"error": err.Message})
 			return
 		}
 

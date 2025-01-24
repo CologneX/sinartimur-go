@@ -1,10 +1,5 @@
 package role
 
-import (
-	"net/http"
-	"sinartimur-go/pkg/dto"
-)
-
 // RoleService is a service that provides role operations
 type RoleService struct {
 	repo RoleRepository
@@ -19,9 +14,9 @@ func NewRoleService(repo RoleRepository) *RoleService {
 func (s *RoleService) CreateRole(request CreateRoleRequest) error {
 	err := s.repo.Create(request)
 	if err != nil {
-		if err.Code == "23505" {
-			return dto.NewAPIError(http.StatusConflict, "Role sudah ada")
-		}
+		//if err.Code == "23505" {
+		//	return dto.NewAPIError(http.StatusConflict, "Role sudah ada")
+		//}
 		return err
 	}
 	return nil
@@ -31,14 +26,14 @@ func (s *RoleService) CreateRole(request CreateRoleRequest) error {
 func (s *RoleService) UpdateRole(request UpdateRoleRequest) error {
 	// Check if role exists
 	_, err := s.repo.GetByID(request.ID.String())
-	if err != nil {
-		return dto.NewAPIError(http.StatusNotFound, "Role tidak ditemukan")
-	}
+	//if err != nil {
+	//	return dto.NewAPIError(http.StatusNotFound, "Role tidak ditemukan")
+	//}
 	err = s.repo.Update(request)
 	if err != nil {
-		if err.Code == "23505" {
-			return dto.NewAPIError(http.StatusConflict, "Role sudah ada")
-		}
+		//if err.Code == "23505" {
+		//	return dto.NewAPIError(http.StatusConflict, "Role sudah ada")
+		//}
 		return err
 	}
 	return nil
@@ -66,9 +61,9 @@ func (s *RoleService) GetRoleByID(id string) (*GetRoleRequest, error) {
 func (s *RoleService) AssignRoleToUser(request AssignRoleRequest) error {
 	// Check if role exists
 	_, err := s.repo.GetByID(request.RoleID.String())
-	if err != nil {
-		return dto.NewAPIError(http.StatusNotFound, "Role tidak ditemukan")
-	}
+	//if err != nil {
+	//	return dto.NewAPIError(http.StatusNotFound, "Role tidak ditemukan")
+	//}
 	err = s.repo.AddRoleToUser(request)
 	if err != nil {
 		return err

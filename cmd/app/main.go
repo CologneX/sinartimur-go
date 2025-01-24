@@ -14,6 +14,7 @@ import (
 	"sinartimur-go/internal/role"
 	"sinartimur-go/internal/user"
 	"sinartimur-go/middleware"
+	"sinartimur-go/utils"
 )
 
 type Services struct {
@@ -33,6 +34,9 @@ func main() {
 	}()
 	// start a connection to Redis
 	redisClient := config.NewRedisClient()
+
+	// Register Custom Validations
+	utils.RegisterCustomValidators()
 	// register services
 	services := registerServices(db, redisClient)
 

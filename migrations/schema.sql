@@ -32,12 +32,16 @@ CREATE TABLE user_roles (
 CREATE TABLE employees (
                            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                            name VARCHAR(150) NOT NULL,
-                           position VARCHAR(100) NOT NULL, -- Posisi karyawan, e.g., "Manager", "Staff"
+                           position VARCHAR(100) NOT NULL,
+                            phone VARCHAR(20) NOT NULL,
+                            nik VARCHAR(20) NOT NULL,
                            hired_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
                            created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                            updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                            deleted_at TIMESTAMPTZ DEFAULT NULL
 );
+
+-- Update employees's nik column to be unique
 
 CREATE TABLE wages (
                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -138,4 +142,4 @@ CREATE INDEX idx_wages_employee_id ON wages(employee_id);
 CREATE INDEX idx_wages_period ON wages(period_start, period_end);
 CREATE INDEX idx_wage_details_wage_id ON wage_details(wage_id);
 CREATE INDEX idx_wage_details_component_name ON wage_details(component_name);
-
+CREATE INDEX idx_employees_nik ON employees(nik);
