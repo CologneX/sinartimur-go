@@ -47,6 +47,13 @@ func CreateEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 func UpdateEmployeeHandler(employeeService *employee.EmployeeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req employee.UpdateEmployeeRequest
+		params := mux.Vars(r)
+		id, err := uuid.Parse(params["id"])
+		if err != nil {
+			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak valid"})
+			return
+		}
+		req.ID = id
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 		if validationErrors != nil {
@@ -55,14 +62,6 @@ func UpdateEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 			})
 			return
 		}
-
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak valid"})
-			return
-		}
-		req.ID = id
 
 		errService := employeeService.UpdateEmployee(req)
 		if errService != nil {
