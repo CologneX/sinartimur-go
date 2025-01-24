@@ -65,7 +65,9 @@ func UpdateEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 
 		errService := employeeService.UpdateEmployee(req)
 		if errService != nil {
-			utils.WriteJSON(w, errService.StatusCode, map[string]string{"error": errService.Message})
+			utils.WriteJSON(w, errService.StatusCode, map[string]interface{}{
+				"errors": errService.Details,
+			})
 			return
 		}
 

@@ -62,7 +62,9 @@ func (s *EmployeeService) UpdateEmployee(request UpdateEmployeeRequest) *dto.API
 	if err == nil {
 		return &dto.APIError{
 			StatusCode: 409,
-			Message:    "NIK sudah terdaftar",
+			Details: map[string]string{
+				"nik": "NIK sudah terdaftar",
+			},
 		}
 	}
 
@@ -70,7 +72,9 @@ func (s *EmployeeService) UpdateEmployee(request UpdateEmployeeRequest) *dto.API
 	if err == nil {
 		return &dto.APIError{
 			StatusCode: 409,
-			Message:    "Nomor telepon sudah terdaftar",
+			Details: map[string]string{
+				"phone": "Nomor telepon sudah terdaftar",
+			},
 		}
 	}
 	err = s.repo.Update(request)
