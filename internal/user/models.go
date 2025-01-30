@@ -12,16 +12,16 @@ type User struct {
 }
 
 type CreateUserRequest struct {
-	Username        string `json:"username"`
-	Password        string `json:"password"`
-	ConfirmPassword string `json:"confirm_password"`
+	Username        string `json:"username" validate:"required"`
+	Password        string `json:"password" validate:"required"`
+	ConfirmPassword string `json:"confirm_password" validate:"eqfield=Password"`
 }
 
 type UpdateUserRequest struct {
 	ID       uuid.UUID `json:"id"`
-	Password string    `json:"password"`
-	Username string    `json:"username"`
-	IsActive bool      `json:"is_active"`
+	Password string    `json:"password" validate:"required"`
+	Username string    `json:"username" validate:"required"`
+	IsActive bool      `json:"is_active" validate:"boolean"`
 }
 
 type UserRole struct {

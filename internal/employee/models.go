@@ -28,16 +28,16 @@ type GetEmployeeResponse struct {
 type UpdateEmployeeRequest struct {
 	Name      string    `json:"name" validate:"required"`
 	Position  string    `json:"position" validate:"required"`
-	Phone     string    `json:"phone" validate:"required"`
-	Nik       string    `json:"nik" validate:"required"`
+	Phone     string    `json:"phone" validate:"required,min=10,max=13"`
+	Nik       string    `json:"nik" validate:"required,len=16"`
 	HiredDate string    `json:"hired_date" validate:"required,rfc3339"`
 	ID        uuid.UUID `json:"id" validate:"required,uuid"`
 }
 
 type CreateEmployeeRequest struct {
 	Name      string `json:"name" validate:"required"`
-	Phone     string `json:"phone" validate:"required"`
-	Nik       string `json:"nik" validate:"required"`
+	Phone     string `json:"phone" validate:"required,min=10,max=13"`
+	Nik       string `json:"nik" validate:"required,len=16"`
 	Position  string `json:"position" validate:"required"`
 	HiredDate string `json:"hired_date" validate:"required,rfc3339"`
 }

@@ -1,8 +1,6 @@
 package v1
 
 import (
-	"encoding/json"
-	"errors"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
@@ -23,19 +21,14 @@ func RegisterRoleRoutes(router *mux.Router, roleService *role.RoleService) {
 func CreateRoleHandler(roleService *role.RoleService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req role.CreateRoleRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
-		// Validate request
-		if req.Name == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama role tidak boleh kosong"})
-			return
-		}
-
 		err := roleService.CreateRole(req)
 		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			utils.ErrorJSON(w, err)
 			return
 		}
 
@@ -47,33 +40,26 @@ func CreateRoleHandler(roleService *role.RoleService) http.HandlerFunc {
 func UpdateRoleHandler(roleService *role.RoleService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req role.UpdateRoleRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-
-		// Validate request
-		if req.Name == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Nama role tidak boleh kosong"})
-			return
-		}
-
 		// Get role ID from search query
 		params := mux.Vars(r)
 		id, err := uuid.Parse(params["id"])
 		if err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak valid"})
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
 			return
 		}
 		req.ID = id
 
-		err = roleService.UpdateRole(req)
-		var apiErr *dto.APIError
-		if errors.As(err, &apiErr) {
-			utils.WriteJSON(w, apiErr.StatusCode, map[string]string{"error": apiErr.Message})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
-		} else if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": "Server error"})
+		}
+
+		serviceErr := roleService.UpdateRole(req)
+		if serviceErr != nil {
+			utils.ErrorJSON(w, serviceErr)
 			return
 		}
 
@@ -88,7 +74,7 @@ func GetAllRolesHandler(roleService *role.RoleService) http.HandlerFunc {
 		name := r.URL.Query().Get("name")
 		roles, err := roleService.GetAllRoles(name)
 		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			utils.ErrorJSON(w, err)
 			return
 		}
 		utils.WriteJSON(w, http.StatusOK, roles)
@@ -99,20 +85,15 @@ func GetAllRolesHandler(roleService *role.RoleService) http.HandlerFunc {
 func AssignRoleToUserHandler(roleService *role.RoleService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req role.AssignRoleRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-
-		// Validate request
-		if req.RoleID.String() == "" || req.UserID.String() == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak boleh kosong"})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
 		err := roleService.AssignRoleToUser(req)
 		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			utils.ErrorJSON(w, err)
 			return
 		}
 
@@ -124,20 +105,15 @@ func AssignRoleToUserHandler(roleService *role.RoleService) http.HandlerFunc {
 func UnassignRoleFromUserHandler(roleService *role.RoleService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req role.UnassignRoleRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-
-		// Validate request
-		if req.ID.String() == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak boleh kosong"})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
 		err := roleService.UnassignRoleFromUser(req)
 		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+			utils.ErrorJSON(w, err)
 			return
 		}
 

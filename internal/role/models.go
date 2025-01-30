@@ -33,25 +33,25 @@ type GetRoleRequest struct {
 }
 
 type CreateRoleRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string `json:"name" validate:"required"`
+	Description string `json:"description" validate:"required"`
 }
 
 type UpdateRoleRequest struct {
-	ID          uuid.UUID `json:"id"`
-	Name        string    `json:"name"`
-	Description string    `json:"description"`
+	ID          uuid.UUID `json:"id" validate:"required,uuid"`
+	Name        string    `json:"name" validate:"required"`
+	Description string    `json:"description" validate:"required"`
 }
 
 type DeleteRoleRequest struct {
-	ID uuid.UUID `json:"id"`
+	ID uuid.UUID `json:"id" validate:"required,uuid"`
 }
 
 type AssignRoleRequest struct {
-	UserID uuid.UUID `json:"user_id"`
-	RoleID uuid.UUID `json:"role_id"`
+	UserID uuid.UUID `json:"user_id" validate:"required,uuid"`
+	RoleID uuid.UUID `json:"role_id" validate:"required,uuid"`
 }
 
 type UnassignRoleRequest struct {
-	ID uuid.UUID `json:"id"`
+	ID uuid.UUID `json:"id" validate:"required,uuid"`
 }

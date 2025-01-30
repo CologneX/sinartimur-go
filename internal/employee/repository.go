@@ -2,7 +2,6 @@ package employee
 
 import (
 	"database/sql"
-	"github.com/lib/pq"
 )
 
 type EmployeeRepository interface {
@@ -28,7 +27,7 @@ func (r *employeeRepositoryImpl) Create(request CreateEmployeeRequest) error {
 	_, err := r.db.Exec("INSERT INTO employees (name, position, hired_date, nik, phone) VALUES ($1, $2, $3, $4, $5)", request.Name, request.Position, request.HiredDate, request.Nik, request.Phone)
 	if err != nil {
 
-		return err.(*pq.Error)
+		return err
 	}
 	return nil
 }
@@ -37,7 +36,7 @@ func (r *employeeRepositoryImpl) Create(request CreateEmployeeRequest) error {
 func (r *employeeRepositoryImpl) Delete(request DeleteEmployeeRequest) error {
 	_, err := r.db.Exec("UPDATE employees SET deleted_at = NOW() WHERE id = $1", request.ID)
 	if err != nil {
-		return err.(*pq.Error)
+		return err
 	}
 	return nil
 }
@@ -46,7 +45,7 @@ func (r *employeeRepositoryImpl) Delete(request DeleteEmployeeRequest) error {
 func (r *employeeRepositoryImpl) Update(request UpdateEmployeeRequest) error {
 	_, err := r.db.Exec("UPDATE employees SET name = $1, position = $2, hired_date = $3, nik = $4, phone = $5, updated_at = NOW() WHERE id = $6", request.Name, request.Position, request.HiredDate, request.Nik, request.Phone, request.ID)
 	if err != nil {
-		return err.(*pq.Error)
+		return err
 	}
 	return nil
 }
@@ -63,7 +62,7 @@ func (r *employeeRepositoryImpl) GetAll(name string) ([]GetEmployeeResponse, err
 	}
 
 	if err != nil {
-		return nil, err.(*pq.Error)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -72,7 +71,7 @@ func (r *employeeRepositoryImpl) GetAll(name string) ([]GetEmployeeResponse, err
 		var employee GetEmployeeResponse
 		err = rows.Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
 		if err != nil {
-			return nil, err.(*pq.Error)
+			return nil, err
 		}
 		employees = append(employees, employee)
 	}

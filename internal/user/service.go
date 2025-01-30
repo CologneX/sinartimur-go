@@ -1,9 +1,9 @@
 package user
 
 import (
-	"errors"
 	"fmt"
 	"net/http"
+	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 )
 
@@ -18,35 +18,53 @@ func NewUserService(repo UserRepository) *UserService {
 }
 
 // CreateUser registers a new user
-func (s *UserService) CreateUser(request CreateUserRequest) (int, error) {
-	// Check if password and confirm password match
-	if request.Password != request.ConfirmPassword {
-		return http.StatusBadRequest, errors.New("Password dan konfirmasi password tidak sama")
-	}
-
-	// Insert user to database
-	err := s.repo.Create(request.Username, utils.HashPassword(request.Password))
-	if err != nil {
-		// Check returned error if Unique Constraint Violation
-		if err.Code == "23505" {
-			return http.StatusConflict, errors.New("Username sudah terdaftar")
+func (s *UserService) CreateUser(request CreateUserRequest) *dto.APIError {
+	// Check if user exists
+	_, err := s.repo.GetByUsername(request.Username)
+	if err == nil {
+		return &dto.APIError{
+			StatusCode: http.StatusConflict,
+			Details: map[string]string{
+				"username": "Username sudah terdaftar",
+			},
 		}
-		return http.StatusInternalServerError, fmt.Errorf("Gagal membuat user: %w", err)
 	}
-	return http.StatusOK, nil
+	// Insert user to database
+	err = s.repo.Create(request.Username, utils.HashPassword(request.Password))
+	if err != nil {
+		return &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
+		}
+	}
+	return nil
 }
 
 // Update updates a user
-func (s *UserService) Update(request UpdateUserRequest) (int, error) {
-	// Update user in database
-	err := s.repo.Update(request)
-	if err != nil {
-		if err.Code == "23505" {
-			return http.StatusConflict, errors.New("Username sudah terdaftar")
+func (s *UserService) Update(request UpdateUserRequest) *dto.APIError {
+	// Check if user exists with the same username
+	user, err := s.repo.GetByUsername(request.Username)
+	if err == nil && user.ID != request.ID {
+		return &dto.APIError{
+			StatusCode: http.StatusConflict,
+			Details: map[string]string{
+				"username": "Username sudah terdaftar",
+			},
 		}
-		return http.StatusInternalServerError, fmt.Errorf("Gagal mengupdate user: %w", err)
 	}
-	return http.StatusOK, nil
+	// Update user in database
+	err = s.repo.Update(request)
+	if err != nil {
+		return &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
+		}
+	}
+	return nil
 }
 
 // GetAllUsers fetches all users

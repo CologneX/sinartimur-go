@@ -1,11 +1,11 @@
 package v1
 
 import (
-	"encoding/json"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/user"
+	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 )
 
@@ -18,30 +18,15 @@ func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
 func CreateUserHandler(userService *user.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req user.CreateUserRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
-		// Validate request
-		if req.Username == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Username tidak boleh kosong"})
-			return
-		}
-
-		if req.Password == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Password tidak boleh kosong"})
-			return
-		}
-
-		if req.Password != req.ConfirmPassword {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Password harus sama"})
-			return
-		}
-
-		httpCode, err := userService.CreateUser(req)
+		err := userService.CreateUser(req)
 		if err != nil {
-			utils.WriteJSON(w, httpCode, map[string]string{"error": err.Error()})
+			utils.ErrorJSON(w, err)
 			return
 		}
 
@@ -65,33 +50,25 @@ func GetAllUsersHandler(userService *user.UserService) http.HandlerFunc {
 func UpdateUserHandler(userService *user.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req user.UpdateUserRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-
-		// Get ID from URL
-		var err error
-		req.ID, err = uuid.Parse(mux.Vars(r)["id"])
+		params := mux.Vars(r)
+		id, err := uuid.Parse(params["id"])
 		if err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak valid"})
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
 			return
 		}
+		req.ID = id
 
-		// Validate request
-		if req.ID.String() == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak boleh kosong"})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
-
-		if req.Username == "" {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Username tidak boleh kosong"})
-			return
-		}
-
-		httpCode, err := userService.Update(req)
-		if err != nil {
-			utils.WriteJSON(w, httpCode, map[string]string{"error": err.Error()})
+		
+		errService := userService.Update(req)
+		if errService != nil {
+			utils.ErrorJSON(w, errService)
 			return
 		}
 

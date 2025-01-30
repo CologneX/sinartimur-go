@@ -3,14 +3,13 @@ package user
 import (
 	"database/sql"
 	"encoding/json"
-	"github.com/lib/pq"
 )
 
 type UserRepository interface {
-	Create(username, hashedPassword string) *pq.Error
-	GetByUsername(username string) (*GetUserResponse, *pq.Error)
-	Update(req UpdateUserRequest) *pq.Error
-	GetAll(search string) ([]*GetUserResponse, *pq.Error)
+	Create(username, hashedPassword string) error
+	GetByUsername(username string) (*GetUserResponse, error)
+	Update(req UpdateUserRequest) error
+	GetAll(search string) ([]*GetUserResponse, error)
 }
 
 type userRepositoryImpl struct {
@@ -24,36 +23,36 @@ func NewUserRepository(db *sql.DB) UserRepository {
 // Create creates a new user
 func (r *userRepositoryImpl) Create(
 	username, hashedPassword string,
-) *pq.Error {
+) error {
 	_, err := r.db.Exec("INSERT INTO users (username, password_hash) VALUES ($1, $2)", username, hashedPassword)
 	if err != nil {
-		return err.(*pq.Error)
+		return err
 	}
 	return nil
 }
 
 // GetByUsername fetches a user by username
-func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, *pq.Error) {
+func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, error) {
 	user := &GetUserResponse{}
 	err := r.db.QueryRow("SELECT id, username, is_active, created_at, updated_at FROM users WHERE username = $1", username).Scan(
 		&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		return nil, err.(*pq.Error)
+		return nil, err
 	}
 	return user, nil
 }
 
 // Update updates a user
-func (r *userRepositoryImpl) Update(req UpdateUserRequest) *pq.Error {
+func (r *userRepositoryImpl) Update(req UpdateUserRequest) error {
 	_, err := r.db.Exec("UPDATE users SET username = $1, is_active = $2, updated_at = now() WHERE id = $3", req.Username, req.IsActive, req.ID)
 	if err != nil {
-		return err.(*pq.Error)
+		return err
 	}
 	return nil
 }
 
 // GetAll fetches all users
-func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, *pq.Error) {
+func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 	query := `
 		SELECT u.id, u.username, u.is_active, u.created_at, u.updated_at,
 		       COALESCE(json_agg(json_build_object('id', ur.id, 'name', r.name)) FILTER (WHERE r.name IS NOT NULL), '[]') AS roles
@@ -65,7 +64,7 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, *pq.Erro
 	`
 	rows, err := r.db.Query(query, search)
 	if err != nil {
-		return nil, err.(*pq.Error)
+		return nil, err
 	}
 	defer rows.Close()
 
@@ -75,19 +74,19 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, *pq.Erro
 		var rolesJSON []byte
 		err = rows.Scan(&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &rolesJSON)
 		if err != nil {
-			return nil, err.(*pq.Error)
+			return nil, err
 		}
 		var roles []UserRole
 		err = json.Unmarshal(rolesJSON, &roles)
 		if err != nil {
-			return nil, err.(*pq.Error)
+			return nil, err
 		}
 		user.Role = &roles
 		users = append(users, user)
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, err.(*pq.Error)
+		return nil, err
 	}
 
 	return users, nil

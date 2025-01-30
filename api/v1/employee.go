@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/employee"
+	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 )
 
@@ -22,18 +23,17 @@ func CreateEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 		if validationErrors != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]interface{}{
-				"errors": validationErrors,
-			})
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
 		// Call the service
 		err := employeeService.CreateEmployee(req)
 		if err != nil {
-			utils.WriteJSON(w, err.StatusCode, map[string]interface{}{
-				"errors": err.Details,
-			})
+			//utils.WriteJSON(w, err.StatusCode, map[string]interface{}{
+			//	"errors": err.Details,
+			//})
+			utils.ErrorJSON(w, err)
 			return
 		}
 
@@ -50,24 +50,22 @@ func UpdateEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 		params := mux.Vars(r)
 		id, err := uuid.Parse(params["id"])
 		if err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak valid"})
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
 			return
 		}
 		req.ID = id
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 		if validationErrors != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]interface{}{
-				"errors": validationErrors,
-			})
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
 		errService := employeeService.UpdateEmployee(req)
 		if errService != nil {
-			utils.WriteJSON(w, errService.StatusCode, map[string]interface{}{
-				"errors": errService.Details,
-			})
+			utils.ErrorJSON(w, errService)
 			return
 		}
 
@@ -81,13 +79,15 @@ func DeleteEmployeeHandler(employeeService *employee.EmployeeService) http.Handl
 		params := mux.Vars(r)
 		id, err := uuid.Parse(params["id"])
 		if err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "ID tidak valid"})
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
 			return
 		}
 
 		errService := employeeService.DeleteEmployee(employee.DeleteEmployeeRequest{ID: id})
 		if errService != nil {
-			utils.WriteJSON(w, errService.StatusCode, map[string]string{"error": errService.Message})
+			utils.ErrorJSON(w, errService)
 			return
 		}
 
@@ -101,7 +101,7 @@ func GetAllEmployeesHandler(employeeService *employee.EmployeeService) http.Hand
 		name := r.URL.Query().Get("name")
 		employees, err := employeeService.GetAllEmployees(name)
 		if err != nil {
-			utils.WriteJSON(w, err.StatusCode, map[string]string{"error": err.Message})
+			utils.ErrorJSON(w, err)
 			return
 		}
 

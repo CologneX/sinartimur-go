@@ -41,7 +41,9 @@ func (s *EmployeeService) CreateEmployee(request CreateEmployeeRequest) *dto.API
 	if err != nil {
 		return &dto.APIError{
 			StatusCode: 500,
-			Message:    "Kesalahan Server",
+			Details: map[string]string{
+				"general": "Role tidak ditemukan",
+			},
 		}
 	}
 	return nil
@@ -54,12 +56,15 @@ func (s *EmployeeService) UpdateEmployee(request UpdateEmployeeRequest) *dto.API
 	if err != nil {
 		return &dto.APIError{
 			StatusCode: 404,
-			Message:    "Employee tidak ditemukan",
+			Details: map[string]string{
+				"general": "Employee tidak ditemukan",
+			},
 		}
 	}
-	// Check if employee with the same NIK or phone number already exists
-	_, err = s.repo.GetByNIK(request.Nik)
-	if err == nil {
+
+	// Check if NIK is already used by another employee
+	existingEmployee, err := s.repo.GetByNIK(request.Nik)
+	if err == nil && existingEmployee.ID != request.ID {
 		return &dto.APIError{
 			StatusCode: 409,
 			Details: map[string]string{
@@ -68,8 +73,9 @@ func (s *EmployeeService) UpdateEmployee(request UpdateEmployeeRequest) *dto.API
 		}
 	}
 
-	_, err = s.repo.GetByPhone(request.Phone)
-	if err == nil {
+	// Check if Phone is already used by another employee
+	existingEmployee, err = s.repo.GetByPhone(request.Phone)
+	if err == nil && existingEmployee.ID != request.ID {
 		return &dto.APIError{
 			StatusCode: 409,
 			Details: map[string]string{
@@ -77,11 +83,14 @@ func (s *EmployeeService) UpdateEmployee(request UpdateEmployeeRequest) *dto.API
 			},
 		}
 	}
+
 	err = s.repo.Update(request)
 	if err != nil {
 		return &dto.APIError{
 			StatusCode: 500,
-			Message:    "Kesalahan Server",
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
 		}
 	}
 
@@ -95,14 +104,18 @@ func (s *EmployeeService) DeleteEmployee(request DeleteEmployeeRequest) *dto.API
 	if err != nil {
 		return &dto.APIError{
 			StatusCode: 404,
-			Message:    "Employee tidak ditemukan",
+			Details: map[string]string{
+				"general": "Employee tidak ditemukan",
+			},
 		}
 	}
 	err = s.repo.Delete(request)
 	if err != nil {
 		return &dto.APIError{
 			StatusCode: 500,
-			Message:    "Kesalahan Server",
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
 		}
 	}
 	return nil
@@ -114,7 +127,9 @@ func (s *EmployeeService) GetAllEmployees(name string) ([]GetEmployeeResponse, *
 	if err != nil {
 		return nil, &dto.APIError{
 			StatusCode: 500,
-			Message:    "Kesalahan Server",
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
 		}
 	}
 	return employees, nil
