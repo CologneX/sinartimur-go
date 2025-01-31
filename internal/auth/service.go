@@ -1,11 +1,10 @@
 package auth
 
 import (
-	"errors"
-	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"sinartimur-go/config"
+	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 	"time"
 )
@@ -22,54 +21,94 @@ func NewAuthService(repo AuthRepository, redisClient *config.RedisClient) *AuthS
 }
 
 // LoginUser logs in a user
-func (s *AuthService) LoginUser(username, password string) (int, string, string, error, []string) {
+func (s *AuthService) LoginUser(username, password string) (string, string, *dto.APIError, []string) {
 	// Fetch user from database
 	user, err := s.repo.GetByUsername(username)
 	if err != nil {
-		return http.StatusUnauthorized, "", "", errors.New("username atau password salah"), nil
+		return "", "", &dto.APIError{
+			StatusCode: http.StatusUnauthorized,
+			Details: map[string]string{
+				"general": "Username atau password salah",
+			},
+		}, nil
 	}
 
 	// Verify password
 	if !utils.ComparePasswords(user.PasswordHash, password) {
-		return http.StatusUnauthorized, "", "", errors.New("username atau password salah"), nil
+		return "", "", &dto.APIError{
+			StatusCode: http.StatusUnauthorized,
+			Details: map[string]string{
+				"general": "Username atau password salah",
+			},
+		}, nil
 	}
 
 	// Get user roles
 	roles, err := s.repo.GetRolesByID(user.ID.String())
 	if err != nil {
-		return http.StatusInternalServerError, "", "", errors.New("Gagal mengambil role user"), nil
+		return "", "", &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Gagal login. Silahkan coba lagi",
+			},
+		}, nil
 	}
 	// Generate tokens
 	accessToken, err := utils.GenerateAccessToken(user.ID.String(), roles)
 	if err != nil {
-		return http.StatusInternalServerError, "", "", errors.New("Gagal login. Silahkan coba lagi"), nil
+		return "", "", &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Gagal login. Silahkan coba lagi",
+			},
+		}, nil
 	}
 
 	refreshToken, err := utils.GenerateRefreshToken(user.ID.String(), roles)
 	if err != nil {
-		return http.StatusInternalServerError, "", "", errors.New("Gagal login. Silahkan coba lagi"), nil
+		return "", "", &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Gagal login. Silahkan coba lagi",
+			},
+		}, nil
 	}
 
 	// Store refresh token in Redis
 	err = s.redisClient.Set(user.ID.String(), refreshToken, time.Hour*24*7)
 	if err != nil {
-		return http.StatusInternalServerError, "", "", fmt.Errorf("Failed to store refresh token: %w", err), nil
+		return "", "", &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Gagal login. Silahkan coba lagi",
+			},
+		}, nil
 	}
 
-	return http.StatusOK, accessToken, refreshToken, nil, roles
+	return accessToken, refreshToken, nil, roles
 }
 
 // RefreshAuth refreshes the access token
-func (s *AuthService) RefreshAuth(refreshToken string) (int, string, error) {
+func (s *AuthService) RefreshAuth(refreshToken string) (string, *dto.APIError) {
 	// Validate refresh token
 	token, err := utils.ValidateToken(refreshToken)
 	if err != nil {
-		return http.StatusUnauthorized, "", errors.New("Invalid refresh token")
+		return "", &dto.APIError{
+			StatusCode: http.StatusUnauthorized,
+			Details: map[string]string{
+				"general": "Token tidak valid",
+			},
+		}
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return http.StatusUnauthorized, "", errors.New("Invalid refresh token")
+		return "", &dto.APIError{
+			StatusCode: http.StatusUnauthorized,
+			Details: map[string]string{
+				"general": "Token tidak valid",
+			},
+		}
 	}
 
 	userID := claims["user_id"].(string)
@@ -84,14 +123,24 @@ func (s *AuthService) RefreshAuth(refreshToken string) (int, string, error) {
 	// Check refresh token in Redis
 	storedToken, err := s.redisClient.Get(userID)
 	if err != nil || storedToken != refreshToken {
-		return http.StatusUnauthorized, "", errors.New("Invalid refresh token")
+		return "", &dto.APIError{
+			StatusCode: http.StatusUnauthorized,
+			Details: map[string]string{
+				"general": "Token tidak valid",
+			},
+		}
 	}
 
 	// Generate new access token
 	accessToken, err := utils.GenerateAccessToken(userID, roles)
 	if err != nil {
-		return http.StatusInternalServerError, "", fmt.Errorf("Failed to generate access token: %w", err)
+		return "", &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Gagal refresh token",
+			},
+		}
 	}
 
-	return http.StatusOK, accessToken, nil
+	return accessToken, nil
 }

@@ -1,11 +1,11 @@
 package v1
 
 import (
-	"encoding/json"
 	"github.com/go-playground/validator/v10"
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/auth"
+	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 	"time"
 )
@@ -21,23 +21,18 @@ func RegisterAuthRoutes(router *mux.Router, userService *auth.AuthService) {
 func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req auth.LoginUserRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
-			return
-		}
-
-		validate = validator.New()
-		if err := validate.Struct(req); err != nil {
-			utils.WriteJSON(w, http.StatusBadRequest, map[string]string{"error": "Data tidak valid"})
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
 		username := req.Username
 		password := req.Password
 
-		status, accessToken, refreshToken, err, roles := userService.LoginUser(username, password)
+		accessToken, refreshToken, err, roles := userService.LoginUser(username, password)
 		if err != nil {
-			utils.WriteJSON(w, status, map[string]string{"error": err.Error()})
+			utils.ErrorJSON(w, err)
 			return
 		}
 
@@ -75,14 +70,14 @@ func RefreshTokenHandler(userService *auth.AuthService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		refreshTokenCookie, err := r.Cookie("refresh_token")
 		if err != nil {
-			utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Refresh token not found"})
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusUnauthorized, map[string]string{"error": "Refresh token not found"}))
 			return
 		}
 
 		refreshToken := refreshTokenCookie.Value
-		status, accessToken, err := userService.RefreshAuth(refreshToken)
-		if err != nil {
-			utils.WriteJSON(w, status, map[string]string{"error": err.Error()})
+		accessToken, serviceErr := userService.RefreshAuth(refreshToken)
+		if serviceErr != nil {
+			utils.ErrorJSON(w, serviceErr)
 			return
 		}
 
