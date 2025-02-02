@@ -75,7 +75,7 @@ func RoleMiddleware(roles ...string) func(http.Handler) http.Handler {
 			}
 
 			if !ok {
-				utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Invalid access token"})
+				utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Akses Tidak Diizinkan"})
 				return
 			}
 
