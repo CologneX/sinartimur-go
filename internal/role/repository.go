@@ -15,6 +15,7 @@ type RoleRepository interface {
 	AddRoleToUser(req AssignRoleRequest) error
 	RemoveRoleFromUser(req UnassignRoleRequest) error
 	GetRoleByUserIDAndRoleID(userID, roleID string) (*GetRoleRequest, error)
+	GetUserRoleByID(id string) (*GetRoleRequest, error)
 	GetUserByID(id string) (*user.GetUserResponse, error)
 }
 
@@ -116,6 +117,17 @@ func (r *roleRepositoryImpl) RemoveRoleFromUser(req UnassignRoleRequest) error {
 func (r *roleRepositoryImpl) GetRoleByUserIDAndRoleID(userID, roleID string) (*GetRoleRequest, error) {
 	role := &GetRoleRequest{}
 	err := r.db.QueryRow("SELECT r.id, r.name, r.description, r.created_at, r.updated_at FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = $1 AND ur.role_id = $2", userID, roleID).Scan(
+		&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return role, nil
+}
+
+// GetUserRoleByID fetches a user's role by ID
+func (r *roleRepositoryImpl) GetUserRoleByID(id string) (*GetRoleRequest, error) {
+	role := &GetRoleRequest{}
+	err := r.db.QueryRow("SELECT r.id, r.name, r.description, r.created_at, r.updated_at FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.id = $1", id).Scan(
 		&role.ID, &role.Name, &role.Description, &role.CreatedAt, &role.UpdatedAt)
 	if err != nil {
 		return nil, err

@@ -151,7 +151,7 @@ func (s *RoleService) AssignRoleToUser(request AssignRoleRequest) *dto.APIError 
 // UnassignRoleFromUser unassigns a role from a user
 func (s *RoleService) UnassignRoleFromUser(request UnassignRoleRequest) *dto.APIError {
 	// Check if user-role exists
-	_, err := s.repo.GetByID(request.ID.String())
+	_, err := s.repo.GetUserRoleByID(request.ID.String())
 	if err != nil {
 		return &dto.APIError{
 			StatusCode: 404,
