@@ -46,12 +46,38 @@ func main() {
 	// Add logging middleware from gorilla/mux
 	loggedRouter := handlers.CustomLoggingHandler(os.Stdout, router, middleware.Logger)
 	v1.RegisterAuthRoutes(router, services.AuthService)
-	// Add auth middleware
+
+	// Global auth middleware
 	protectedRoutes := router.PathPrefix("").Subrouter()
 	protectedRoutes.Use(middleware.AuthMiddleware)
-	v1.RegisterUserRoutes(protectedRoutes, services.UserService)
-	v1.RegisterEmployeeRoutes(protectedRoutes, services.EmployeeService)
-	v1.RegisterRoleRoutes(protectedRoutes, services.RoleService)
+
+	/// Role-based auth middleware
+	// HR middleware setup
+	HRRoutes := router.PathPrefix("/hr").Subrouter()
+	HRRoutes.Use(middleware.RoleMiddleware("hr"))
+	v1.RegisterEmployeeRoutes(HRRoutes, services.EmployeeService)
+
+	// Admin middleware setup
+	AdminRoutes := router.PathPrefix("/admin").Subrouter()
+	AdminRoutes.Use(middleware.RoleMiddleware())
+	v1.RegisterUserRoutes(AdminRoutes, services.UserService)
+	v1.RegisterRoleRoutes(AdminRoutes, services.RoleService)
+
+	// Inventory middleware setup
+	InventoryRoutes := router.PathPrefix("/inventory").Subrouter()
+	InventoryRoutes.Use(middleware.RoleMiddleware("inventory"))
+
+	// Finance middleware setup
+	FinanceRoutes := router.PathPrefix("/finance").Subrouter()
+	FinanceRoutes.Use(middleware.RoleMiddleware("finance"))
+
+	// Sales middleware setup
+	SalesRoutes := router.PathPrefix("/sales").Subrouter()
+	SalesRoutes.Use(middleware.RoleMiddleware("sales"))
+
+	// Purchase middleware setup
+	PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()
+	PurchaseRoutes.Use(middleware.RoleMiddleware("purchase"))
 
 	// serve the router on port 8080
 	log.Fatal(http.ListenAndServe(":8080", handlers.CORS()(loggedRouter)))

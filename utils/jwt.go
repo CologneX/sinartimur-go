@@ -33,3 +33,15 @@ func ValidateToken(tokenString string) (*jwt.Token, error) {
 		return jwtSecret, nil
 	})
 }
+
+func GetClaims(tokenString string) (jwt.MapClaims, error) {
+	token, err := ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	claims, ok := token.Claims.(jwt.MapClaims)
+	if !ok || !token.Valid {
+		return nil, err
+	}
+	return claims, nil
+}

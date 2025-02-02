@@ -10,11 +10,11 @@ import (
 )
 
 func RegisterRoleRoutes(router *mux.Router, roleService *role.RoleService) {
-	router.HandleFunc("/admin/role", CreateRoleHandler(roleService)).Methods("POST")
-	router.HandleFunc("/admin/role/{id}", UpdateRoleHandler(roleService)).Methods("PUT")
-	router.HandleFunc("/admin/roles", GetAllRolesHandler(roleService)).Methods("GET")
-	router.HandleFunc("/admin/role/assign", AssignRoleToUserHandler(roleService)).Methods("POST")
-	router.HandleFunc("/admin/role/unassign", UnassignRoleFromUserHandler(roleService)).Methods("POST")
+	router.HandleFunc("/role", CreateRoleHandler(roleService)).Methods("POST")
+	router.HandleFunc("/role/{id}", UpdateRoleHandler(roleService)).Methods("PUT")
+	router.HandleFunc("/roles", GetAllRolesHandler(roleService)).Methods("GET")
+	router.HandleFunc("/role/assign", AssignRoleToUserHandler(roleService)).Methods("POST")
+	router.HandleFunc("/role/unassign", UnassignRoleFromUserHandler(roleService)).Methods("POST")
 }
 
 // CreateRoleHandler creates a new role

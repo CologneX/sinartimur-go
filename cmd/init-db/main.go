@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"github.com/joho/godotenv"
+	_ "github.com/lib/pq"
 	"log"
 	"os"
 	"sinartimur-go/internal/user"
@@ -48,10 +49,18 @@ func main() {
 		ConfirmPassword: password,
 	}
 
-	httpCode, err := userService.CreateUser(req)
-	if err != nil {
-		log.Fatalf("Failed to create user: %v (HTTP code: %d)\n", err, httpCode)
+	errService := userService.CreateUser(req)
+	if errService != nil {
+		log.Fatalf("Failed to create user: %v (HTTP code: %d)\n", errService.Details, errService.StatusCode)
 	}
+
+	//// Insert admin role to the user
+	//roleRepo := role.NewRoleRepository(db)
+	//roleService := role.NewRoleService(roleRepo)
+	//
+	//errService = roleService.AssignRoleToUser(role.AssignRoleRequest{
+	//
+	//})
 
 	fmt.Println("User successfully created")
 }

@@ -10,9 +10,9 @@ import (
 )
 
 func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
-	router.HandleFunc("/admin/user", CreateUserHandler(userService)).Methods("POST")
-	router.HandleFunc("/admin/users", GetAllUsersHandler(userService)).Methods("GET")
-	router.HandleFunc("/admin/user/{id}", UpdateUserHandler(userService)).Methods("PUT")
+	router.HandleFunc("/user", CreateUserHandler(userService)).Methods("POST")
+	router.HandleFunc("/users", GetAllUsersHandler(userService)).Methods("GET")
+	router.HandleFunc("/user/{id}", UpdateUserHandler(userService)).Methods("PUT")
 }
 
 func CreateUserHandler(userService *user.UserService) http.HandlerFunc {
@@ -65,7 +65,7 @@ func UpdateUserHandler(userService *user.UserService) http.HandlerFunc {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
-		
+
 		errService := userService.Update(req)
 		if errService != nil {
 			utils.ErrorJSON(w, errService)
