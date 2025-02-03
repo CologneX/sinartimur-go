@@ -9,13 +9,6 @@ import (
 	"sinartimur-go/utils"
 )
 
-func RegisterEmployeeRoutes(router *mux.Router, employeeService *employee.EmployeeService) {
-	router.HandleFunc("/employee", CreateEmployeeHandler(employeeService)).Methods("POST")
-	router.HandleFunc("/employee/{id}", UpdateEmployeeHandler(employeeService)).Methods("PUT")
-	router.HandleFunc("/employee/{id}", DeleteEmployeeHandler(employeeService)).Methods("DELETE")
-	router.HandleFunc("/employees", GetAllEmployeesHandler(employeeService)).Methods("GET")
-}
-
 // CreateEmployeeHandler creates a new employee
 func CreateEmployeeHandler(employeeService *employee.EmployeeService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

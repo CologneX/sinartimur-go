@@ -9,14 +9,6 @@ import (
 	"sinartimur-go/utils"
 )
 
-func RegisterRoleRoutes(router *mux.Router, roleService *role.RoleService) {
-	router.HandleFunc("/role", CreateRoleHandler(roleService)).Methods("POST")
-	router.HandleFunc("/role/{id}", UpdateRoleHandler(roleService)).Methods("PUT")
-	router.HandleFunc("/roles", GetAllRolesHandler(roleService)).Methods("GET")
-	router.HandleFunc("/role/assign", AssignRoleToUserHandler(roleService)).Methods("POST")
-	router.HandleFunc("/role/unassign", UnassignRoleFromUserHandler(roleService)).Methods("POST")
-}
-
 // CreateRoleHandler creates a new role
 func CreateRoleHandler(roleService *role.RoleService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {

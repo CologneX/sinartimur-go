@@ -1,21 +1,12 @@
 package v1
 
 import (
-	"github.com/go-playground/validator/v10"
-	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 	"time"
 )
-
-var validate *validator.Validate
-
-func RegisterAuthRoutes(router *mux.Router, userService *auth.AuthService) {
-	router.HandleFunc("/auth/login", LoginHandler(userService)).Methods("GET")
-	router.HandleFunc("/auth/refresh", RefreshTokenHandler(userService)).Methods("GET")
-}
 
 // LoginHandler logs in a user
 func LoginHandler(userService *auth.AuthService) http.HandlerFunc {

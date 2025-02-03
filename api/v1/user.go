@@ -9,12 +9,6 @@ import (
 	"sinartimur-go/utils"
 )
 
-func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
-	router.HandleFunc("/user", CreateUserHandler(userService)).Methods("POST")
-	router.HandleFunc("/users", GetAllUsersHandler(userService)).Methods("GET")
-	router.HandleFunc("/user/{id}", UpdateUserHandler(userService)).Methods("PUT")
-}
-
 func CreateUserHandler(userService *user.UserService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req user.CreateUserRequest
