@@ -13,10 +13,9 @@ Create Table Users
     Is_Finance    BOOLEAN          Default False,
     Is_Inventory  BOOLEAN          Default False,
     Is_Sales      BOOLEAN          Default False,
-    Is_Purchase   BOOLEAN          Default False,
+    IsPurchase   BOOLEAN          Default False,
     Created_At    Timestamptz      Default Current_Timestamp,
-    Updated_At    Timestamptz      Default Current_Timestamp,
-    Deleted_At    Timestamptz      Default Null
+    Updated_At    Timestamptz      Default Current_Timestamp
 );
 
 -- Create Table Roles

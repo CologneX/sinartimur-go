@@ -4,7 +4,7 @@ import "database/sql"
 
 type AuthRepository interface {
 	GetByUsername(username string) (*User, error)
-	GetRolesByID(userID string) ([]string, error)
+	//GetRolesByID(userID string) ([]string, error)
 }
 
 type authRepositoryImpl struct {
@@ -18,7 +18,7 @@ func NewAuthRepository(db *sql.DB) AuthRepository {
 // GetByUsername fetches a user by username
 func (r *authRepositoryImpl) GetByUsername(username string) (*User, error) {
 	user := &User{}
-	err := r.db.QueryRow("SELECT id, username, password_hash, is_active, created_at, updated_at FROM users WHERE username = $1", username).Scan(
+	err := r.db.QueryRow("Select Id, Username, Password_Hash, Is_Active, Created_At, Updated_At From Users Where Username = $1", username).Scan(
 		&user.ID, &user.Username, &user.PasswordHash, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -26,20 +26,20 @@ func (r *authRepositoryImpl) GetByUsername(username string) (*User, error) {
 	return user, nil
 }
 
-// GetRolesByID fetches role by user ID
-func (r *authRepositoryImpl) GetRolesByID(userID string) ([]string, error) {
-	var roles []string
-	rows, err := r.db.Query("SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = $1", userID)
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		var role string
-		err = rows.Scan(&role)
-		if err != nil {
-			return nil, err
-		}
-		roles = append(roles, role)
-	}
-	return roles, nil
-}
+//// GetRolesByID fetches role by user ID
+//func (r *authRepositoryImpl) GetRolesByID(userID string) ([]string, error) {
+//	var roles []string
+//	rows, err := r.db.Query("SELECT r.name FROM roles r JOIN user_roles ur ON r.id = ur.role_id WHERE ur.user_id = $1", userID)
+//	if err != nil {
+//		return nil, err
+//	}
+//	for rows.Next() {
+//		var role string
+//		err = rows.Scan(&role)
+//		if err != nil {
+//			return nil, err
+//		}
+//		roles = append(roles, role)
+//	}
+//	return roles, nil
+//}

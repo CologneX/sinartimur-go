@@ -2,6 +2,7 @@ package v1
 
 import (
 	"net/http"
+	"net/url"
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
@@ -49,10 +50,27 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 		})
 
 		// Return JSON response with username and roles
-		response := map[string]interface{}{
-			"username": &username,
-			"roles":    &roles,
+		response := auth.LoginUserResponse{
+			Username: username,
+			Roles:    roles,
 		}
+
+		// convert response to json string
+		responseJSON, err := utils.ToJSON(response)
+		if err != nil {
+			utils.ErrorJSON(w, err)
+			return
+		}
+		responseJSON = url.QueryEscape(responseJSON)
+
+		http.SetCookie(w, &http.Cookie{
+			Name:     "user",
+			Value:    responseJSON,
+			Secure:   true,
+			Path:     "/",
+			SameSite: http.SameSiteStrictMode,
+		})
+
 		utils.WriteJSON(w, http.StatusOK, response)
 	}
 }

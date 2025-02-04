@@ -2,7 +2,6 @@ package user
 
 import (
 	"database/sql"
-	"encoding/json"
 )
 
 type UserRepository interface {
@@ -24,7 +23,7 @@ func NewUserRepository(db *sql.DB) UserRepository {
 func (r *userRepositoryImpl) Create(
 	username, hashedPassword string,
 ) error {
-	_, err := r.db.Exec("INSERT INTO users (username, password_hash) VALUES ($1, $2)", username, hashedPassword)
+	_, err := r.db.Exec("Insert Into Users (Username, Password_Hash) Values ($1, $2)", username, hashedPassword)
 	if err != nil {
 		return err
 	}
@@ -34,7 +33,7 @@ func (r *userRepositoryImpl) Create(
 // GetByUsername fetches a user by username
 func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, error) {
 	user := &GetUserResponse{}
-	err := r.db.QueryRow("SELECT id, username, is_active, created_at, updated_at FROM users WHERE username = $1", username).Scan(
+	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Username = $1", username).Scan(
 		&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -44,7 +43,7 @@ func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, e
 
 // Update updates a user
 func (r *userRepositoryImpl) Update(req UpdateUserRequest) error {
-	_, err := r.db.Exec("UPDATE users SET username = $1, is_active = $2, updated_at = now() WHERE id = $3", req.Username, req.IsActive, req.ID)
+	_, err := r.db.Exec("Update Users Set Username = $1, Is_Active = $2, Updated_At = Now() Where Id = $3", req.Username, req.IsActive, req.ID)
 	if err != nil {
 		return err
 	}
@@ -53,16 +52,7 @@ func (r *userRepositoryImpl) Update(req UpdateUserRequest) error {
 
 // GetAll fetches all users
 func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
-	query := `
-		SELECT u.id, u.username, u.is_active, u.created_at, u.updated_at,
-		       COALESCE(json_agg(json_build_object('id', ur.id, 'name', r.name)) FILTER (WHERE r.name IS NOT NULL), '[]') AS roles
-		FROM users u
-		LEFT JOIN user_roles ur ON u.id = ur.user_id
-		LEFT JOIN roles r ON ur.role_id = r.id
-		WHERE u.username ILIKE '%' || $1 || '%'
-		GROUP BY u.id
-	`
-	rows, err := r.db.Query(query, search)
+	rows, err := r.db.Query("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Username Ilike '%' || $1 || '%'", search)
 	if err != nil {
 		return nil, err
 	}
@@ -71,17 +61,10 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 	var users []*GetUserResponse
 	for rows.Next() {
 		user := &GetUserResponse{}
-		var rolesJSON []byte
-		err = rows.Scan(&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &rolesJSON)
+		err = rows.Scan(&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 		if err != nil {
 			return nil, err
 		}
-		var roles []UserRole
-		err = json.Unmarshal(rolesJSON, &roles)
-		if err != nil {
-			return nil, err
-		}
-		user.Role = &roles
 		users = append(users, user)
 	}
 
@@ -91,3 +74,43 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 
 	return users, nil
 }
+
+//func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
+//	query := `
+//		SELECT u.id, u.username, u.is_active, u.created_at, u.updated_at,
+//		       COALESCE(json_agg(json_build_object('id', ur.id, 'name', r.name)) FILTER (WHERE r.name IS NOT NULL), '[]') AS roles
+//		FROM users u
+//		LEFT JOIN user_roles ur ON u.id = ur.user_id
+//		LEFT JOIN roles r ON ur.role_id = r.id
+//		WHERE u.username ILIKE '%' || $1 || '%'
+//		GROUP BY u.id
+//	`
+//	rows, err := r.db.Query(query, search)
+//	if err != nil {
+//		return nil, err
+//	}
+//	defer rows.Close()
+//
+//	var users []*GetUserResponse
+//	for rows.Next() {
+//		user := &GetUserResponse{}
+//		var rolesJSON []byte
+//		err = rows.Scan(&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt, &rolesJSON)
+//		if err != nil {
+//			return nil, err
+//		}
+//		var roles []UserRole
+//		err = json.Unmarshal(rolesJSON, &roles)
+//		if err != nil {
+//			return nil, err
+//		}
+//		user.Role = &roles
+//		users = append(users, user)
+//	}
+//
+//	if err = rows.Err(); err != nil {
+//		return nil, err
+//	}
+//
+//	return users, nil
+//}

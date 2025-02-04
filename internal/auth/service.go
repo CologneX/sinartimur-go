@@ -21,7 +21,7 @@ func NewAuthService(repo AuthRepository, redisClient *config.RedisClient) *AuthS
 }
 
 // LoginUser logs in a user
-func (s *AuthService) LoginUser(username, password string) (string, string, *dto.APIError, []string) {
+func (s *AuthService) LoginUser(username, password string) (string, string, *dto.APIError, []*string) {
 	// Fetch user from database
 	user, err := s.repo.GetByUsername(username)
 	if err != nil {
@@ -43,16 +43,41 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 		}, nil
 	}
 
-	// Get user roles
-	roles, err := s.repo.GetRolesByID(user.ID.String())
-	if err != nil {
-		return "", "", &dto.APIError{
-			StatusCode: http.StatusInternalServerError,
-			Details: map[string]string{
-				"general": "Gagal login. Silahkan coba lagi",
-			},
-		}, nil
+	// Write use role if Is_{Role} is true
+	var roles []*string
+	if user.IsAdmin {
+		role := "admin"
+		roles = append(roles, &role)
 	}
+	if user.IsHr {
+		role := "hr"
+		roles = append(roles, &role)
+	}
+
+	if user.IsFinance {
+		role := "finance"
+		roles = append(roles, &role)
+	}
+
+	if user.IsInventory {
+		role := "inventory"
+		roles = append(roles, &role)
+	}
+
+	if user.IsSales {
+		role := "sales"
+		roles = append(roles, &role)
+	}
+
+	if user.IsPurchase {
+		role := "purchase"
+		roles = append(roles, &role)
+	}
+
+	if len(roles) == 0 {
+		roles = nil
+	}
+
 	// Generate tokens
 	accessToken, err := utils.GenerateAccessToken(user.ID.String(), roles)
 	if err != nil {
@@ -84,7 +109,6 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 			},
 		}, nil
 	}
-
 	return accessToken, refreshToken, nil, roles
 }
 
@@ -113,10 +137,10 @@ func (s *AuthService) RefreshAuth(refreshToken string) (string, *dto.APIError) {
 
 	userID := claims["user_id"].(string)
 	rolesClaim, ok := claims["roles"].([]interface{})
-	var roles []string
+	var roles []*string
 	if ok {
 		for _, role := range rolesClaim {
-			roles = append(roles, role.(string))
+			roles = append(roles, role.(*string))
 		}
 	}
 

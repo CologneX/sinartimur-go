@@ -8,7 +8,7 @@ import (
 
 var jwtSecret = []byte(os.Getenv("JWT_SECRET"))
 
-func GenerateAccessToken(userID string, roles []string) (string, error) {
+func GenerateAccessToken(userID string, roles []*string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"roles":   roles,
@@ -18,7 +18,7 @@ func GenerateAccessToken(userID string, roles []string) (string, error) {
 	return token.SignedString(jwtSecret)
 }
 
-func GenerateRefreshToken(userID string, roles []string) (string, error) {
+func GenerateRefreshToken(userID string, roles []*string) (string, error) {
 	claims := jwt.MapClaims{
 		"user_id": userID,
 		"roles":   roles,

@@ -7,6 +7,12 @@ type User struct {
 	Username     string    `json:"username"`
 	PasswordHash string    `json:"password_hash"`
 	IsActive     bool      `json:"is_active"`
+	IsAdmin      bool      `json:"is_admin"`
+	IsHr         bool      `json:"is_hr"`
+	IsFinance    bool      `json:"is_finance"`
+	IsInventory  bool      `json:"is_inventory"`
+	IsSales      bool      `json:"is_sales"`
+	IsPurchase   bool      `json:"is_purchase"`
 	CreatedAt    string    `json:"created_at"`
 	UpdatedAt    string    `json:"updated_at"`
 }
@@ -14,4 +20,9 @@ type User struct {
 type LoginUserRequest struct {
 	Username string `json:"username" validate:"required"`
 	Password string `json:"password" validate:"required"`
+}
+
+type LoginUserResponse struct {
+	Username string    `json:"username"`
+	Roles    []*string `json:"roles"`
 }
