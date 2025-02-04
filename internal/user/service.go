@@ -54,7 +54,7 @@ func (s *UserService) Update(request UpdateUserRequest) *dto.APIError {
 			},
 		}
 	}
-	// Update user in database
+	// UpdateDetail user in database
 	err = s.repo.Update(request)
 	if err != nil {
 		return &dto.APIError{

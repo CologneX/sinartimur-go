@@ -12,6 +12,7 @@ import (
 	"sinartimur-go/internal/employee"
 	"sinartimur-go/internal/role"
 	"sinartimur-go/internal/user"
+	"sinartimur-go/internal/wage"
 	"sinartimur-go/middleware"
 	"sinartimur-go/utils"
 )
@@ -49,6 +50,7 @@ type Services struct {
 	UserService     *user.UserService
 	EmployeeService *employee.EmployeeService
 	RoleService     *role.RoleService
+	WageService     *wage.WageService
 }
 
 func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
@@ -64,10 +66,14 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 	employeeRepo := employee.NewEmployeeRepository(db)
 	employeeService := employee.NewEmployeeService(employeeRepo)
 
+	wageRepo := wage.NewWageRepository(db)
+	wageService := wage.NewWageService(wageRepo)
+
 	return &Services{
 		AuthService:     authService,
 		UserService:     userService,
-		EmployeeService: employeeService, // You'll need to add this service
+		EmployeeService: employeeService,
 		RoleService:     roleService,
+		WageService:     wageService,
 	}
 }

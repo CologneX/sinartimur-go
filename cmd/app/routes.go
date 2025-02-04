@@ -7,6 +7,7 @@ import (
 	"sinartimur-go/internal/employee"
 	"sinartimur-go/internal/role"
 	"sinartimur-go/internal/user"
+	"sinartimur-go/internal/wage"
 	"sinartimur-go/middleware"
 )
 
@@ -34,6 +35,14 @@ func RegisterEmployeeRoutes(router *mux.Router, employeeService *employee.Employ
 	router.HandleFunc("/employee/{id}", v1.UpdateEmployeeHandler(employeeService)).Methods("PUT")
 	router.HandleFunc("/employee/{id}", v1.DeleteEmployeeHandler(employeeService)).Methods("DELETE")
 	router.HandleFunc("/employees", v1.GetAllEmployeesHandler(employeeService)).Methods("GET")
+}
+
+func RegisterWageRoutes(router *mux.Router, wageService *wage.WageService) {
+	router.HandleFunc("/wage", v1.CreateWageHandler(wageService)).Methods("POST")
+	router.HandleFunc("/wage/{id}", v1.UpdateWageHandler(wageService)).Methods("PUT")
+	//router.HandleFunc("/wage/{id}", v1.DeleteWageHandler(wageService)).Methods("DELETE")
+	router.HandleFunc("/wage/{id}", v1.GetWageDetailHandler(wageService)).Methods("GET")
+	router.HandleFunc("/wages", v1.GetAllWagesHandler(wageService)).Methods("GET")
 }
 
 // SetupRoutes registers all API routes
@@ -64,6 +73,7 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	HRRoutes := router.PathPrefix("/hr").Subrouter()
 	HRRoutes.Use(middleware.RoleMiddleware("hr"))
 	RegisterEmployeeRoutes(HRRoutes, services.EmployeeService)
+	RegisterWageRoutes(HRRoutes, services.WageService)
 
 	// Admin middleware setup
 	AdminRoutes := router.PathPrefix("/admin").Subrouter()

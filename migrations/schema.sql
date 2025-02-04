@@ -1,145 +1,217 @@
 -- Enable UUID Extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+Create Extension If Not Exists "uuid-ossp";
 
 -- Table: Admin
-CREATE TABLE users (
-                       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                       username VARCHAR(100) UNIQUE NOT NULL,
-                       password_hash TEXT NOT NULL,
-                       is_active BOOLEAN DEFAULT TRUE,
-                       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                       updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                       deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Users
+(
+    Id            Uuid Primary Key Default Uuid_Generate_V4(),
+    Username      VARCHAR(100) Unique Not Null,
+    Password_Hash TEXT                Not Null,
+    Is_Active     BOOLEAN          Default True,
+    Is_Admin      BOOLEAN          Default False,
+    Is_Hr         BOOLEAN          Default False,
+    Is_Finance    BOOLEAN          Default False,
+    Is_Inventory  BOOLEAN          Default False,
+    Is_Sales      BOOLEAN          Default False,
+    Is_Purchase   BOOLEAN          Default False,
+    Created_At    Timestamptz      Default Current_Timestamp,
+    Updated_At    Timestamptz      Default Current_Timestamp,
+    Deleted_At    Timestamptz      Default Null
 );
 
-CREATE TABLE roles (
-                       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                       name VARCHAR(50) UNIQUE NOT NULL,
-                       description TEXT,
-                       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                       updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE TABLE user_roles (
-                            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                            user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-                            role_id UUID REFERENCES roles(id) ON DELETE CASCADE,
-                            assigned_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                            UNIQUE (user_id, role_id)
-);
+-- Create Table Roles
+-- (
+--     Id          Uuid Primary Key Default Uuid_Generate_V4(),
+--     Name        VARCHAR(50) Unique Not Null,
+--     Description TEXT,
+--     Created_At  Timestamptz      Default Current_Timestamp,
+--     Updated_At  Timestamptz      Default Current_Timestamp
+-- );
+--
+-- Create Table User_Roles
+-- (
+--     Id          Uuid Primary Key Default Uuid_Generate_V4(),
+--     User_Id     Uuid References Users (Id) On Delete Cascade,
+--     Role_Id     Uuid References Roles (Id) On Delete Cascade,
+--     Assigned_At Timestamptz      Default Current_Timestamp,
+--     Unique (User_Id, Role_Id)
+-- );
 
 -- Table: HR
-CREATE TABLE employees (
-                           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                           name VARCHAR(150) NOT NULL,
-                           position VARCHAR(100) NOT NULL,
-                            phone VARCHAR(20) NOT NULL,
-                            nik VARCHAR(20) NOT NULL,
-                           hired_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                           created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                           updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                           deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Employees
+(
+    Id         Uuid Primary Key      Default Uuid_Generate_V4(),
+    Name       VARCHAR(150) Not Null,
+    Position   VARCHAR(100) Not Null,
+    Phone      VARCHAR(20)  Not Null,
+    Nik        VARCHAR(20)  Not Null,
+    Hired_Date Timestamptz  Not Null Default Current_Timestamp,
+    Created_At Timestamptz           Default Current_Timestamp,
+    Updated_At Timestamptz           Default Current_Timestamp,
+    Deleted_At Timestamptz           Default Null
 );
 
--- Update employees's nik column to be unique
 
-CREATE TABLE wages (
-                       id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                       employee_id UUID REFERENCES employees(id) ON DELETE CASCADE,
-                       total_amount NUMERIC(12, 2) NOT NULL,
-                       period_start DATE NOT NULL,
-                       period_end DATE NOT NULL,
-                       created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                       updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                       deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Wages
+(
+    Id           Uuid Primary Key Default Uuid_Generate_V4(),
+    Employee_Id  Uuid References Employees (Id) On Delete Cascade,
+    Total_Amount NUMERIC(12, 2) Not Null,
+    Month        INT            Not Null,
+    Year         INT            Not Null,
+    Created_At   Timestamptz      Default Current_Timestamp,
+    Updated_At   Timestamptz      Default Current_Timestamp,
+    Deleted_At   Timestamptz      Default Null
 );
 
-CREATE TABLE wage_details (
-                              id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                              wage_id UUID REFERENCES wages(id) ON DELETE CASCADE,
-                              component_name VARCHAR(100) NOT NULL,
-                              description TEXT,
-                              amount NUMERIC(12, 2) NOT NULL,
-                              created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                              updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                              deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Wage_Details
+(
+    Id             Uuid Primary Key Default Uuid_Generate_V4(),
+    Wage_Id        Uuid References Wages (Id) On Delete Cascade,
+    Component_Name VARCHAR(100)   Not Null,
+    Description    TEXT,
+    Amount         NUMERIC(12, 2) Not Null,
+    Created_At     Timestamptz      Default Current_Timestamp,
+    Updated_At     Timestamptz      Default Current_Timestamp,
+    Deleted_At     Timestamptz      Default Null
 );
 
 -- Table: Financial Transactions
-CREATE TABLE financial_transactions (
-                                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                        user_id UUID REFERENCES users(id),
-                                        amount NUMERIC(15, 2) NOT NULL,
-                                        type VARCHAR(50) NOT NULL,
-                                        description TEXT,
-                                        transaction_date TIMESTAMPTZ NOT NULL,
-                                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                                        edited_at TIMESTAMPTZ DEFAULT NULL,
-                                        deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Financial_Transactions
+(
+    Id               Uuid Primary Key Default Uuid_Generate_V4(),
+    User_Id          Uuid References Users (Id),
+    Amount           NUMERIC(15, 2) Not Null,
+    Type             VARCHAR(50)    Not Null,
+    Description      TEXT,
+    Transaction_Date Timestamptz    Not Null,
+    Created_At       Timestamptz      Default Current_Timestamp,
+    Edited_At        Timestamptz      Default Null,
+    Deleted_At       Timestamptz      Default Null
 );
 
 -- Table: Inventory
-CREATE TABLE inventory (
-                           id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                           name VARCHAR(255) NOT NULL,
-                           description TEXT,
-                           quantity INT NOT NULL DEFAULT 0,
-                           minimum_quantity INT NOT NULL DEFAULT 0,
-                           created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                           edited_at TIMESTAMPTZ DEFAULT NULL,
-                           deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Products
+(
+    Id          Uuid Primary Key Default Uuid_Generate_V4(),
+    Name        VARCHAR(255)       Not Null,
+    Sku         VARCHAR(50) Unique Not Null, -- Kode unik produk
+    Description TEXT,
+    Price       NUMERIC(15, 2)     Not Null,
+    Created_At  Timestamptz      Default Current_Timestamp,
+    Updated_At  Timestamptz      Default Current_Timestamp,
+    Deleted_At  Timestamptz      Default Null
 );
 
--- Table: Inventory Logs (for tracking stock movements)
-CREATE TABLE inventory_logs (
-                                id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                                inventory_id UUID REFERENCES inventory(id),
-                                user_id UUID REFERENCES users(id),
-                                action VARCHAR(50) NOT NULL, -- e.g., add, remove
-                                quantity INT NOT NULL,
-                                log_date TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-                                created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                                edited_at TIMESTAMPTZ DEFAULT NULL,
-                                deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Storages
+(
+    Id         Uuid Primary Key Default Uuid_Generate_V4(),
+    Name       VARCHAR(255) Not Null, -- Nama gudang, e.g., "Gudang Utama", "Gudang Cabang A"
+    Location   TEXT         Not Null, -- Lokasi fisik gudang
+    Created_At Timestamptz      Default Current_Timestamp,
+    Updated_At Timestamptz      Default Current_Timestamp
 );
 
--- Table: Orders
-CREATE TABLE orders (
-                        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                        customer_name VARCHAR(255) NOT NULL,
-                        order_date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                        status VARCHAR(50) NOT NULL,
-                        total_amount NUMERIC(15, 2) NOT NULL,
-                        created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                        edited_at TIMESTAMPTZ DEFAULT NULL,
-                        deleted_at TIMESTAMPTZ DEFAULT NULL
+Create Table Inventory
+(
+    Id               Uuid Primary Key Default Uuid_Generate_V4(),
+    Product_Id       Uuid References Products (Id) On Delete Cascade,
+    Storage_Id       Uuid References Storages (Id) On Delete Cascade,
+    Quantity         INT Not Null     Default 0,
+    Minimum_Quantity INT Not Null     Default 0,
+    Created_At       Timestamptz      Default Current_Timestamp,
+    Updated_At       Timestamptz      Default Current_Timestamp
 );
 
--- Table: Order Items
-CREATE TABLE order_items (
-                             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-                             order_id UUID REFERENCES orders(id),
-                             inventory_id UUID REFERENCES inventory(id),
-                             quantity INT NOT NULL,
-                             price NUMERIC(15, 2) NOT NULL,
-                             created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-                             edited_at TIMESTAMPTZ DEFAULT NULL,
-                             deleted_at TIMESTAMPTZ DEFAULT NULL
+
+Create Table Inventory_Logs
+(
+    Id           Uuid Primary Key Default Uuid_Generate_V4(),
+    Inventory_Id Uuid References Inventory (Id) On Delete Cascade,
+    User_Id      Uuid References Users (Id),
+    Action       VARCHAR(50) Not Null, -- e.g., "add", "remove", "transfer"
+    Quantity     INT         Not Null,
+    Log_Date     Timestamptz      Default Current_Timestamp,
+    Description  TEXT,
+    Created_At   Timestamptz      Default Current_Timestamp,
+    Updated_At   Timestamptz      Default Current_Timestamp
+);
+
+-- Table: Sales
+Create Table Sales_Orders
+(
+    Id            Uuid Primary Key Default Uuid_Generate_V4(),
+    Customer_Name VARCHAR(255)   Not Null,
+    Order_Date    Timestamptz      Default Current_Timestamp,
+    Status        VARCHAR(50)    Not Null, -- e.g., pending, confirmed, shipped
+    Total_Amount  NUMERIC(15, 2) Not Null,
+    Created_At    Timestamptz      Default Current_Timestamp,
+    Updated_At    Timestamptz      Default Current_Timestamp,
+    Cancelled_At  Timestamptz      Default Null
+);
+
+
+Create Table Sales_Order_Items
+(
+    Id             Uuid Primary Key Default Uuid_Generate_V4(),
+    Sales_Order_Id Uuid References Sales_Orders (Id) On Delete Cascade,
+    Inventory_Id   Uuid References Inventory (Id),
+    Quantity       INT            Not Null,
+    Price          NUMERIC(15, 2) Not Null,
+    Created_At     Timestamptz      Default Current_Timestamp,
+    Updated_At     Timestamptz      Default Current_Timestamp,
+    Cancelled_At   Timestamptz      Default Null
+);
+
+
+Create Table Sales_Invoices
+(
+    Id             Uuid Primary Key Default Uuid_Generate_V4(),
+    Sales_Order_Id Uuid References Sales_Orders (Id) On Delete Cascade,
+    Invoice_Date   Timestamptz      Default Current_Timestamp,
+    Due_Date       Timestamptz    Not Null,
+    Total_Amount   NUMERIC(15, 2) Not Null,
+    Payment_Status VARCHAR(50)      Default 'unpaid', -- e.g., unpaid, paid, overdue
+    Created_At     Timestamptz      Default Current_Timestamp,
+    Updated_At     Timestamptz      Default Current_Timestamp,
+    Cancelled_At   Timestamptz      Default Null
+);
+
+
+Create Table Delivery_Notes
+(
+    Id             Uuid Primary Key Default Uuid_Generate_V4(),
+    Sales_Order_Id Uuid References Sales_Orders (Id) On Delete Cascade,
+    Delivery_Date  Timestamptz      Default Current_Timestamp,
+    Recipient_Name VARCHAR(255) Not Null,
+    Status         VARCHAR(50)      Default 'in_transit', -- e.g., in_transit, delivered, returned
+    Created_At     Timestamptz      Default Current_Timestamp,
+    Updated_At     Timestamptz      Default Current_Timestamp,
+    Cancelled_At   Timestamptz      Default Null
 );
 
 -- Indexes to improve query performance
-CREATE INDEX idx_financial_transactions_user_id ON financial_transactions(user_id);
-CREATE INDEX idx_inventory_name ON inventory(name);
-CREATE INDEX idx_inventory_logs_inventory_id ON inventory_logs(inventory_id);
-CREATE INDEX idx_orders_status ON orders(status);
-CREATE INDEX idx_order_items_order_id ON order_items(order_id);
-CREATE INDEX idx_users_username ON users(username);
-CREATE INDEX idx_user_roles_user_id ON user_roles(user_id);
-CREATE INDEX idx_employees_name ON employees(name);
-CREATE INDEX idx_employees_position ON employees(position);
-CREATE INDEX idx_user_roles_role_id ON user_roles(role_id);
-CREATE INDEX idx_wages_employee_id ON wages(employee_id);
-CREATE INDEX idx_wages_period ON wages(period_start, period_end);
-CREATE INDEX idx_wage_details_wage_id ON wage_details(wage_id);
-CREATE INDEX idx_wage_details_component_name ON wage_details(component_name);
-CREATE INDEX idx_employees_nik ON employees(nik);
+Create Index Idx_Financial_Transactions_User_Id On Financial_Transactions (User_Id);
+Create Index Idx_Orders_Status On Orders (Status);
+Create Index Idx_Order_Items_Order_Id On Order_Items (Order_Id);
+Create Index Idx_Users_Username On Users (Username);
+Create Index Idx_User_Roles_User_Id On User_Roles (User_Id);
+Create Index Idx_Employees_Name On Employees (Name);
+Create Index Idx_Employees_Position On Employees (Position);
+Create Index Idx_User_Roles_Role_Id On User_Roles (Role_Id);
+Create Index Idx_Wages_Employee_Id On Wages (Employee_Id);
+Create Index Idx_Wages_Period On Wages (Month, Year);
+Create Index Idx_Wage_Details_Wage_Id On Wage_Details (Wage_Id);
+Create Index Idx_Wage_Details_Component_Name On Wage_Details (Component_Name);
+Create Index Idx_Employees_Nik On Employees (Nik);
+Create Index Idx_Delivery_Notes_Status On Delivery_Notes (Status);
+Create Index Idx_Sales_Invoices_Payment_Status On Sales_Invoices (Payment_Status);
+Create Index Idx_Sales_Order_Items_Sales_Order_Id On Sales_Order_Items (Sales_Order_Id);
+Create Index Idx_Sales_Orders_Status On Sales_Orders (Status);
+Create Index Idx_Products_Sku On Products (Sku);
+Create Index Idx_Products_Name On Products (Name);
+Create Index Idx_Storages_Name On Storages (Name);
+Create Unique Index Idx_Inventory_Product_Storage On Inventory (Product_Id, Storage_Id);
+Create Index Idx_Inventory_Quantity On Inventory (Quantity);
+Create Index Idx_Inventory_Logs_Inventory_Id On Inventory_Logs (Inventory_Id);
+Create Index Idx_Inventory_Logs_Action On Inventory_Logs (Action);
