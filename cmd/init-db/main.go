@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
+	"golang.org/x/crypto/bcrypt"
 	"log"
 	"os"
-	"sinartimur-go/internal/user"
 )
 
 func main() {
@@ -38,29 +38,17 @@ func main() {
 	}
 	defer db.Close()
 
-	// Create user service
-	userRepo := user.NewUserRepository(db)
-	userService := user.NewUserService(userRepo)
-
-	// Create user
-	req := user.CreateUserRequest{
-		Username:        username,
-		Password:        password,
-		ConfirmPassword: password,
+	// hash password
+	passwordHash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		log.Fatalf("Gagal Hash Password: %v", err)
 	}
 
-	errService := userService.CreateUser(req)
-	if errService != nil {
-		log.Fatalf("Failed to create user: %v (HTTP code: %d)\n", errService.Details, errService.StatusCode)
+	// Create user in the database with admin role
+	_, err = db.Exec("Insert Into Users (Username, Password_Hash, Is_Admin) Values ($1, $2, $3)", username, string(passwordHash), true)
+	if err != nil {
+		log.Fatalf("Gagal membuat user: %v", err)
 	}
 
-	//// Insert admin role to the user
-	//roleRepo := role.NewRoleRepository(db)
-	//roleService := role.NewRoleService(roleRepo)
-	//
-	//errService = roleService.AssignRoleToUser(role.AssignRoleRequest{
-	//
-	//})
-
-	fmt.Println("User successfully created")
+	fmt.Println("USer berhasil dibuat")
 }

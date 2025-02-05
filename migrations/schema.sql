@@ -13,7 +13,7 @@ Create Table Users
     Is_Finance    BOOLEAN          Default False,
     Is_Inventory  BOOLEAN          Default False,
     Is_Sales      BOOLEAN          Default False,
-    IsPurchase   BOOLEAN          Default False,
+    Is_Purchase   BOOLEAN          Default False,
     Created_At    Timestamptz      Default Current_Timestamp,
     Updated_At    Timestamptz      Default Current_Timestamp
 );
@@ -191,13 +191,9 @@ Create Table Delivery_Notes
 
 -- Indexes to improve query performance
 Create Index Idx_Financial_Transactions_User_Id On Financial_Transactions (User_Id);
-Create Index Idx_Orders_Status On Orders (Status);
-Create Index Idx_Order_Items_Order_Id On Order_Items (Order_Id);
 Create Index Idx_Users_Username On Users (Username);
-Create Index Idx_User_Roles_User_Id On User_Roles (User_Id);
 Create Index Idx_Employees_Name On Employees (Name);
 Create Index Idx_Employees_Position On Employees (Position);
-Create Index Idx_User_Roles_Role_Id On User_Roles (Role_Id);
 Create Index Idx_Wages_Employee_Id On Wages (Employee_Id);
 Create Index Idx_Wages_Period On Wages (Month, Year);
 Create Index Idx_Wage_Details_Wage_Id On Wage_Details (Wage_Id);
