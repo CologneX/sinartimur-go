@@ -2,6 +2,7 @@ package utils
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"sinartimur-go/pkg/dto"
 )
@@ -31,4 +32,16 @@ func ToJSON(data interface{}) (string, *dto.APIError) {
 		}
 	}
 	return string(bytes), nil
+}
+
+func TransformRoles(roles []interface{}) ([]*string, error) {
+	var result []*string
+	for _, role := range roles {
+		strRole, ok := role.(string)
+		if !ok {
+			return nil, fmt.Errorf("role is not a string: %v", role)
+		}
+		result = append(result, &strRole)
+	}
+	return result, nil
 }

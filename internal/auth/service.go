@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"fmt"
 	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"sinartimur-go/config"
@@ -136,11 +137,20 @@ func (s *AuthService) RefreshAuth(refreshToken string) (string, *dto.APIError) {
 	}
 
 	userID := claims["user_id"].(string)
-	rolesClaim, ok := claims["roles"].([]interface{})
+	rolesInterface, ok := claims["roles"]
 	var roles []*string
-	if ok {
-		for _, role := range rolesClaim {
-			roles = append(roles, role.(*string))
+	if ok && rolesInterface != nil {
+		rolesSlice, okR := rolesInterface.([]interface{})
+		if okR {
+			roles, err = utils.TransformRoles(rolesSlice)
+			if err != nil {
+				return "", &dto.APIError{
+					StatusCode: http.StatusInternalServerError,
+					Details: map[string]string{
+						"general": fmt.Sprintf("Gagal mengonversi roles: %v", err),
+					},
+				}
+			}
 		}
 	}
 
@@ -154,7 +164,6 @@ func (s *AuthService) RefreshAuth(refreshToken string) (string, *dto.APIError) {
 			},
 		}
 	}
-
 	// Generate new access token
 	accessToken, err := utils.GenerateAccessToken(userID, roles)
 	if err != nil {
