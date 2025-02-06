@@ -10,7 +10,6 @@ import (
 	"sinartimur-go/config"
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/internal/employee"
-	"sinartimur-go/internal/role"
 	"sinartimur-go/internal/user"
 	"sinartimur-go/internal/wage"
 	"sinartimur-go/middleware"
@@ -34,12 +33,12 @@ func main() {
 	// Build services
 	services := BuildServices(db, redisClient)
 
-	// Initialize routerv1 and middleware
-	routerv1 := mux.NewRouter().PathPrefix("/api/v1").Subrouter()
-	loggedRouter := handlers.CustomLoggingHandler(os.Stdout, routerv1, middleware.Logger)
+	// Initialize v1 and middleware
+	v1 := mux.NewRouter().PathPrefix("/api/v1").Subrouter()
+	loggedRouter := handlers.CustomLoggingHandler(os.Stdout, v1, middleware.Logger)
 
 	// Register routes
-	SetupRoutes(routerv1, services)
+	SetupRoutes(v1, services)
 
 	// Add CORS middleware
 	log.Fatal(http.ListenAndServe(":8080", handlers.CORS()(loggedRouter)))
@@ -49,8 +48,8 @@ type Services struct {
 	AuthService     *auth.AuthService
 	UserService     *user.UserService
 	EmployeeService *employee.EmployeeService
-	RoleService     *role.RoleService
-	WageService     *wage.WageService
+	//RoleService     *role.RoleService
+	WageService *wage.WageService
 }
 
 func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
@@ -60,8 +59,8 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 	userRepo := user.NewUserRepository(db)
 	userService := user.NewUserService(userRepo)
 
-	roleRepo := role.NewRoleRepository(db)
-	roleService := role.NewRoleService(roleRepo)
+	//roleRepo := role.NewRoleRepository(db)
+	//roleService := role.NewRoleService(roleRepo)
 
 	employeeRepo := employee.NewEmployeeRepository(db)
 	employeeService := employee.NewEmployeeService(employeeRepo)
@@ -73,7 +72,7 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 		AuthService:     authService,
 		UserService:     userService,
 		EmployeeService: employeeService,
-		RoleService:     roleService,
-		WageService:     wageService,
+		//RoleService:     roleService,
+		WageService: wageService,
 	}
 }
