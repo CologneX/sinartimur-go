@@ -56,22 +56,31 @@ type GetWageDetailResponse struct {
 	Detail       []*GetWageDetail `json:"detail"`
 }
 
-type CreateWageRequest struct {
-	EmployeeId uuid.UUID                 `json:"employee_id" validate:"required"`
-	Month      int                       `json:"month" validate:"required,numeric"`
-	Year       int                       `json:"year" validate:"required,numeric,len=4"`
-	WageDetail []CreateWageDetailRequest `json:"wage_detail" validate:"required,dive"`
+type GetWageRequest struct {
+	EmployeeId string `json:"employee_id" validate:"omitempty,uuid"`
+	Month      int    `json:"month" validate:"omitempty,numeric"`
+	Year       int    `json:"year" validate:"omitempty,numeric,len=4"`
+	Page       int    `json:"page" validate:"omitempty,numeric,min=1"`
+	PageSize   int    `json:"page_size" validate:"omitempty,numeric,min=1"`
+	SortBy     string `json:"sort_by" validate:"omitempty,oneof=id employee_id total_amount month year created_at updated_at"`
+	SortOrder  string `json:"sort_order" validate:"omitempty,oneof=asc desc"`
 }
-
-type CreateWageDetailRequest struct {
-	ComponentName string  `json:"component_name" validate:"required,len=100"`
-	Description   string  `json:"description" validate:"required"`
+type WageDetailRequest struct {
+	ComponentName string  `json:"component_name" validate:"required"`
+	Description   string  `json:"description"`
 	Amount        float64 `json:"amount" validate:"required,numeric,gt=0"`
 }
 
+type CreateWageRequest struct {
+	EmployeeId uuid.UUID           `json:"employee_id" validate:"required"`
+	Month      int                 `json:"month" validate:"required,numeric,min=1,max=12"`
+	Year       int                 `json:"year" validate:"required,numeric,min=1000,max=9999"`
+	WageDetail []WageDetailRequest `json:"wage_detail" validate:"required,min=1,dive,required"`
+}
+
 type UpdateWageDetailRequest struct {
-	ID         uuid.UUID                 `json:"id"`
-	WageDetail []CreateWageDetailRequest `json:"wage_detail"`
+	ID         uuid.UUID           `json:"id"`
+	WageDetail []WageDetailRequest `json:"wage_detail" validate:"required,min=1,dive,required"`
 }
 
 type DeleteWageRequest struct {

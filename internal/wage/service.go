@@ -15,17 +15,41 @@ func NewWageService(repo WageRepository) *WageService {
 }
 
 // GetAllWages fetches all wages
-func (s *WageService) GetAllWages(employeeID string, year int, month int) ([]GetWageResponse, *dto.APIError) {
-	wages, err := s.repo.GetAll(employeeID, year, month)
+func (s *WageService) GetAllWages(req GetWageRequest) ([]GetWageResponse, int, *dto.APIError) {
+	wages, totalItems, err := s.repo.GetAll(req)
 	if err != nil {
-		return nil, &dto.APIError{
+		return nil, 0, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
 				"general": "Kesalahan Server",
 			},
 		}
 	}
-	return wages, nil
+	return wages, totalItems, nil
+}
+
+// DeleteWage soft deletes a wage
+func (s *WageService) DeleteWage(request DeleteWageRequest) *dto.APIError {
+	// Check if wage exists
+	_, err := s.repo.GetByID(request.ID.String())
+	if err != nil {
+		return &dto.APIError{
+			StatusCode: 404,
+			Details: map[string]string{
+				"general": "Gaji tidak ditemukan",
+			},
+		}
+	}
+	err = s.repo.Delete(request)
+	if err != nil {
+		return &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
+		}
+	}
+	return nil
 }
 
 // GetWageDetail fetches wage details
@@ -46,7 +70,7 @@ func (s *WageService) GetWageDetail(wageID string) (*GetWageDetailResponse, *dto
 		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Kesalahan Server",
+				"general": err.Error(),
 			},
 		}
 	}
