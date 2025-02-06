@@ -19,7 +19,7 @@ func NewAuthRepository(db *sql.DB) AuthRepository {
 func (r *authRepositoryImpl) GetByUsername(username string) (*User, error) {
 	// Query and scan user
 	user := &User{}
-	err := r.db.QueryRow("Select * From Users Where Username = $1", username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.IsActive, &user.IsAdmin, &user.IsHr, &user.IsFinance, &user.IsInventory, &user.IsSales, &user.IsPurchase, &user.CreatedAt, &user.UpdatedAt)
+	err := r.db.QueryRow("Select * From Users Where Username = $1 And Is_Active = True", username).Scan(&user.ID, &user.Username, &user.PasswordHash, &user.IsActive, &user.IsAdmin, &user.IsHr, &user.IsFinance, &user.IsInventory, &user.IsSales, &user.IsPurchase, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
