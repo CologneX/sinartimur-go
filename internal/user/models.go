@@ -37,9 +37,14 @@ type UpdateUserRequest struct {
 	IsInventory bool      `json:"is_inventory" validate:"boolean"`
 	IsSales     bool      `json:"is_sales" validate:"boolean"`
 	IsPurchase  bool      `json:"is_purchase" validate:"boolean"`
-	Password    string    `json:"password" validate:"required"`
 	Username    string    `json:"username" validate:"required"`
 	IsActive    bool      `json:"is_active" validate:"boolean"`
+}
+
+type UpdateUserCredentialRequest struct {
+	ID              uuid.UUID `json:"id"`
+	Password        string    `json:"password" validate:"required"`
+	ConfirmPassword string    `json:"confirm_password" validate:"eqfield=Password"`
 }
 
 //type UserRole struct {

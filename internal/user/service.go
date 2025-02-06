@@ -29,8 +29,12 @@ func (s *UserService) CreateUser(request CreateUserRequest) *dto.APIError {
 			},
 		}
 	}
+
+	// Hash password
+	request.Password = utils.HashPassword(request.Password)
+
 	// Insert user to database
-	err = s.repo.Create(request.Username, utils.HashPassword(request.Password))
+	err = s.repo.Create(request)
 	if err != nil {
 		return &dto.APIError{
 			StatusCode: http.StatusInternalServerError,
@@ -45,18 +49,48 @@ func (s *UserService) CreateUser(request CreateUserRequest) *dto.APIError {
 // Update updates a user
 func (s *UserService) Update(request UpdateUserRequest) *dto.APIError {
 	// Check if user exists with the same username
-	user, err := s.repo.GetByUsername(request.Username)
-	if err == nil && user.ID != request.ID {
+	user, err := s.repo.GetByID(request.ID.String())
+	if err != nil || user.ID != request.ID {
 		return &dto.APIError{
-			StatusCode: http.StatusConflict,
+			StatusCode: http.StatusNotFound,
 			Details: map[string]string{
-				"username": "Username sudah terdaftar",
+				"username": "User tidak ditemukan",
 			},
 		}
 	}
+
 	// UpdateDetail user in database
 	err = s.repo.Update(request)
 	if err != nil {
+		return &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
+		}
+	}
+	return nil
+}
+
+// UpdateCredential updates user's password
+func (s *UserService) UpdateCredential(request UpdateUserCredentialRequest) *dto.APIError {
+	// Check if user exists with the same username
+	user, err := s.repo.GetByID(request.ID.String())
+	if err != nil || user.ID != request.ID {
+		return &dto.APIError{
+			StatusCode: http.StatusNotFound,
+			Details: map[string]string{
+				"username": "User tidak ditemukan",
+			},
+		}
+	}
+
+	// Hash password
+	request.Password = utils.HashPassword(request.Password)
+
+	// UpdateDetail user's password in database
+	errSer := s.repo.UpdateCredential(request)
+	if errSer != nil {
 		return &dto.APIError{
 			StatusCode: http.StatusInternalServerError,
 			Details: map[string]string{

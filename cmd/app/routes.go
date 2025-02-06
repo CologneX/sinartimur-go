@@ -19,6 +19,7 @@ func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
 	router.HandleFunc("/user", v1.CreateUserHandler(userService)).Methods("POST")
 	router.HandleFunc("/users", v1.GetAllUsersHandler(userService)).Methods("GET")
 	router.HandleFunc("/user/{id}", v1.UpdateUserHandler(userService)).Methods("PUT")
+	router.HandleFunc("/user-credential/{id}", v1.UpdateUserCredentialHandler(userService)).Methods("PUT")
 }
 
 //func RegisterRoleRoutes(router *mux.Router, roleService *role.RoleService) {

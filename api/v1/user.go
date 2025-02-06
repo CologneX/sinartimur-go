@@ -69,3 +69,32 @@ func UpdateUserHandler(userService *user.UserService) http.HandlerFunc {
 		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "User berhasil diupdate"})
 	}
 }
+
+func UpdateUserCredentialHandler(userService *user.UserService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req user.UpdateUserCredentialRequest
+		params := mux.Vars(r)
+		id, err := uuid.Parse(params["id"])
+		if err != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
+			return
+		}
+		req.ID = id
+
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		errService := userService.UpdateCredential(req)
+		if errService != nil {
+			utils.ErrorJSON(w, errService)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "User berhasil diupdate"})
+	}
+}

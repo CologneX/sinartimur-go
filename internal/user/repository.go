@@ -2,13 +2,16 @@ package user
 
 import (
 	"database/sql"
+	"fmt"
 )
 
 type UserRepository interface {
-	Create(username, hashedPassword string) error
+	Create(req CreateUserRequest) error
 	GetByUsername(username string) (*GetUserResponse, error)
+	GetByID(id string) (*GetUserResponse, error)
 	Update(req UpdateUserRequest) error
 	GetAll(search string) ([]*GetUserResponse, error)
+	UpdateCredential(req UpdateUserCredentialRequest) error
 }
 
 type userRepositoryImpl struct {
@@ -20,10 +23,9 @@ func NewUserRepository(db *sql.DB) UserRepository {
 }
 
 // Create creates a new user
-func (r *userRepositoryImpl) Create(
-	username, hashedPassword string,
-) error {
-	_, err := r.db.Exec("Insert Into Users (Username, Password_Hash) Values ($1, $2)", username, hashedPassword)
+func (r *userRepositoryImpl) Create(req CreateUserRequest) error {
+	_, err := r.db.Exec("Insert Into Users (Username, Password_Hash, Is_Admin, Is_Hr, Is_Finance, Is_Inventory, Is_Sales, Is_Purchase) Values ($1, $2, $3, $4, $5, $6, $7, $8)",
+		req.Username, req.Password, req.IsAdmin, req.IsHr, req.IsFinance, req.IsInventory, req.IsSales, req.IsPurchase)
 	if err != nil {
 		return err
 	}
@@ -33,7 +35,18 @@ func (r *userRepositoryImpl) Create(
 // GetByUsername fetches a user by username
 func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, error) {
 	user := &GetUserResponse{}
-	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Username = $1", username).Scan(
+	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Username = $1 And Is_Active = True", username).Scan(
+		&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+// GetByID fetches a user by ID
+func (r *userRepositoryImpl) GetByID(id string) (*GetUserResponse, error) {
+	user := &GetUserResponse{}
+	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Id = $1 And Is_Active = True", id).Scan(
 		&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -43,16 +56,24 @@ func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, e
 
 // Update updates a user
 func (r *userRepositoryImpl) Update(req UpdateUserRequest) error {
-	_, err := r.db.Exec("Update Users Set Username = $1, Is_Active = $2, Updated_At = Now() Where Id = $3", req.Username, req.IsActive, req.ID)
+	fmt.Println(req)
+	_, err := r.db.Exec("Update Users Set Username = $1, Is_Admin = $2, Is_Hr = $3, Is_Finance = $4, Is_Inventory = $5, Is_Sales = $6, Is_Purchase = $7, Is_Active = $8, Updated_At = Now() Where Id = $9",
+		req.Username, req.IsAdmin, req.IsHr, req.IsFinance, req.IsInventory, req.IsSales, req.IsPurchase, req.IsActive, req.ID)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-// GetAll fetches all users
+// GetAll fetches all users with its roles
 func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
-	rows, err := r.db.Query("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Username Ilike '%' || $1 || '%'", search)
+	query := `
+		Select Id, Username, Is_Active, Created_At, Updated_At,
+		       Is_Admin, Is_Hr, Is_Finance, Is_Inventory, Is_Sales, Is_Purchase
+		From Users
+		Where Username Ilike '%' || $1 || '%'
+	`
+	rows, err := r.db.Query(query, search)
 	if err != nil {
 		return nil, err
 	}
@@ -61,10 +82,34 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 	var users []*GetUserResponse
 	for rows.Next() {
 		user := &GetUserResponse{}
-		err = rows.Scan(&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
+		var isAdmin, isHr, isFinance, isInventory, isSales, isPurchase bool
+		err = rows.Scan(&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt,
+			&isAdmin, &isHr, &isFinance, &isInventory, &isSales, &isPurchase)
 		if err != nil {
 			return nil, err
 		}
+
+		var roles []string
+		if isAdmin {
+			roles = append(roles, "admin")
+		}
+		if isHr {
+			roles = append(roles, "hr")
+		}
+		if isFinance {
+			roles = append(roles, "finance")
+		}
+		if isInventory {
+			roles = append(roles, "inventory")
+		}
+		if isSales {
+			roles = append(roles, "sales")
+		}
+		if isPurchase {
+			roles = append(roles, "purchase")
+		}
+		user.Role = &roles
+
 		users = append(users, user)
 	}
 
@@ -73,6 +118,15 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 	}
 
 	return users, nil
+}
+
+// UpdateCredential updates user's password
+func (r *userRepositoryImpl) UpdateCredential(req UpdateUserCredentialRequest) error {
+	_, err := r.db.Exec("Update Users Set Password_Hash = $1, Updated_At = Now() Where Id = $2", req.Password, req.ID)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 //func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
