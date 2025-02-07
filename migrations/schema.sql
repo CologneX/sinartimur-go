@@ -90,17 +90,40 @@ Create Table Financial_Transactions
 );
 
 -- Table: Inventory
-Create Table Products
+Create Table Category
 (
     Id          Uuid Primary Key Default Uuid_Generate_V4(),
-    Name        VARCHAR(255)       Not Null,
-    Sku         VARCHAR(50) Unique Not Null, -- Kode unik produk
+    Name        VARCHAR(255) Not Null,
     Description TEXT,
-    Price       NUMERIC(15, 2)     Not Null,
     Created_At  Timestamptz      Default Current_Timestamp,
     Updated_At  Timestamptz      Default Current_Timestamp,
     Deleted_At  Timestamptz      Default Null
 );
+
+Create Table Unit
+(
+    Id          Uuid Primary Key Default Uuid_Generate_V4(),
+    Name        VARCHAR(50) Not Null,
+    Description TEXT,
+    Created_At  Timestamptz      Default Current_Timestamp,
+    Updated_At  Timestamptz      Default Current_Timestamp,
+    Deleted_At  Timestamptz      Default Null
+);
+
+Create Table Products
+(
+    Id          Uuid Primary Key Default Uuid_Generate_V4(),
+    Name        VARCHAR(255)       Not Null,
+    Sku         VARCHAR(50) Unique Default Null,
+    Description TEXT,
+    Price       NUMERIC(15, 2)     Not Null,
+    Category_Id Uuid             Default Null References Category (Id) On Delete Cascade,
+    Unit_Id     Uuid             Default Null References Unit (Id) On Delete Cascade,
+    Created_At  Timestamptz      Default Current_Timestamp,
+    Updated_At  Timestamptz      Default Current_Timestamp,
+    Deleted_At  Timestamptz      Default Null
+);
+
 
 Create Table Storages
 (
@@ -108,7 +131,8 @@ Create Table Storages
     Name       VARCHAR(255) Not Null, -- Nama gudang, e.g., "Gudang Utama", "Gudang Cabang A"
     Location   TEXT         Not Null, -- Lokasi fisik gudang
     Created_At Timestamptz      Default Current_Timestamp,
-    Updated_At Timestamptz      Default Current_Timestamp
+    Updated_At Timestamptz      Default Current_Timestamp,
+    Deleted_At Timestamptz      Default Null
 );
 
 Create Table Inventory
