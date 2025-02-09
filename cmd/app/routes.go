@@ -4,7 +4,10 @@ import (
 	"github.com/gorilla/mux"
 	v1 "sinartimur-go/api/v1"
 	"sinartimur-go/internal/auth"
+	"sinartimur-go/internal/category"
 	"sinartimur-go/internal/employee"
+	"sinartimur-go/internal/product"
+	"sinartimur-go/internal/unit"
 	"sinartimur-go/internal/user"
 	"sinartimur-go/internal/wage"
 	"sinartimur-go/middleware"
@@ -45,6 +48,27 @@ func RegisterWageRoutes(router *mux.Router, wageService *wage.WageService) {
 	router.HandleFunc("/wages", v1.GetAllWagesHandler(wageService)).Methods("GET")
 }
 
+func RegisterProductRoutes(router *mux.Router, productService *product.ProductService) {
+	router.HandleFunc("/product", v1.CreateProductHandler(productService)).Methods("POST")
+	router.HandleFunc("/product/{id}", v1.UpdateProductHandler(productService)).Methods("PUT")
+	router.HandleFunc("/product/{id}", v1.DeleteProductHandler(productService)).Methods("DELETE")
+	router.HandleFunc("/products", v1.GetAllProductHandler(productService)).Methods("GET")
+}
+
+func RegisterUnitRoutes(router *mux.Router, unitService *unit.UnitService) {
+	router.HandleFunc("/unit", v1.CreateUnitHandler(unitService)).Methods("POST")
+	router.HandleFunc("/unit/{id}", v1.UpdateUnitHandler(unitService)).Methods("PUT")
+	router.HandleFunc("/unit/{id}", v1.DeleteUnitHandler(unitService)).Methods("DELETE")
+	router.HandleFunc("/units", v1.GetAllUnitHandler(unitService)).Methods("GET")
+}
+
+func RegisterCategoryRoutes(router *mux.Router, categoryService *category.CategoryService) {
+	router.HandleFunc("/category", v1.CreateCategoryHandler(categoryService)).Methods("POST")
+	router.HandleFunc("/category/{id}", v1.UpdateCategoryHandler(categoryService)).Methods("PUT")
+	router.HandleFunc("/category/{id}", v1.DeleteCategoryHandler(categoryService)).Methods("DELETE")
+	router.HandleFunc("/categories", v1.GetAllCategoryHandler(categoryService)).Methods("GET")
+}
+
 // SetupRoutes registers all API routes
 func SetupRoutes(router *mux.Router, services *Services) {
 	// Auth Routes
@@ -82,6 +106,9 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	// Inventory middleware setup
 	InventoryRoutes := router.PathPrefix("/inventory").Subrouter()
 	InventoryRoutes.Use(middleware.RoleMiddleware("inventory"))
+	RegisterProductRoutes(InventoryRoutes, services.ProductService)
+	RegisterCategoryRoutes(InventoryRoutes, services.CategoryService)
+	RegisterUnitRoutes(InventoryRoutes, services.UnitService)
 
 	// Finance middleware setup
 	FinanceRoutes := router.PathPrefix("/finance").Subrouter()

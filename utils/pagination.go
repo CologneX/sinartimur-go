@@ -5,6 +5,13 @@ import (
 	"strconv"
 )
 
+type PaginationParameter struct {
+	Page      int    `json:"page"`
+	PageSize  int    `json:"page_size"`
+	SortBy    string `json:"sort_by,omitempty"`
+	SortOrder string `json:"sort_order,omitempty"`
+}
+
 const (
 	DefaultPage     = 1
 	DefaultPageSize = 10

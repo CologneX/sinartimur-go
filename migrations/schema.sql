@@ -114,7 +114,6 @@ Create Table Products
 (
     Id          Uuid Primary Key Default Uuid_Generate_V4(),
     Name        VARCHAR(255)       Not Null,
-    Sku         VARCHAR(50) Unique Default Null,
     Description TEXT,
     Price       NUMERIC(15, 2)     Not Null,
     Category_Id Uuid             Default Null References Category (Id) On Delete Cascade,

@@ -9,7 +9,10 @@ import (
 	"os"
 	"sinartimur-go/config"
 	"sinartimur-go/internal/auth"
+	"sinartimur-go/internal/category"
 	"sinartimur-go/internal/employee"
+	"sinartimur-go/internal/product"
+	"sinartimur-go/internal/unit"
 	"sinartimur-go/internal/user"
 	"sinartimur-go/internal/wage"
 	"sinartimur-go/middleware"
@@ -49,7 +52,10 @@ type Services struct {
 	UserService     *user.UserService
 	EmployeeService *employee.EmployeeService
 	//RoleService     *role.RoleService
-	WageService *wage.WageService
+	WageService     *wage.WageService
+	ProductService  *product.ProductService
+	CategoryService *category.CategoryService
+	UnitService     *unit.UnitService
 }
 
 func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
@@ -68,11 +74,23 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 	wageRepo := wage.NewWageRepository(db)
 	wageService := wage.NewWageService(wageRepo)
 
+	productRepo := product.NewProductRepository(db)
+	productService := product.NewProductService(productRepo)
+
+	categoryRepo := category.NewCategoryRepository(db)
+	categoryService := category.NewCategoryService(categoryRepo)
+
+	unitRepo := unit.NewUnitRepository(db)
+	unitService := unit.NewUnitService(unitRepo)
+
 	return &Services{
 		AuthService:     authService,
 		UserService:     userService,
 		EmployeeService: employeeService,
 		//RoleService:     roleService,
-		WageService: wageService,
+		WageService:     wageService,
+		ProductService:  productService,
+		CategoryService: categoryService,
+		UnitService:     unitService,
 	}
 }
