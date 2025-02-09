@@ -226,7 +226,6 @@ Create Index Idx_Delivery_Notes_Status On Delivery_Notes (Status);
 Create Index Idx_Sales_Invoices_Payment_Status On Sales_Invoices (Payment_Status);
 Create Index Idx_Sales_Order_Items_Sales_Order_Id On Sales_Order_Items (Sales_Order_Id);
 Create Index Idx_Sales_Orders_Status On Sales_Orders (Status);
-Create Index Idx_Products_Sku On Products (Sku);
 Create Index Idx_Products_Name On Products (Name);
 Create Index Idx_Storages_Name On Storages (Name);
 Create Unique Index Idx_Inventory_Product_Storage On Inventory (Product_Id, Storage_Id);
