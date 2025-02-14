@@ -24,7 +24,7 @@ func NewEmployeeRepository(db *sql.DB) EmployeeRepository {
 
 // Create creates a new employee
 func (r *employeeRepositoryImpl) Create(request CreateEmployeeRequest) error {
-	_, err := r.db.Exec("INSERT INTO employees (name, position, hired_date, nik, phone) VALUES ($1, $2, $3, $4, $5)", request.Name, request.Position, request.HiredDate, request.Nik, request.Phone)
+	_, err := r.db.Exec("Insert Into Employee (Name, Position, Hired_Date, Nik, Phone) Values ($1, $2, $3, $4, $5)", request.Name, request.Position, request.HiredDate, request.Nik, request.Phone)
 	if err != nil {
 
 		return err
@@ -34,7 +34,7 @@ func (r *employeeRepositoryImpl) Create(request CreateEmployeeRequest) error {
 
 // Delete soft deletes an employee
 func (r *employeeRepositoryImpl) Delete(request DeleteEmployeeRequest) error {
-	_, err := r.db.Exec("UPDATE employees SET deleted_at = NOW() WHERE id = $1", request.ID)
+	_, err := r.db.Exec("Update Employee Set Deleted_At = Now() Where Id = $1", request.ID)
 	if err != nil {
 		return err
 	}
@@ -43,7 +43,7 @@ func (r *employeeRepositoryImpl) Delete(request DeleteEmployeeRequest) error {
 
 // Update updates an employee
 func (r *employeeRepositoryImpl) Update(request UpdateEmployeeRequest) error {
-	_, err := r.db.Exec("UPDATE employees SET name = $1, position = $2, hired_date = $3, nik = $4, phone = $5, updated_at = NOW() WHERE id = $6", request.Name, request.Position, request.HiredDate, request.Nik, request.Phone, request.ID)
+	_, err := r.db.Exec("Update Employee Set Name = $1, Position = $2, Hired_Date = $3, Nik = $4, Phone = $5, Updated_At = Now() Where Id = $6", request.Name, request.Position, request.HiredDate, request.Nik, request.Phone, request.ID)
 	if err != nil {
 		return err
 	}
@@ -56,9 +56,9 @@ func (r *employeeRepositoryImpl) GetAll(name string) ([]GetEmployeeResponse, err
 	var err error
 
 	if name != "" {
-		rows, err = r.db.Query("SELECT id, name, position, nik, phone, hired_date, created_at, updated_at FROM employees WHERE deleted_at IS NULL AND name ILIKE $1", "%"+name+"%")
+		rows, err = r.db.Query("Select Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At From Employee Where Deleted_At Is Null And Name Ilike $1", "%"+name+"%")
 	} else {
-		rows, err = r.db.Query("SELECT id, name, position, nik, phone, hired_date, created_at, updated_at FROM employees WHERE deleted_at IS NULL")
+		rows, err = r.db.Query("Select Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At From Employee Where Deleted_At Is Null")
 	}
 
 	if err != nil {
@@ -81,7 +81,7 @@ func (r *employeeRepositoryImpl) GetAll(name string) ([]GetEmployeeResponse, err
 // GetByID fetches an employee by ID
 func (r *employeeRepositoryImpl) GetByID(id string) (*GetEmployeeResponse, error) {
 	var employee GetEmployeeResponse
-	err := r.db.QueryRow("SELECT id, name, position, nik, phone, hired_date, created_at, updated_at FROM employees WHERE id = $1 AND deleted_at IS NULL", id).Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
+	err := r.db.QueryRow("Select Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At From Employee Where Id = $1 And Deleted_At Is Null", id).Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -91,7 +91,7 @@ func (r *employeeRepositoryImpl) GetByID(id string) (*GetEmployeeResponse, error
 // GetByNIK fetches an employee by NIK
 func (r *employeeRepositoryImpl) GetByNIK(nik string) (*GetEmployeeResponse, error) {
 	var employee GetEmployeeResponse
-	err := r.db.QueryRow("SELECT id, name, position, nik, phone, hired_date, created_at, updated_at FROM employees WHERE nik = $1 AND deleted_at IS NULL", nik).Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
+	err := r.db.QueryRow("Select Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At From Employee Where Nik = $1 And Deleted_At Is Null", nik).Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func (r *employeeRepositoryImpl) GetByNIK(nik string) (*GetEmployeeResponse, err
 // GetByPhone fetches an employee by phone
 func (r *employeeRepositoryImpl) GetByPhone(phone string) (*GetEmployeeResponse, error) {
 	var employee GetEmployeeResponse
-	err := r.db.QueryRow("SELECT id, name, position, nik, phone, hired_date, created_at, updated_at FROM employees WHERE phone = $1 AND deleted_at IS NULL", phone).Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
+	err := r.db.QueryRow("Select Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At From Employee Where Phone = $1 And Deleted_At Is Null", phone).Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

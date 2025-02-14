@@ -34,7 +34,7 @@ func NewWageRepository(db *sql.DB) WageRepository {
 func (r *WageRepositoryImpl) GetEmployeeByID(id string) (*employee.GetEmployeeResponse, error) {
 	var emp employee.GetEmployeeResponse
 
-	err := r.db.QueryRow("Select Id, Name, Position, Phone, Nik, Hired_Date, Created_At, Updated_At From Employees Where Id = $1", id).Scan(&emp.ID, &emp.Name, &emp.Position, &emp.Phone, &emp.Nik, &emp.HiredDate, &emp.CreatedAt, &emp.UpdatedAt)
+	err := r.db.QueryRow("Select Id, Name, Position, Phone, Nik, Hired_Date, Created_At, Updated_At From Employee Where Id = $1", id).Scan(&emp.ID, &emp.Name, &emp.Position, &emp.Phone, &emp.Nik, &emp.HiredDate, &emp.CreatedAt, &emp.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -54,13 +54,13 @@ func (r *WageRepositoryImpl) Create(request CreateWageRequest) error {
 		}
 
 		// Insert into Wages
-		if err := tx.QueryRow("Insert Into Wages (Employee_Id, Month, Year, Total_Amount) Values ($1, $2, $3, $4) Returning Id", request.EmployeeId, request.Month, request.Year, totalAmount).Scan(&wageID); err != nil {
+		if err := tx.QueryRow("Insert Into Wage (Employee_Id, Month, Year, Total_Amount) Values ($1, $2, $3, $4) Returning Id", request.EmployeeId, request.Month, request.Year, totalAmount).Scan(&wageID); err != nil {
 			return err
 		}
 
 		// Insert into Wage_Details
 		for _, detail := range request.WageDetail {
-			if _, err := tx.Exec("Insert Into Wage_Details (Wage_Id, Component_Name, Description, Amount) Values ($1, $2, $3, $4)", wageID, detail.ComponentName, detail.Description, detail.Amount); err != nil {
+			if _, err := tx.Exec("Insert Into Wage_Detail (Wage_Id, Component_Name, Description, Amount) Values ($1, $2, $3, $4)", wageID, detail.ComponentName, detail.Description, detail.Amount); err != nil {
 				return err
 			}
 		}
@@ -71,7 +71,7 @@ func (r *WageRepositoryImpl) Create(request CreateWageRequest) error {
 
 // CreateDetail creates a new wage Detail
 func (r *WageRepositoryImpl) CreateDetail(request WageDetailRequest) error {
-	_, err := r.db.Exec("Insert Into Wage_Details (Component_Name, Description, Amount) Values ($1, $2, $3)", request.ComponentName, request.Description, request.Amount)
+	_, err := r.db.Exec("Insert Into Wage_Detail (Component_Name, Description, Amount) Values ($1, $2, $3)", request.ComponentName, request.Description, request.Amount)
 	if err != nil {
 		return err
 	}
@@ -81,7 +81,7 @@ func (r *WageRepositoryImpl) CreateDetail(request WageDetailRequest) error {
 
 // Delete soft deletes a wage
 func (r *WageRepositoryImpl) Delete(request DeleteWageRequest) error {
-	_, err := r.db.Exec("Update Wages Set Deleted_At = Now() Where Id = $1", request.ID)
+	_, err := r.db.Exec("Update Wage Set Deleted_At = Now() Where Id = $1", request.ID)
 	if err != nil {
 		return err
 	}
@@ -109,18 +109,18 @@ func (r *WageRepositoryImpl) UpdateDetail(request UpdateWageDetailRequest) error
 		}
 
 		// UpdateDetail Wages
-		if _, err := tx.Exec("Update Wages Set Total_Amount = $1, Updated_At = Now() Where Id = $2", totalAmount, request.ID); err != nil {
+		if _, err := tx.Exec("Update Wage Set Total_Amount = $1, Updated_At = Now() Where Id = $2", totalAmount, request.ID); err != nil {
 			return err
 		}
 
 		// Delete existing wage details
-		if _, err := tx.Exec("Delete From Wage_Details Where Wage_Id = $1", request.ID); err != nil {
+		if _, err := tx.Exec("Delete From Wage_Detail Where Wage_Id = $1", request.ID); err != nil {
 			return err
 		}
 
 		// Insert new wage details
 		for _, detail := range request.WageDetail {
-			if _, err := tx.Exec("Insert Into Wage_Details (Wage_Id, Component_Name, Description, Amount) Values ($1, $2, $3, $4)", request.ID, detail.ComponentName, detail.Description, detail.Amount); err != nil {
+			if _, err := tx.Exec("Insert Into Wage_Detail (Wage_Id, Component_Name, Description, Amount) Values ($1, $2, $3, $4)", request.ID, detail.ComponentName, detail.Description, detail.Amount); err != nil {
 				return err
 			}
 		}
@@ -136,12 +136,12 @@ func (r *WageRepositoryImpl) GetAll(request GetWageRequest) ([]GetWageResponse, 
 	var totalItems int
 
 	query := `Select W.Id, W.Employee_Id, E.Name, W.Total_Amount, W.Month, W.Year, W.Created_At, W.Updated_At
-			  From Wages W
-			  Join Employees E On W.Employee_Id = E.Id
+			  From Wage W
+			  Join Employee E On W.Employee_Id = E.Id
 			  Where W.Deleted_At Is Null`
 	countQuery := `Select Count(*)
-				   From Wages W
-				   Join Employees E On W.Employee_Id = E.Id
+				   From Wage W
+				   Join Employee E On W.Employee_Id = E.Id
 				   Where W.Deleted_At Is Null`
 
 	var args []interface{}
@@ -203,7 +203,7 @@ func (r *WageRepositoryImpl) GetAll(request GetWageRequest) ([]GetWageResponse, 
 
 // GetWageDetailByWageID fetches wage details by wage id
 func (r *WageRepositoryImpl) GetWageDetailByWageID(wageID string) ([]*GetWageDetail, error) {
-	rows, err := r.db.Query("Select Id, Component_Name, Description, Amount, Created_At, Updated_At From Wage_Details Where Wage_Id = $1", wageID)
+	rows, err := r.db.Query("Select Id, Component_Name, Description, Amount, Created_At, Updated_At From Wage_Detail Where Wage_Id = $1", wageID)
 	if err != nil {
 		return nil, err
 	}
@@ -231,7 +231,7 @@ func (r *WageRepositoryImpl) GetWageDetailByWageID(wageID string) ([]*GetWageDet
 func (r *WageRepositoryImpl) GetByID(id string) (*GetWageResponse, error) {
 	var wage GetWageResponse
 
-	err := r.db.QueryRow("Select W.Id, W.Employee_Id, E.Name, W.Total_Amount, W.Month, W.Year, W.Created_At, W.Updated_At From Wages W Join Employees E On W.Employee_Id = E.Id Where W.Id = $1 And W.Deleted_At Is Null", id).Scan(&wage.ID, &wage.EmployeeId, &wage.EmployeeName, &wage.TotalAmount, &wage.Month, &wage.Year, &wage.CreatedAt, &wage.UpdatedAt)
+	err := r.db.QueryRow("Select W.Id, W.Employee_Id, E.Name, W.Total_Amount, W.Month, W.Year, W.Created_At, W.Updated_At From Wage W Join Employee E On W.Employee_Id = E.Id Where W.Id = $1 And W.Deleted_At Is Null", id).Scan(&wage.ID, &wage.EmployeeId, &wage.EmployeeName, &wage.TotalAmount, &wage.Month, &wage.Year, &wage.CreatedAt, &wage.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -243,7 +243,7 @@ func (r *WageRepositoryImpl) GetByID(id string) (*GetWageResponse, error) {
 func (r *WageRepositoryImpl) GetDetailByID(id string) (*WageDetail, error) {
 	var wageDetail WageDetail
 
-	err := r.db.QueryRow("Select Id, Wage_Id, Component_Name, Description, Amount, Created_At, Updated_At From Wage_Details Where Id = $1 And Deleted_At Is Null", id).Scan(&wageDetail.ID, &wageDetail.WageId, &wageDetail.ComponentName, &wageDetail.Description, &wageDetail.Amount, &wageDetail.CreatedAt, &wageDetail.UpdatedAt)
+	err := r.db.QueryRow("Select Id, Wage_Id, Component_Name, Description, Amount, Created_At, Updated_At From Wage_Detail Where Id = $1 And Deleted_At Is Null", id).Scan(&wageDetail.ID, &wageDetail.WageId, &wageDetail.ComponentName, &wageDetail.Description, &wageDetail.Amount, &wageDetail.CreatedAt, &wageDetail.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
@@ -255,7 +255,7 @@ func (r *WageRepositoryImpl) GetDetailByID(id string) (*WageDetail, error) {
 func (r *WageRepositoryImpl) GetByEmployeeIdAndMonthYear(employeeId string, month int, year int) (*GetWageResponse, error) {
 	var wage GetWageResponse
 
-	err := r.db.QueryRow("Select Id, Employee_Id, Total_Amount, Month, Year, Created_At, Updated_At From Wages Where Employee_Id = $1 And Month = $2 And Year = $3 And Deleted_At Is Null", employeeId, month, year).Scan(&wage.ID, &wage.EmployeeId, &wage.TotalAmount, &wage.Month, &wage.Year, &wage.CreatedAt, &wage.UpdatedAt)
+	err := r.db.QueryRow("Select Id, Employee_Id, Total_Amount, Month, Year, Created_At, Updated_At From Wage Where Employee_Id = $1 And Month = $2 And Year = $3 And Deleted_At Is Null", employeeId, month, year).Scan(&wage.ID, &wage.EmployeeId, &wage.TotalAmount, &wage.Month, &wage.Year, &wage.CreatedAt, &wage.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}

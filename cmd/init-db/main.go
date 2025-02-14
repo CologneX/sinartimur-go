@@ -45,7 +45,7 @@ func main() {
 	}
 
 	// Create user in the database with admin role
-	_, err = db.Exec("Insert Into Users (Username, Password_Hash, Is_Admin) Values ($1, $2, $3)", username, string(passwordHash), true)
+	_, err = db.Exec("Insert Into Appuser (Username, Password_Hash, Is_Admin) Values ($1, $2, $3)", username, string(passwordHash), true)
 	if err != nil {
 		log.Fatalf("Gagal membuat user: %v", err)
 	}

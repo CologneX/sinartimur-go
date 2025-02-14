@@ -2,7 +2,7 @@
 Create Extension If Not Exists "uuid-ossp";
 
 -- Table: Admin
-Create Table Users
+Create Table AppUser
 (
     Id            Uuid Primary Key Default Uuid_Generate_V4(),
     Username      VARCHAR(100) Unique Not Null,
@@ -37,7 +37,7 @@ Create Table Users
 -- );
 
 -- Table: HR
-Create Table Employees
+Create Table Employee
 (
     Id         Uuid Primary Key      Default Uuid_Generate_V4(),
     Name       VARCHAR(150) Not Null,
@@ -51,10 +51,10 @@ Create Table Employees
 );
 
 
-Create Table Wages
+Create Table Wage
 (
     Id           Uuid Primary Key Default Uuid_Generate_V4(),
-    Employee_Id  Uuid References Employees (Id) On Delete Cascade,
+    Employee_Id  Uuid References Employee (Id) On Delete Cascade,
     Total_Amount NUMERIC(12, 2) Not Null,
     Month        INT            Not Null,
     Year         INT            Not Null,
@@ -63,10 +63,10 @@ Create Table Wages
     Deleted_At   Timestamptz      Default Null
 );
 
-Create Table Wage_Details
+Create Table Wage_Detail
 (
     Id             Uuid Primary Key Default Uuid_Generate_V4(),
-    Wage_Id        Uuid References Wages (Id) On Delete Cascade,
+    Wage_Id        Uuid References Wage (Id) On Delete Cascade,
     Component_Name VARCHAR(100)   Not Null,
     Description    TEXT,
     Amount         NUMERIC(12, 2) Not Null,
@@ -76,10 +76,10 @@ Create Table Wage_Details
 );
 
 -- Table: Financial Transactions
-Create Table Financial_Transactions
+Create Table Financial_Transaction
 (
     Id               Uuid Primary Key Default Uuid_Generate_V4(),
-    User_Id          Uuid References Users (Id),
+    User_Id          Uuid References AppUser (Id),
     Amount           NUMERIC(15, 2) Not Null,
     Type             VARCHAR(50)    Not Null,
     Description      TEXT,
@@ -110,7 +110,7 @@ Create Table Unit
     Deleted_At  Timestamptz      Default Null
 );
 
-Create Table Products
+Create Table Product
 (
     Id          Uuid Primary Key Default Uuid_Generate_V4(),
     Name        VARCHAR(255)       Not Null,
@@ -124,11 +124,11 @@ Create Table Products
 );
 
 
-Create Table Storages
+Create Table Storage
 (
     Id         Uuid Primary Key Default Uuid_Generate_V4(),
-    Name       VARCHAR(255) Not Null, -- Nama gudang, e.g., "Gudang Utama", "Gudang Cabang A"
-    Location   TEXT         Not Null, -- Lokasi fisik gudang
+    Name       VARCHAR(255) Not Null,
+    Location   TEXT         Not Null,
     Created_At Timestamptz      Default Current_Timestamp,
     Updated_At Timestamptz      Default Current_Timestamp,
     Deleted_At Timestamptz      Default Null
@@ -137,8 +137,8 @@ Create Table Storages
 Create Table Inventory
 (
     Id               Uuid Primary Key Default Uuid_Generate_V4(),
-    Product_Id       Uuid References Products (Id) On Delete Cascade,
-    Storage_Id       Uuid References Storages (Id) On Delete Cascade,
+    Product_Id       Uuid References Product (Id) On Delete Cascade,
+    Storage_Id       Uuid References Storage (Id) On Delete Cascade,
     Quantity         INT Not Null     Default 0,
     Minimum_Quantity INT Not Null     Default 0,
     Created_At       Timestamptz      Default Current_Timestamp,
@@ -146,11 +146,11 @@ Create Table Inventory
 );
 
 
-Create Table Inventory_Logs
+Create Table Inventory_Log
 (
     Id           Uuid Primary Key Default Uuid_Generate_V4(),
     Inventory_Id Uuid References Inventory (Id) On Delete Cascade,
-    User_Id      Uuid References Users (Id),
+    User_Id      Uuid References AppUser (Id),
     Action       VARCHAR(50) Not Null, -- e.g., "add", "remove", "transfer"
     Quantity     INT         Not Null,
     Log_Date     Timestamptz      Default Current_Timestamp,
@@ -160,75 +160,44 @@ Create Table Inventory_Logs
 );
 
 -- Table: Sales
-Create Table Sales_Orders
+Create Table Sales_Order
 (
     Id            Uuid Primary Key Default Uuid_Generate_V4(),
     Customer_Name VARCHAR(255)   Not Null,
     Order_Date    Timestamptz      Default Current_Timestamp,
-    Status        VARCHAR(50)    Not Null, -- e.g., pending, confirmed, shipped
+    Status        VARCHAR(50)    Not Null,
     Total_Amount  NUMERIC(15, 2) Not Null,
     Created_At    Timestamptz      Default Current_Timestamp,
     Updated_At    Timestamptz      Default Current_Timestamp,
     Cancelled_At  Timestamptz      Default Null
 );
 
-
-Create Table Sales_Order_Items
+Create Table Delivery_Note
 (
     Id             Uuid Primary Key Default Uuid_Generate_V4(),
-    Sales_Order_Id Uuid References Sales_Orders (Id) On Delete Cascade,
-    Inventory_Id   Uuid References Inventory (Id),
-    Quantity       INT            Not Null,
-    Price          NUMERIC(15, 2) Not Null,
-    Created_At     Timestamptz      Default Current_Timestamp,
-    Updated_At     Timestamptz      Default Current_Timestamp,
-    Cancelled_At   Timestamptz      Default Null
-);
-
-
-Create Table Sales_Invoices
-(
-    Id             Uuid Primary Key Default Uuid_Generate_V4(),
-    Sales_Order_Id Uuid References Sales_Orders (Id) On Delete Cascade,
-    Invoice_Date   Timestamptz      Default Current_Timestamp,
-    Due_Date       Timestamptz    Not Null,
-    Total_Amount   NUMERIC(15, 2) Not Null,
-    Payment_Status VARCHAR(50)      Default 'unpaid', -- e.g., unpaid, paid, overdue
-    Created_At     Timestamptz      Default Current_Timestamp,
-    Updated_At     Timestamptz      Default Current_Timestamp,
-    Cancelled_At   Timestamptz      Default Null
-);
-
-
-Create Table Delivery_Notes
-(
-    Id             Uuid Primary Key Default Uuid_Generate_V4(),
-    Sales_Order_Id Uuid References Sales_Orders (Id) On Delete Cascade,
+    Sales_Order_Id Uuid References Sales_Order (Id) On Delete Cascade,
     Delivery_Date  Timestamptz      Default Current_Timestamp,
     Recipient_Name VARCHAR(255) Not Null,
-    Status         VARCHAR(50)      Default 'in_transit', -- e.g., in_transit, delivered, returned
+    Is_Received    BOOLEAN      Not Null Default False,
     Created_At     Timestamptz      Default Current_Timestamp,
     Updated_At     Timestamptz      Default Current_Timestamp,
     Cancelled_At   Timestamptz      Default Null
 );
 
 -- Indexes to improve query performance
-Create Index Idx_Financial_Transactions_User_Id On Financial_Transactions (User_Id);
-Create Index Idx_Users_Username On Users (Username);
-Create Index Idx_Employees_Name On Employees (Name);
-Create Index Idx_Employees_Position On Employees (Position);
-Create Index Idx_Wages_Employee_Id On Wages (Employee_Id);
-Create Index Idx_Wages_Period On Wages (Month, Year);
-Create Index Idx_Wage_Details_Wage_Id On Wage_Details (Wage_Id);
-Create Index Idx_Wage_Details_Component_Name On Wage_Details (Component_Name);
-Create Index Idx_Employees_Nik On Employees (Nik);
-Create Index Idx_Delivery_Notes_Status On Delivery_Notes (Status);
-Create Index Idx_Sales_Invoices_Payment_Status On Sales_Invoices (Payment_Status);
-Create Index Idx_Sales_Order_Items_Sales_Order_Id On Sales_Order_Items (Sales_Order_Id);
-Create Index Idx_Sales_Orders_Status On Sales_Orders (Status);
-Create Index Idx_Products_Name On Products (Name);
-Create Index Idx_Storages_Name On Storages (Name);
+Create Index Idx_Financial_Transactions_User_Id On Financial_Transaction (User_Id);
+Create Index Idx_Users_Username On AppUser (Username);
+Create Index Idx_Employees_Name On Employee (Name);
+Create Index Idx_Employees_Position On Employee (Position);
+Create Index Idx_Wages_Employee_Id On Wage (Employee_Id);
+Create Index Idx_Wages_Period On Wage (Month, Year);
+Create Index Idx_Wage_Details_Wage_Id On Wage_Detail (Wage_Id);
+Create Index Idx_Wage_Details_Component_Name On Wage_Detail (Component_Name);
+Create Index Idx_Employees_Nik On Employee (Nik);
+Create Index Idx_Sales_Orders_Status On Sales_Order (Status);
+Create Index Idx_Products_Name On Product (Name);
+Create Index Idx_Storages_Name On Storage (Name);
 Create Unique Index Idx_Inventory_Product_Storage On Inventory (Product_Id, Storage_Id);
 Create Index Idx_Inventory_Quantity On Inventory (Quantity);
-Create Index Idx_Inventory_Logs_Inventory_Id On Inventory_Logs (Inventory_Id);
-Create Index Idx_Inventory_Logs_Action On Inventory_Logs (Action);
+Create Index Idx_Inventory_Logs_Inventory_Id On Inventory_Log (Inventory_Id);
+Create Index Idx_Inventory_Logs_Action On Inventory_Log (Action);

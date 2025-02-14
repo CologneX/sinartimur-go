@@ -1,4 +1,4 @@
-package product
+package inventory
 
 import (
 	"database/sql"

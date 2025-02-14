@@ -24,7 +24,7 @@ func NewUserRepository(db *sql.DB) UserRepository {
 
 // Create creates a new user
 func (r *userRepositoryImpl) Create(req CreateUserRequest) error {
-	_, err := r.db.Exec("Insert Into Users (Username, Password_Hash, Is_Admin, Is_Hr, Is_Finance, Is_Inventory, Is_Sales, Is_Purchase) Values ($1, $2, $3, $4, $5, $6, $7, $8)",
+	_, err := r.db.Exec("Insert Into Appuser (Username, Password_Hash, Is_Admin, Is_Hr, Is_Finance, Is_Inventory, Is_Sales, Is_Purchase) Values ($1, $2, $3, $4, $5, $6, $7, $8)",
 		req.Username, req.Password, req.IsAdmin, req.IsHr, req.IsFinance, req.IsInventory, req.IsSales, req.IsPurchase)
 	if err != nil {
 		return err
@@ -35,7 +35,7 @@ func (r *userRepositoryImpl) Create(req CreateUserRequest) error {
 // GetByUsername fetches a user by username
 func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, error) {
 	user := &GetUserResponse{}
-	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Username = $1 And Is_Active = True", username).Scan(
+	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Appuser Where Username = $1 And Is_Active = True", username).Scan(
 		&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -46,7 +46,7 @@ func (r *userRepositoryImpl) GetByUsername(username string) (*GetUserResponse, e
 // GetByID fetches a user by ID
 func (r *userRepositoryImpl) GetByID(id string) (*GetUserResponse, error) {
 	user := &GetUserResponse{}
-	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Id = $1 And Is_Active = True", id).Scan(
+	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Appuser Where Id = $1 And Is_Active = True", id).Scan(
 		&user.ID, &user.Username, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
 		return nil, err
@@ -57,7 +57,7 @@ func (r *userRepositoryImpl) GetByID(id string) (*GetUserResponse, error) {
 // Update updates a user
 func (r *userRepositoryImpl) Update(req UpdateUserRequest) error {
 	fmt.Println(req)
-	_, err := r.db.Exec("Update Users Set Username = $1, Is_Admin = $2, Is_Hr = $3, Is_Finance = $4, Is_Inventory = $5, Is_Sales = $6, Is_Purchase = $7, Is_Active = $8, Updated_At = Now() Where Id = $9",
+	_, err := r.db.Exec("Update Appuser Set Username = $1, Is_Admin = $2, Is_Hr = $3, Is_Finance = $4, Is_Inventory = $5, Is_Sales = $6, Is_Purchase = $7, Is_Active = $8, Updated_At = Now() Where Id = $9",
 		req.Username, req.IsAdmin, req.IsHr, req.IsFinance, req.IsInventory, req.IsSales, req.IsPurchase, req.IsActive, req.ID)
 	if err != nil {
 		return err
@@ -70,7 +70,7 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 	query := `
 		Select Id, Username, Is_Active, Created_At, Updated_At,
 		       Is_Admin, Is_Hr, Is_Finance, Is_Inventory, Is_Sales, Is_Purchase
-		From Users
+		From Appuser
 		Where Username Ilike '%' || $1 || '%'
 	`
 	rows, err := r.db.Query(query, search)
@@ -122,7 +122,7 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 
 // UpdateCredential updates user's password
 func (r *userRepositoryImpl) UpdateCredential(req UpdateUserCredentialRequest) error {
-	_, err := r.db.Exec("Update Users Set Password_Hash = $1, Updated_At = Now() Where Id = $2", req.Password, req.ID)
+	_, err := r.db.Exec("Update Appuser Set Password_Hash = $1, Updated_At = Now() Where Id = $2", req.Password, req.ID)
 	if err != nil {
 		return err
 	}

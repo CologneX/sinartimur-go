@@ -138,7 +138,7 @@ func NewRoleRepository(db *sql.DB) RoleRepository {
 // GetUserByID fetches a user by ID
 func (r *roleRepositoryImpl) GetUserByID(id string) (*user.GetUserResponse, error) {
 	u := &user.GetUserResponse{}
-	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Users Where Id = $1", id).Scan(
+	err := r.db.QueryRow("Select Id, Username, Is_Active, Created_At, Updated_At From Appuser Where Id = $1", id).Scan(
 		&u.ID, &u.Username, &u.IsActive, &u.CreatedAt, &u.UpdatedAt)
 	if err != nil {
 		return nil, err

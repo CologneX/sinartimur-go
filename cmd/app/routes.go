@@ -75,17 +75,6 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	authRouter := router.PathPrefix("/auth").Subrouter()
 	RegisterAuthRoutes(authRouter, services.AuthService)
 
-	// User Routes (admin only)
-	adminRouter := router.PathPrefix("/admin").Subrouter()
-	adminRouter.Use(middleware.RoleMiddleware())
-	RegisterUserRoutes(adminRouter, services.UserService)
-	//RegisterRoleRoutes(adminRouter, services.RoleService)
-
-	// Employee Routes (HR only)
-	hrRouter := router.PathPrefix("/hr").Subrouter()
-	hrRouter.Use(middleware.RoleMiddleware("hr"))
-	RegisterEmployeeRoutes(hrRouter, services.EmployeeService)
-
 	// Global auth middleware
 	protectedRoutes := router.PathPrefix("").Subrouter()
 	protectedRoutes.Use(middleware.AuthMiddleware)
@@ -118,8 +107,8 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	SalesRoutes := router.PathPrefix("/sales").Subrouter()
 	SalesRoutes.Use(middleware.RoleMiddleware("sales"))
 
-	// Purchase middleware setup
-	PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()
-	PurchaseRoutes.Use(middleware.RoleMiddleware("purchase"))
+	//// Purchase middleware setup
+	//PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()
+	//PurchaseRoutes.Use(middleware.RoleMiddleware("purchase"))
 
 }
