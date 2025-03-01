@@ -1,42 +1,5 @@
 package inventory
 
-//
-//
-//Create Table Storage
-//(
-//Id         Uuid Primary Key Default Uuid_Generate_V4(),
-//Name       VARCHAR(255) Not Null,
-//Location   TEXT         Not Null,
-//Created_At Timestamptz      Default Current_Timestamp,
-//Updated_At Timestamptz      Default Current_Timestamp,
-//Deleted_At Timestamptz      Default Null
-//);
-//
-//Create Table Inventory
-//(
-//Id               Uuid Primary Key Default Uuid_Generate_V4(),
-//Product_Id       Uuid References Product (Id) On Delete Cascade,
-//Storage_Id       Uuid References Storage (Id) On Delete Cascade,
-//Quantity         INT Not Null     Default 0,
-//Minimum_Quantity INT Not Null     Default 0,
-//Created_At       Timestamptz      Default Current_Timestamp,
-//Updated_At       Timestamptz      Default Current_Timestamp
-//);
-//
-//
-//Create Table Inventory_Log
-//(
-//Id           Uuid Primary Key Default Uuid_Generate_V4(),
-//Inventory_Id Uuid References Inventory (Id) On Delete Cascade,
-//User_Id      Uuid References AppUser (Id),
-//Action       VARCHAR(50) Not Null, -- e.g., "add", "remove", "transfer"
-//Quantity     INT         Not Null,
-//Log_Date     Timestamptz      Default Current_Timestamp,
-//Description  TEXT,
-//Created_At   Timestamptz      Default Current_Timestamp,
-//Updated_At   Timestamptz      Default Current_Timestamp
-//);
-
 type Storage struct {
 	ID        string `json:"id"`
 	Name      string `json:"name"`
@@ -67,3 +30,64 @@ type InventoryLog struct {
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 }
+
+type GetStorageResponse struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	Location  string `json:"location"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
+type GetStorageRequest struct {
+	Name string `json:"name"`
+}
+
+type CreateStorageRequest struct {
+	Name     string `json:"name" validate:"required"`
+	Location string `json:"location" validate:"required"`
+}
+
+type UpdateStorageRequest struct {
+	ID       string `json:"id" validate:"required"`
+	Name     string `json:"name" validate:"required"`
+	Location string `json:"location" validate:"required"`
+}
+
+type DeleteStorageRequest struct {
+	ID string `json:"id" validate:"required"`
+}
+
+type GetInventoryResponse struct {
+	ID          string `json:"id"`
+	ProductID   string `json:"product_id"`
+	ProductName string `json:"product_name"`
+	StorageID   string `json:"storage_id"`
+	StorageName string `json:"storage_name"`
+	Quantity    int    `json:"quantity"`
+	CreatedAt   string `json:"created_at"`
+	UpdatedAt   string `json:"updated_at"`
+}
+
+type GetInventoryRequest struct {
+	ProductName string `json:"product_name"`
+	StorageName string `json:"storage_name"`
+}
+
+type CreateInventoryRequest struct {
+	ProductID string `json:"product_id" validate:"required,uuid"`
+	StorageID string `json:"storage_id" validate:"required,uuid"`
+	Quantity  int    `json:"quantity" validate:"required,gte=0"`
+}
+
+type UpdateInventoryRequest struct {
+	ID       string `json:"id" validate:"required,uuid"`
+	Quantity int    `json:"quantity" validate:"required,gte=0"`
+}
+
+//type GetInventoryLogResponse struct {
+//	ID            string `json:"id"`
+//	InventoryID   string `json:"inventory_id"`
+//	InventoryName string `json:"inventory_name"`
+//	UserID        string `json:"user_id"`
+//}

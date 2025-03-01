@@ -21,14 +21,14 @@ VALUES ('d4e5f6a7-8901-2cde-f123-4567890abcde', 'PCS', 'Satuan per buah'),
 --------------------------------------------
 -- Seed Data untuk Tabel Storages
 --------------------------------------------
-INSERT INTO Storages (Id, Name, Location)
+INSERT INTO Storage (Id, Name, Location)
 VALUES ('f6a7b8c9-0123-4def-2345-67890abcdef1', 'Gudang Utama', 'Lokasi: Jalan Merdeka No.1, Jakarta'),
        ('a7b8c9d0-1234-5ef0-3456-7890abcdef12', 'Gudang Cabang A', 'Lokasi: Jalan Sudirman No.10, Bandung');
 
 --------------------------------------------
 -- Seed Data untuk Tabel Products
 --------------------------------------------
-INSERT INTO Products (Id, Name, Description, Price, Category_Id, Unit_Id)
+INSERT INTO Product (Id, Name, Description, Price, Category_Id, Unit_Id)
 VALUES ('b8c9d0e1-2345-6f01-4567-890abcdef123', 'Televisi LED 32 inch', 'Televisi LED 32 inch dengan resolusi tinggi',
         2500000, 'a1b2c3d4-5678-90ab-cdef-1234567890ab', 'd4e5f6a7-8901-2cde-f123-4567890abcde'),
        ('c9d0e1f2-3456-7f12-5678-90abcdef1234', 'Kursi Kantor Ergonomis', 'Kursi kantor dengan desain ergonomis',
@@ -50,7 +50,7 @@ VALUES ('e1f20304-5678-9f34-7890-abcdef123456', 'b8c9d0e1-2345-6f01-4567-890abcd
 --------------------------------------------
 -- Seed Data untuk Tabel Inventory_Logs
 --------------------------------------------
-INSERT INTO Inventory_Logs (Id, Inventory_Id, User_Id, Action, Quantity, Description)
+INSERT INTO Inventory_Log (Id, Inventory_Id, User_Id, Action, Quantity, Description)
 VALUES ('20345678-89ab-cf67-0123-def123456789', 'e1f20304-5678-9f34-7890-abcdef123456', NULL, 'add', 5,
         'Penambahan stok awal untuk Televisi LED 32 inch'),
        ('30456789-9abc-df78-1234-ef1234567890', 'f2030456-6789-af45-8901-bcdef1234567', NULL, 'remove', 2,

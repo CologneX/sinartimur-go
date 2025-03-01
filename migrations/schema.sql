@@ -184,6 +184,15 @@ Create Table Delivery_Note
     Cancelled_At   Timestamptz      Default Null
 );
 
+Create Table Customer
+(
+    Id uuid Primary Key DEFAULT uuid_generate_v4(),
+    Name VARCHAR(255) Not Null,
+    Address TEXT,
+    Telephone VARCHAR(50),
+    Created_At timestamptz
+);
+
 -- Indexes to improve query performance
 Create Index Idx_Financial_Transactions_User_Id On Financial_Transaction (User_Id);
 Create Index Idx_Users_Username On AppUser (Username);

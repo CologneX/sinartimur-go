@@ -1,4 +1,4 @@
-package inventory
+package finance
 
 import (
 	"sinartimur-go/pkg/dto"

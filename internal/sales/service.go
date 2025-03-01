@@ -1,4 +1,4 @@
-package inventory
+package sales
 
 import (
 	"sinartimur-go/pkg/dto"

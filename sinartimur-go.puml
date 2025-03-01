@@ -224,7 +224,7 @@ namespace main {
         + UserService *user.UserService
         + EmployeeService *employee.EmployeeService
         + WageService *wage.WageService
-        + ProductService *product.ProductService
+        + ProductService *transaction.ProductService
         + CategoryService *category.CategoryService
         + UnitService *unit.UnitService
 
@@ -232,7 +232,7 @@ namespace main {
 }
 
 
-namespace product {
+namespace transaction {
     class CreateProductRequest << (S,Aquamarine) >> {
         + Name string
         + Description string
@@ -319,9 +319,9 @@ namespace product {
 
     }
 }
-"utils.PaginationParameter" *-- "product.GetProductRequest"
+"utils.PaginationParameter" *-- "transaction.GetProductRequest"
 
-"product.ProductRepository" <|-- "product.ProductRepositoryImpl"
+"transaction.ProductRepository" <|-- "transaction.ProductRepositoryImpl"
 
 namespace role {
     class AssignRoleRequest << (S,Aquamarine) >> {
