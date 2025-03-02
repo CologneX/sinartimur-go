@@ -159,6 +159,43 @@ Create Table Inventory_Log
     Updated_At   Timestamptz      Default Current_Timestamp
 );
 
+-- Table: Purchase
+Create Table Supplier
+(
+    Id          Uuid Primary Key Default Uuid_Generate_V4(),
+    Name        VARCHAR(255) Not Null,
+    Address     TEXT,
+    Telephone   VARCHAR(50),
+    Created_At  Timestamptz      Default Current_Timestamp,
+    Updated_At  Timestamptz      Default Current_Timestamp,
+    Deleted_At  Timestamptz      Default Null
+);
+
+Create Table Purchase_Order
+(
+    Id            Uuid Primary Key Default Uuid_Generate_V4(),
+    Supplier_Name VARCHAR(255)   Not Null,
+    Order_Date    Timestamptz      Default Current_Timestamp,
+    Status        VARCHAR(50)    Not Null,
+    Total_Amount  NUMERIC(15, 2) Not Null,
+    Created_By     Uuid References AppUser (Id) On Delete Set Null,
+    Created_At    Timestamptz      Default Current_Timestamp,
+    Updated_At    Timestamptz      Default Current_Timestamp,
+    Cancelled_At  Timestamptz      Default Null
+);
+
+Create Table Purchase_Order_Detail
+(
+    Id               Uuid Primary Key Default Uuid_Generate_V4(),
+    Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Cascade,
+    Product_Id        Uuid References Product (Id) On Delete Cascade,
+    Quantity          INT Not Null,
+    Price             NUMERIC(15, 2) Not Null,
+    Created_At        Timestamptz      Default Current_Timestamp,
+    Updated_At        Timestamptz      Default Current_Timestamp,
+    Deleted_At        Timestamptz      Default Null
+);
+
 -- Table: Sales
 Create Table Sales_Order
 (
@@ -170,6 +207,18 @@ Create Table Sales_Order
     Created_At    Timestamptz      Default Current_Timestamp,
     Updated_At    Timestamptz      Default Current_Timestamp,
     Cancelled_At  Timestamptz      Default Null
+);
+
+Create Table Sales_Order_Detail
+(
+    Id            Uuid Primary Key Default Uuid_Generate_V4(),
+    Sales_Order_Id Uuid References Sales_Order (Id) On Delete Cascade,
+    Product_Id     Uuid References Product (Id) On Delete Cascade,
+    Quantity       INT Not Null,
+    Price          NUMERIC(15, 2) Not Null,
+    Created_At     Timestamptz      Default Current_Timestamp,
+    Updated_At     Timestamptz      Default Current_Timestamp,
+    Deleted_At     Timestamptz      Default Null
 );
 
 Create Table Delivery_Note
