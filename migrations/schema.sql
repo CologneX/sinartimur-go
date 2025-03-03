@@ -2,7 +2,7 @@
 Create Extension If Not Exists "uuid-ossp";
 
 -- Table: Admin
-Create Table AppUser
+Create Table Appuser
 (
     Id            Uuid Primary Key Default Uuid_Generate_V4(),
     Username      VARCHAR(100) Unique Not Null,
@@ -79,7 +79,7 @@ Create Table Wage_Detail
 Create Table Financial_Transaction
 (
     Id               Uuid Primary Key Default Uuid_Generate_V4(),
-    User_Id          Uuid References AppUser (Id),
+    User_Id          Uuid References Appuser (Id),
     Amount           NUMERIC(15, 2) Not Null,
     Type             VARCHAR(50)    Not Null,
     Description      TEXT,
@@ -113,9 +113,9 @@ Create Table Unit
 Create Table Product
 (
     Id          Uuid Primary Key Default Uuid_Generate_V4(),
-    Name        VARCHAR(255)       Not Null,
+    Name        VARCHAR(255)   Not Null,
     Description TEXT,
-    Price       NUMERIC(15, 2)     Not Null,
+    Price       NUMERIC(15, 2) Not Null,
     Category_Id Uuid             Default Null References Category (Id) On Delete Cascade,
     Unit_Id     Uuid             Default Null References Unit (Id) On Delete Cascade,
     Created_At  Timestamptz      Default Current_Timestamp,
@@ -150,7 +150,7 @@ Create Table Inventory_Log
 (
     Id           Uuid Primary Key Default Uuid_Generate_V4(),
     Inventory_Id Uuid References Inventory (Id) On Delete Cascade,
-    User_Id      Uuid References AppUser (Id),
+    User_Id      Uuid References Appuser (Id),
     Action       VARCHAR(50) Not Null, -- e.g., "add", "remove", "transfer"
     Quantity     INT         Not Null,
     Log_Date     Timestamptz      Default Current_Timestamp,
@@ -162,38 +162,37 @@ Create Table Inventory_Log
 -- Table: Purchase
 Create Table Supplier
 (
-    Id          Uuid Primary Key Default Uuid_Generate_V4(),
-    Name        VARCHAR(255) Not Null,
-    Address     TEXT,
-    Telephone   VARCHAR(50),
-    Created_At  Timestamptz      Default Current_Timestamp,
-    Updated_At  Timestamptz      Default Current_Timestamp,
-    Deleted_At  Timestamptz      Default Null
+    Id         Uuid Primary Key Default Uuid_Generate_V4(),
+    Name       VARCHAR(255) Not Null,
+    Address    TEXT,
+    Telephone  VARCHAR(50),
+    Created_At Timestamptz      Default Current_Timestamp,
+    Updated_At Timestamptz      Default Current_Timestamp,
+    Deleted_At Timestamptz      Default Null
 );
 
 Create Table Purchase_Order
 (
-    Id            Uuid Primary Key Default Uuid_Generate_V4(),
-    Supplier_Name VARCHAR(255)   Not Null,
-    Order_Date    Timestamptz      Default Current_Timestamp,
-    Status        VARCHAR(50)    Not Null,
-    Total_Amount  NUMERIC(15, 2) Not Null,
-    Created_By     Uuid References AppUser (Id) On Delete Set Null,
-    Created_At    Timestamptz      Default Current_Timestamp,
-    Updated_At    Timestamptz      Default Current_Timestamp,
-    Cancelled_At  Timestamptz      Default Null
+    Id           Uuid Primary Key Default Uuid_Generate_V4(),
+    Supplier_Id  Uuid             Default Null References Supplier (Id) On Delete Set Null,
+    Order_Date   Timestamptz      Default Current_Timestamp,
+    Status       VARCHAR(50)                   Not Null,
+    Total_Amount NUMERIC(15, 2)                Not Null,
+    Created_By   Uuid                          Not Null References Appuser(Id) On Delete Set Null,
+    Created_At   Timestamptz      Default Current_Timestamp,
+    Updated_At   Timestamptz      Default Current_Timestamp,
+    Cancelled_At Timestamptz      Default Null
 );
 
 Create Table Purchase_Order_Detail
 (
-    Id               Uuid Primary Key Default Uuid_Generate_V4(),
+    Id                Uuid Primary Key Default Uuid_Generate_V4(),
     Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Cascade,
     Product_Id        Uuid References Product (Id) On Delete Cascade,
-    Quantity          INT Not Null,
+    Quantity          INT            Not Null,
     Price             NUMERIC(15, 2) Not Null,
     Created_At        Timestamptz      Default Current_Timestamp,
-    Updated_At        Timestamptz      Default Current_Timestamp,
-    Deleted_At        Timestamptz      Default Null
+    Updated_At        Timestamptz      Default Current_Timestamp
 );
 
 -- Table: Sales
@@ -211,10 +210,10 @@ Create Table Sales_Order
 
 Create Table Sales_Order_Detail
 (
-    Id            Uuid Primary Key Default Uuid_Generate_V4(),
+    Id             Uuid Primary Key Default Uuid_Generate_V4(),
     Sales_Order_Id Uuid References Sales_Order (Id) On Delete Cascade,
     Product_Id     Uuid References Product (Id) On Delete Cascade,
-    Quantity       INT Not Null,
+    Quantity       INT            Not Null,
     Price          NUMERIC(15, 2) Not Null,
     Created_At     Timestamptz      Default Current_Timestamp,
     Updated_At     Timestamptz      Default Current_Timestamp,
@@ -223,28 +222,28 @@ Create Table Sales_Order_Detail
 
 Create Table Delivery_Note
 (
-    Id             Uuid Primary Key Default Uuid_Generate_V4(),
+    Id             Uuid Primary Key      Default Uuid_Generate_V4(),
     Sales_Order_Id Uuid References Sales_Order (Id) On Delete Cascade,
-    Delivery_Date  Timestamptz      Default Current_Timestamp,
+    Delivery_Date  Timestamptz           Default Current_Timestamp,
     Recipient_Name VARCHAR(255) Not Null,
     Is_Received    BOOLEAN      Not Null Default False,
-    Created_At     Timestamptz      Default Current_Timestamp,
-    Updated_At     Timestamptz      Default Current_Timestamp,
-    Cancelled_At   Timestamptz      Default Null
+    Created_At     Timestamptz           Default Current_Timestamp,
+    Updated_At     Timestamptz           Default Current_Timestamp,
+    Cancelled_At   Timestamptz           Default Null
 );
 
 Create Table Customer
 (
-    Id uuid Primary Key DEFAULT uuid_generate_v4(),
-    Name VARCHAR(255) Not Null,
-    Address TEXT,
-    Telephone VARCHAR(50),
-    Created_At timestamptz
+    Id         Uuid Primary Key Default Uuid_Generate_V4(),
+    Name       VARCHAR(255) Not Null,
+    Address    TEXT,
+    Telephone  VARCHAR(50),
+    Created_At Timestamptz
 );
 
 -- Indexes to improve query performance
 Create Index Idx_Financial_Transactions_User_Id On Financial_Transaction (User_Id);
-Create Index Idx_Users_Username On AppUser (Username);
+Create Index Idx_Users_Username On Appuser (Username);
 Create Index Idx_Employees_Name On Employee (Name);
 Create Index Idx_Employees_Position On Employee (Position);
 Create Index Idx_Wages_Employee_Id On Wage (Employee_Id);

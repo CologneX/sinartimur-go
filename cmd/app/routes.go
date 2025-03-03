@@ -7,6 +7,7 @@ import (
 	"sinartimur-go/internal/category"
 	"sinartimur-go/internal/employee"
 	"sinartimur-go/internal/product"
+	"sinartimur-go/internal/purchase"
 	"sinartimur-go/internal/unit"
 	"sinartimur-go/internal/user"
 	"sinartimur-go/internal/wage"
@@ -32,6 +33,29 @@ func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
 //	router.HandleFunc("/role/assign", v1.AssignRoleToUserHandler(roleService)).Methods("POST")
 //	router.HandleFunc("/role/unassign", v1.UnassignRoleFromUserHandler(roleService)).Methods("POST")
 //}
+
+func RegisterPurchaseOrderRoutes(router *mux.Router, purchaseOrderService *purchase.PurchaseOrderService, purchaseDetailService *purchase.PurchaseOrderDetailService) {
+	router.HandleFunc("/order", v1.CreatePurchaseOrderHandler(purchaseOrderService)).Methods("POST")
+	router.HandleFunc("/orders", v1.GetAllPurchaseOrdersHandler(purchaseOrderService)).Methods("GET")
+	//router.HandleFunc("/order/{id}", v1.GetPurchaseOrderByIDHandler(purchaseOrderService)).Methods("GET")
+	router.HandleFunc("/order/{id}", v1.UpdatePurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/order/{id}/cancel", v1.CancelPurchaseOrderHandler(purchaseOrderService)).Methods("POST")
+	router.HandleFunc("/order/{id}/receive", v1.ReceivePurchaseOrderHandler(purchaseOrderService)).Methods("POST")
+
+	// Purchase order detail routes
+	router.HandleFunc("/order/{id}/detail", v1.GetPurchaseOrderDetailHandler(purchaseOrderService)).Methods("GET")
+	router.HandleFunc("/order/{order_id}/item", v1.AddPurchaseOrderDetailHandler(purchaseDetailService)).Methods("POST")
+	router.HandleFunc("/order/item/{id}", v1.UpdatePurchaseOrderDetailHandler(purchaseDetailService)).Methods("PUT")
+	router.HandleFunc("/order/item/{id}", v1.DeletePurchaseOrderDetailHandler(purchaseDetailService)).Methods("DELETE")
+}
+
+func RegisterSupplierRoutes(router *mux.Router, supplierService *purchase.SupplierService) {
+	router.HandleFunc("/supplier", v1.CreateSupplierHandler(supplierService)).Methods("POST")
+	router.HandleFunc("/supplier/{id}", v1.UpdateSupplierHandler(supplierService)).Methods("PUT")
+	router.HandleFunc("/supplier/{id}", v1.DeleteSupplierHandler(supplierService)).Methods("DELETE")
+	//router.HandleFunc("/supplier/{id}", v1.GetSupplierByIDHandler(supplierService)).Methods("GET")
+	router.HandleFunc("/suppliers", v1.GetAllSuppliersHandler(supplierService)).Methods("GET")
+}
 
 func RegisterEmployeeRoutes(router *mux.Router, employeeService *employee.EmployeeService) {
 	router.HandleFunc("/employee", v1.CreateEmployeeHandler(employeeService)).Methods("POST")
@@ -106,6 +130,12 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	// Sales middleware setup
 	SalesRoutes := router.PathPrefix("/sales").Subrouter()
 	SalesRoutes.Use(middleware.RoleMiddleware("sales"))
+
+	// Purchase middleware setup
+	PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()
+	PurchaseRoutes.Use(middleware.RoleMiddleware("purchase"))
+	RegisterSupplierRoutes(PurchaseRoutes, services.SupplierService)
+	RegisterPurchaseOrderRoutes(PurchaseRoutes, services.PurchaseOrderService, services.PurchaseOrderDetailService)
 
 	//// Purchase middleware setup
 	//PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()

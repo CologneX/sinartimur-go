@@ -1,7 +1,9 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
+	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 )
 
@@ -58,17 +60,28 @@ func RoleMiddleware(roles ...string) func(http.Handler) http.Handler {
 				utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Invalid access token"})
 				return
 			}
+			// Extract user ID from claims and add to context
+			userID, ok := claims["user_id"].(string)
+			if !ok || userID == "" {
+				utils.ErrorJSON(w, dto.NewAPIError(http.StatusUnauthorized, map[string]string{
+					"general": "Invalid token claims",
+				}))
+				return
+			}
+
+			// Create new context with user_id and pass to next handler
+			ctx := context.WithValue(r.Context(), "user_id", userID)
 
 			rolesClaim, ok := claims["roles"].([]interface{})
 			for _, role := range rolesClaim {
 				roleStr := role.(string)
 				if roleStr == "admin" {
-					next.ServeHTTP(w, r)
+					next.ServeHTTP(w, r.WithContext(ctx))
 					return
 				}
 				for _, requiredRole := range roles {
 					if roleStr == requiredRole {
-						next.ServeHTTP(w, r)
+						next.ServeHTTP(w, r.WithContext(ctx))
 						return
 					}
 				}
@@ -78,7 +91,6 @@ func RoleMiddleware(roles ...string) func(http.Handler) http.Handler {
 				utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Akses Tidak Diizinkan"})
 				return
 			}
-
 			utils.WriteJSON(w, http.StatusUnauthorized, map[string]string{"error": "Akses Tidak Diizinkan"})
 		})
 	}
