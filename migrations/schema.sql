@@ -18,25 +18,7 @@ Create Table Appuser
     Updated_At    Timestamptz      Default Current_Timestamp
 );
 
--- Create Table Roles
--- (
---     Id          Uuid Primary Key Default Uuid_Generate_V4(),
---     Name        VARCHAR(50) Unique Not Null,
---     Description TEXT,
---     Created_At  Timestamptz      Default Current_Timestamp,
---     Updated_At  Timestamptz      Default Current_Timestamp
--- );
---
--- Create Table User_Roles
--- (
---     Id          Uuid Primary Key Default Uuid_Generate_V4(),
---     User_Id     Uuid References Users (Id) On Delete Cascade,
---     Role_Id     Uuid References Roles (Id) On Delete Cascade,
---     Assigned_At Timestamptz      Default Current_Timestamp,
---     Unique (User_Id, Role_Id)
--- );
-
--- Table: HR
+-- Table: HR Management
 Create Table Employee
 (
     Id         Uuid Primary Key      Default Uuid_Generate_V4(),
@@ -49,7 +31,6 @@ Create Table Employee
     Updated_At Timestamptz           Default Current_Timestamp,
     Deleted_At Timestamptz           Default Null
 );
-
 
 Create Table Wage
 (
@@ -73,20 +54,6 @@ Create Table Wage_Detail
     Created_At     Timestamptz      Default Current_Timestamp,
     Updated_At     Timestamptz      Default Current_Timestamp,
     Deleted_At     Timestamptz      Default Null
-);
-
--- Table: Financial Transactions
-Create Table Financial_Transaction
-(
-    Id               Uuid Primary Key Default Uuid_Generate_V4(),
-    User_Id          Uuid References Appuser (Id),
-    Amount           NUMERIC(15, 2) Not Null,
-    Type             VARCHAR(50)    Not Null,
-    Description      TEXT,
-    Transaction_Date Timestamptz    Not Null,
-    Created_At       Timestamptz      Default Current_Timestamp,
-    Edited_At        Timestamptz      Default Null,
-    Deleted_At       Timestamptz      Default Null
 );
 
 -- Table: Inventory
@@ -113,16 +80,14 @@ Create Table Unit
 Create Table Product
 (
     Id          Uuid Primary Key Default Uuid_Generate_V4(),
-    Name        VARCHAR(255)   Not Null,
+    Name        VARCHAR(255) Not Null,
     Description TEXT,
-    Price       NUMERIC(15, 2) Not Null,
     Category_Id Uuid             Default Null References Category (Id) On Delete Cascade,
     Unit_Id     Uuid             Default Null References Unit (Id) On Delete Cascade,
     Created_At  Timestamptz      Default Current_Timestamp,
     Updated_At  Timestamptz      Default Current_Timestamp,
     Deleted_At  Timestamptz      Default Null
 );
-
 
 Create Table Storage
 (
@@ -134,29 +99,15 @@ Create Table Storage
     Deleted_At Timestamptz      Default Null
 );
 
-Create Table Inventory
+Create Table Customer
 (
-    Id               Uuid Primary Key Default Uuid_Generate_V4(),
-    Product_Id       Uuid References Product (Id) On Delete Cascade,
-    Storage_Id       Uuid References Storage (Id) On Delete Cascade,
-    Quantity         INT Not Null     Default 0,
-    Minimum_Quantity INT Not Null     Default 0,
-    Created_At       Timestamptz      Default Current_Timestamp,
-    Updated_At       Timestamptz      Default Current_Timestamp
-);
-
-
-Create Table Inventory_Log
-(
-    Id           Uuid Primary Key Default Uuid_Generate_V4(),
-    Inventory_Id Uuid References Inventory (Id) On Delete Cascade,
-    User_Id      Uuid References Appuser (Id),
-    Action       VARCHAR(50) Not Null, -- e.g., "add", "remove", "transfer"
-    Quantity     INT         Not Null,
-    Log_Date     Timestamptz      Default Current_Timestamp,
-    Description  TEXT,
-    Created_At   Timestamptz      Default Current_Timestamp,
-    Updated_At   Timestamptz      Default Current_Timestamp
+    Id         Uuid Primary Key Default Uuid_Generate_V4(),
+    Name       VARCHAR(255) Not Null,
+    Address    TEXT,
+    Telephone  VARCHAR(50),
+    Created_At Timestamptz      Default Current_Timestamp,
+    Updated_At Timestamptz      Default Current_Timestamp,
+    Deleted_At Timestamptz      Default Null
 );
 
 -- Table: Purchase
@@ -173,72 +124,212 @@ Create Table Supplier
 
 Create Table Purchase_Order
 (
-    Id           Uuid Primary Key Default Uuid_Generate_V4(),
-    Supplier_Id  Uuid             Default Null References Supplier (Id) On Delete Set Null,
-    Order_Date   Timestamptz      Default Current_Timestamp,
-    Status       VARCHAR(50)                   Not Null,
-    Total_Amount NUMERIC(15, 2)                Not Null,
-    Created_By   Uuid                          Not Null References Appuser(Id) On Delete Set Null,
-    Created_At   Timestamptz      Default Current_Timestamp,
-    Updated_At   Timestamptz      Default Current_Timestamp,
-    Cancelled_At Timestamptz      Default Null
+    Id                  Uuid Primary Key Default Uuid_Generate_V4(),
+    Supplier_Id         Uuid             Default Null References Supplier (Id) On Delete Set Null,
+    Order_Date          Timestamptz      Default Current_Timestamp,
+    Status              VARCHAR(50)                   Not Null, -- ordered, received, checked, completed, partially_returned, returned, cancelled
+    Total_Amount        NUMERIC(15, 2)                Not Null,
+    Payment_Due_Date    Timestamptz      Default Null,
+    Created_By          Uuid                          Not Null References Appuser (Id) On Delete Set Null,
+    Received_By         Uuid                          References Appuser (Id) On Delete Set Null,
+    Checked_By          Uuid                          References Appuser (Id) On Delete Set Null,
+    Fully_Returned_By   Uuid                          References Appuser (Id) On Delete Set Null,
+    Return_Cancelled_By Uuid                          References Appuser (Id) On Delete Set Null,
+    Cancelled_By        Uuid                          References Appuser (Id) On Delete Set Null,
+    Created_At          Timestamptz      Default Current_Timestamp,
+    Updated_At          Timestamptz      Default Current_Timestamp,
+    Cancelled_At        Timestamptz      Default Null,
+    Received_At         Timestamptz      Default Null,
+    Checked_At          Timestamptz      Default Null,
+    Fully_Returned_At   Timestamptz      Default Null,
+    Return_Cancelled_At Timestamptz      Default Null
 );
 
 Create Table Purchase_Order_Detail
 (
+    Id                      Uuid Primary Key Default Uuid_Generate_V4(),
+    Purchase_Order_Id       Uuid References Purchase_Order (Id) On Delete Cascade,
+    Product_Id              Uuid References Product (Id) On Delete Cascade,
+    Requested_Quantity      NUMERIC(15, 2) Not Null,
+    Total_Returned_Quantity NUMERIC(15, 2)   Default 0,
+    Received_Quantity       NUMERIC(15, 2)   Default 0,
+    Unit_Price              NUMERIC(15, 2) Not Null,
+    Created_At              Timestamptz      Default Current_Timestamp,
+    Updated_At              Timestamptz      Default Current_Timestamp
+);
+
+-- Product Batch table to track products by SKU
+Create Table Product_Batch
+(
     Id                Uuid Primary Key Default Uuid_Generate_V4(),
-    Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Cascade,
-    Product_Id        Uuid References Product (Id) On Delete Cascade,
-    Quantity          INT            Not Null,
-    Price             NUMERIC(15, 2) Not Null,
+    Sku               VARCHAR(100)   Not Null Unique,
+    Product_Id        Uuid           Not Null References Product (Id) On Delete Cascade,
+    Purchase_Order_Id Uuid           Not Null References Purchase_Order (Id) On Delete Cascade,
+    Initial_Quantity  NUMERIC(15, 2) Not Null,
+    Current_Quantity  NUMERIC(15, 2) Not Null,
+    Unit_Price        NUMERIC(15, 2) Not Null,
     Created_At        Timestamptz      Default Current_Timestamp,
     Updated_At        Timestamptz      Default Current_Timestamp
+);
+
+-- Batch Storage table to track where batches are stored
+Create Table Batch_Storage
+(
+    Id         Uuid Primary Key        Default Uuid_Generate_V4(),
+    Batch_Id   Uuid References Product_Batch (Id) On Delete Cascade,
+    Storage_Id Uuid References Storage (Id) On Delete Cascade,
+    Quantity   NUMERIC(15, 2) Not Null Default 0,
+    Created_At Timestamptz             Default Current_Timestamp,
+    Updated_At Timestamptz             Default Current_Timestamp,
+    Unique (Batch_Id, Storage_Id)
+);
+
+Create Table Purchase_Order_Return
+(
+    Id                 Uuid Primary Key        Default Uuid_Generate_V4(),
+    Purchase_Order_Id  Uuid References Purchase_Order (Id) On Delete Cascade,
+    Product_Detail_Id  Uuid References Purchase_Order_Detail (Id) On Delete Cascade,
+    Return_Quantity    NUMERIC(15, 2) Not Null,
+    Remaining_Quantity NUMERIC(15, 2) Not Null,
+    Return_Reason      TEXT                    Default Null,
+    Return_Status      VARCHAR(50)    Not Null, -- pending, completed, cancelled
+    Returned_By        Uuid           References Appuser (Id) On Delete Set Null,
+    Cancelled_By       Uuid           References Appuser (Id) On Delete Set Null,
+    Returned_At        Timestamptz    Not Null Default Current_Timestamp,
+    Cancelled_At       Timestamptz             Default Null
+);
+
+Create Table Purchase_Order_Return_Batch
+(
+    Id                 Uuid Primary Key Default Uuid_Generate_V4(),
+    Purchase_Return_Id Uuid References Purchase_Order_Return (Id) On Delete Cascade,
+    Batch_Id           Uuid           References Product_Batch (Id) On Delete Set Null,
+    Return_Quantity    NUMERIC(15, 2) Not Null,
+    Created_At         Timestamptz      Default Current_Timestamp
 );
 
 -- Table: Sales
 Create Table Sales_Order
 (
-    Id            Uuid Primary Key Default Uuid_Generate_V4(),
-    Customer_Name VARCHAR(255)   Not Null,
-    Order_Date    Timestamptz      Default Current_Timestamp,
-    Status        VARCHAR(50)    Not Null,
-    Total_Amount  NUMERIC(15, 2) Not Null,
-    Created_At    Timestamptz      Default Current_Timestamp,
-    Updated_At    Timestamptz      Default Current_Timestamp,
-    Cancelled_At  Timestamptz      Default Null
+    Id                    Uuid Primary Key Default Uuid_Generate_V4(),
+    Customer_Id           Uuid           References Customer (Id) On Delete Set Null,
+    Customer_Name         VARCHAR(255)   Not Null,
+    Order_Date            Timestamptz      Default Current_Timestamp,
+    Status                VARCHAR(50)    Not Null, -- draft, invoiced, delivered, partially_returned, returned, cancelled
+    Payment_Method        VARCHAR(50)    Not Null, -- cash, paylater
+    Payment_Due_Date      Timestamptz      Default Null,
+    Total_Amount          NUMERIC(15, 2) Not Null,
+    Invoice_Created       BOOLEAN          Default False,
+    Delivery_Note_Created BOOLEAN          Default False,
+    Created_By            Uuid           Not Null References Appuser (Id) On Delete Set Null,
+    Invoiced_By           Uuid           References Appuser (Id) On Delete Set Null,
+    Delivered_By          Uuid           References Appuser (Id) On Delete Set Null,
+    Cancelled_By          Uuid           References Appuser (Id) On Delete Set Null,
+    Fully_Returned_By     Uuid           References Appuser (Id) On Delete Set Null,
+    Return_Cancelled_By   Uuid           References Appuser (Id) On Delete Set Null,
+    Created_At            Timestamptz      Default Current_Timestamp,
+    Updated_At            Timestamptz      Default Current_Timestamp,
+    Invoiced_At           Timestamptz      Default Null,
+    Delivered_At          Timestamptz      Default Null,
+    Cancelled_At          Timestamptz      Default Null,
+    Fully_Returned_At     Timestamptz      Default Null,
+    Return_Cancelled_At   Timestamptz      Default Null
 );
 
 Create Table Sales_Order_Detail
 (
     Id             Uuid Primary Key Default Uuid_Generate_V4(),
     Sales_Order_Id Uuid References Sales_Order (Id) On Delete Cascade,
+    Batch_Id       Uuid References Product_Batch (Id) On Delete Cascade,
     Product_Id     Uuid References Product (Id) On Delete Cascade,
-    Quantity       INT            Not Null,
-    Price          NUMERIC(15, 2) Not Null,
+    Quantity       NUMERIC(15, 2) Not Null,
+    Unit_Price     NUMERIC(15, 2) Not Null,
     Created_At     Timestamptz      Default Current_Timestamp,
     Updated_At     Timestamptz      Default Current_Timestamp,
     Deleted_At     Timestamptz      Default Null
 );
 
-Create Table Delivery_Note
+-- Sales_Order_Storage table to track which storage items are taken from
+Create Table Sales_Order_Storage
 (
-    Id             Uuid Primary Key      Default Uuid_Generate_V4(),
-    Sales_Order_Id Uuid References Sales_Order (Id) On Delete Cascade,
-    Delivery_Date  Timestamptz           Default Current_Timestamp,
-    Recipient_Name VARCHAR(255) Not Null,
-    Is_Received    BOOLEAN      Not Null Default False,
-    Created_At     Timestamptz           Default Current_Timestamp,
-    Updated_At     Timestamptz           Default Current_Timestamp,
-    Cancelled_At   Timestamptz           Default Null
+    Id                    Uuid Primary Key Default Uuid_Generate_V4(),
+    Sales_Order_Detail_Id Uuid References Sales_Order_Detail (Id) On Delete Cascade,
+    Storage_Id            Uuid References Storage (Id) On Delete Cascade,
+    Batch_Id              Uuid References Product_Batch (Id) On Delete Cascade,
+    Quantity              NUMERIC(15, 2) Not Null,
+    Created_At            Timestamptz      Default Current_Timestamp,
+    Updated_At            Timestamptz      Default Current_Timestamp
 );
 
-Create Table Customer
+Create Table Sales_Order_Return
 (
-    Id         Uuid Primary Key Default Uuid_Generate_V4(),
-    Name       VARCHAR(255) Not Null,
-    Address    TEXT,
-    Telephone  VARCHAR(50),
-    Created_At Timestamptz
+    Id                      Uuid Primary Key        Default Uuid_Generate_V4(),
+    Sales_Order_Id          Uuid References Sales_Order (Id) On Delete Cascade,
+    Sales_Detail_Id         Uuid References Sales_Order_Detail (Id) On Delete Cascade,
+    Return_Quantity         NUMERIC(15, 2) Not Null,
+    Remaining_Quantity      NUMERIC(15, 2) Not Null,
+    Total_Returned_Quantity NUMERIC(15, 2)          Default 0,
+    Return_Reason           TEXT                    Default Null,
+    Return_Status           VARCHAR(50)    Not Null, -- pending, completed, cancelled
+    Returned_By             Uuid           References Appuser (Id) On Delete Set Null,
+    Cancelled_By            Uuid           References Appuser (Id) On Delete Set Null,
+    Returned_At             Timestamptz    Not Null Default Current_Timestamp,
+    Cancelled_At            Timestamptz             Default Null
+);
+
+Create Table Sales_Order_Return_Batch
+(
+    Id              Uuid Primary Key Default Uuid_Generate_V4(),
+    Sales_Return_Id Uuid References Sales_Order_Return (Id) On Delete Cascade,
+    Batch_Id        Uuid           References Product_Batch (Id) On Delete Set Null,
+    Return_Quantity NUMERIC(15, 2) Not Null,
+    Created_At      Timestamptz      Default Current_Timestamp
+);
+
+Create Table Delivery_Note
+(
+    Id             Uuid Primary Key Default Uuid_Generate_V4(),
+    Sales_Order_Id Uuid References Sales_Order (Id) On Delete Cascade,
+    Delivery_Date  Timestamptz      Default Current_Timestamp,
+    Driver_Name    VARCHAR(255) Not Null,
+    Recipient_Name VARCHAR(255) Not Null,
+    Created_By     Uuid         Not Null References Appuser (Id) On Delete Set Null,
+    Created_At     Timestamptz      Default Current_Timestamp,
+    Updated_At     Timestamptz      Default Current_Timestamp,
+    Cancelled_At   Timestamptz      Default Null,
+    Cancelled_By   Uuid         References Appuser (Id) On Delete Set Null
+);
+
+Create Table Inventory_Log
+(
+    Id                Uuid Primary Key Default Uuid_Generate_V4(),
+    Batch_Id          Uuid           References Product_Batch (Id) On Delete Set Null,
+    Storage_Id        Uuid           References Storage (Id) On Delete Set Null,
+    User_Id           Uuid References Appuser (Id),
+    Purchase_Order_Id Uuid           References Purchase_Order (Id) On Delete Set Null,
+    Sales_Order_Id    Uuid           References Sales_Order (Id) On Delete Set Null,
+    Action            VARCHAR(50)    Not Null, -- e.g., "add", "remove", "transfer", "return"
+    Quantity          NUMERIC(15, 2) Not Null,
+    Log_Date          Timestamptz      Default Current_Timestamp,
+    Description       TEXT,
+    Created_At        Timestamptz      Default Current_Timestamp,
+    Updated_At        Timestamptz      Default Current_Timestamp
+);
+
+-- Table: Financial Transactions
+Create Table Financial_Transaction
+(
+    Id                Uuid Primary Key Default Uuid_Generate_V4(),
+    User_Id           Uuid References Appuser (Id),
+    Amount            NUMERIC(15, 2) Not Null,
+    Type              VARCHAR(50)    Not Null,
+    Purchase_Order_Id Uuid           References Purchase_Order (Id) On Delete Set Null,
+    Sales_Order_Id    Uuid           References Sales_Order (Id) On Delete Set Null,
+    Description       TEXT,
+    Transaction_Date  Timestamptz    Not Null,
+    Created_At        Timestamptz      Default Current_Timestamp,
+    Edited_At         Timestamptz      Default Null,
+    Deleted_At        Timestamptz      Default Null
 );
 
 -- Indexes to improve query performance
@@ -254,7 +345,32 @@ Create Index Idx_Employees_Nik On Employee (Nik);
 Create Index Idx_Sales_Orders_Status On Sales_Order (Status);
 Create Index Idx_Products_Name On Product (Name);
 Create Index Idx_Storages_Name On Storage (Name);
-Create Unique Index Idx_Inventory_Product_Storage On Inventory (Product_Id, Storage_Id);
-Create Index Idx_Inventory_Quantity On Inventory (Quantity);
-Create Index Idx_Inventory_Logs_Inventory_Id On Inventory_Log (Inventory_Id);
+Create Index Idx_Inventory_Logs_Log_Date On Inventory_Log (Log_Date);
 Create Index Idx_Inventory_Logs_Action On Inventory_Log (Action);
+Create Index Idx_Product_Batch_Sku On Product_Batch (Sku);
+Create Index Idx_Product_Batch_Product_Id On Product_Batch (Product_Id);
+Create Index Idx_Batch_Storage_Batch_Id On Batch_Storage (Batch_Id);
+Create Index Idx_Sales_Order_Payment_Method On Sales_Order (Payment_Method);
+Create Index Idx_Sales_Order_Detail_Batch_Id On Sales_Order_Detail (Batch_Id);
+Create Index Idx_Sales_Order_Storage_Batch_Id On Sales_Order_Storage (Batch_Id);
+Create Index Idx_Inventory_Log_Batch_Id On Inventory_Log (Batch_Id);
+Create Index Idx_Purchase_Order_Created_By On Purchase_Order (Created_By);
+Create Index Idx_Purchase_Order_Received_By On Purchase_Order (Received_By);
+Create Index Idx_Purchase_Order_Checked_By On Purchase_Order (Checked_By);
+Create Index Idx_Purchase_Order_Cancelled_By On Purchase_Order (Cancelled_By);
+Create Index Idx_Sales_Order_Created_By On Sales_Order (Created_By);
+Create Index Idx_Sales_Order_Invoiced_By On Sales_Order (Invoiced_By);
+Create Index Idx_Sales_Order_Delivered_By On Sales_Order (Delivered_By);
+Create Index Idx_Sales_Order_Cancelled_By On Sales_Order (Cancelled_By);
+Create Index Idx_Delivery_Note_Created_By On Delivery_Note (Created_By);
+Create Index Idx_Delivery_Note_Cancelled_By On Delivery_Note (Cancelled_By);
+Create Index Idx_Purchase_Order_Return_Order_Id On Purchase_Order_Return (Purchase_Order_Id);
+Create Index Idx_Purchase_Order_Return_Detail_Id On Purchase_Order_Return (Product_Detail_Id);
+Create Index Idx_Purchase_Order_Return_Batch_Return_Id On Purchase_Order_Return_Batch (Purchase_Return_Id);
+Create Index Idx_Purchase_Order_Return_Returned_By On Purchase_Order_Return (Returned_By);
+Create Index Idx_Purchase_Order_Fully_Returned_By On Purchase_Order (Fully_Returned_By);
+Create Index Idx_Sales_Order_Fully_Returned_By On Sales_Order (Fully_Returned_By);
+Create Index Idx_Sales_Order_Return_Cancelled_By On Sales_Order (Return_Cancelled_By);
+Create Index Idx_Sales_Order_Return_Order_Id On Sales_Order_Return (Sales_Order_Id);
+Create Index Idx_Sales_Order_Return_Detail_Id On Sales_Order_Return (Sales_Detail_Id);
+Create Index Idx_Sales_Order_Return_Batch_Return_Id On Sales_Order_Return_Batch (Sales_Return_Id);
