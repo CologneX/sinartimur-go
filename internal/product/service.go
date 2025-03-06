@@ -185,3 +185,29 @@ func (s *ProductService) DeleteProduct(request DeleteProductRequest) *dto.APIErr
 	}
 	return nil
 }
+
+// GetProductBatches fetches all batches for a product with storage information
+func (s *ProductService) GetProductBatches(req GetProductBatchesRequest) ([]ProductBatchResponse, int, *dto.APIError) {
+	// Check if product exists first
+	_, err := s.repo.GetByID(req.ProductID)
+	if err != nil {
+		return nil, 0, &dto.APIError{
+			StatusCode: 404,
+			Details: map[string]string{
+				"general": "Produk tidak ditemukan",
+			},
+		}
+	}
+
+	batches, totalItems, err := s.repo.GetProductBatches(req)
+	if err != nil {
+		return nil, 0, &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+
+	return batches, totalItems, nil
+}

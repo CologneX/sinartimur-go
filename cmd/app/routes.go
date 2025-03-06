@@ -77,6 +77,7 @@ func RegisterProductRoutes(router *mux.Router, productService *product.ProductSe
 	router.HandleFunc("/product/{id}", v1.UpdateProductHandler(productService)).Methods("PUT")
 	router.HandleFunc("/product/{id}", v1.DeleteProductHandler(productService)).Methods("DELETE")
 	router.HandleFunc("/products", v1.GetAllProductHandler(productService)).Methods("GET")
+	router.HandleFunc("/product/batch/{id}", v1.GetProductBatchHandler(productService)).Methods("GET")
 }
 
 func RegisterUnitRoutes(router *mux.Router, unitService *unit.UnitService) {

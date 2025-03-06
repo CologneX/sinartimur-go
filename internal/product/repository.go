@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"sinartimur-go/internal/category"
 	"sinartimur-go/internal/unit"
+	"strings"
 )
 
 type ProductRepository interface {
@@ -16,6 +17,7 @@ type ProductRepository interface {
 	Delete(req DeleteProductRequest) error
 	GetCategoryByID(id string) (*category.GetCategoryResponse, error)
 	GetUnitByID(id string) (*unit.GetUnitResponse, error)
+	GetProductBatches(req GetProductBatchesRequest) ([]ProductBatchResponse, int, error)
 }
 
 type ProductRepositoryImpl struct {
@@ -26,44 +28,89 @@ func NewProductRepository(db *sql.DB) ProductRepository {
 	return &ProductRepositoryImpl{db: db}
 }
 
-// GetAll fetches all product
+// GetAll fetches all products
 func (r *ProductRepositoryImpl) GetAll(req GetProductRequest) ([]GetProductResponse, int, error) {
 	var products []GetProductResponse
 	var totalItems int
-	// Query for fetching all products with category and unit name
-	query := "Select P.Id, P.Name,P.Description, P.Price, C.Name As Category, U.Name As Unit, P.Created_At, P.Updated_At From Product P Join Category C On P.Category_Id = C.Id Join Unit U On P.Unit_Id = U.Id Where P.Deleted_At Is Null"
 
-	countQuery := "Select Count(Id) From Product Where Deleted_At Is Null"
+	// Using strings.Builder for query construction
+	var queryBuilder strings.Builder
+	var countQueryBuilder strings.Builder
 
+	// Base queries
+	queryBuilder.WriteString("Select P.Id, P.Name, P.Description, C.Name As Category, U.Name As Unit, P.Created_At, P.Updated_At From Product P Join Category C On P.Category_Id = C.Id Join Unit U On P.Unit_Id = U.Id Where P.Deleted_At Is Null")
+	countQueryBuilder.WriteString("Select Count(Id) From Product Where Deleted_At Is Null")
+
+	// Apply filters
 	if req.Name != "" {
-		query += " AND p.name ILIKE '%" + req.Name + "%'"
-		countQuery += " AND name ILIKE '%" + req.Name + "%'"
+		queryBuilder.WriteString(" AND p.name ILIKE '%")
+		queryBuilder.WriteString(req.Name)
+		queryBuilder.WriteString("%'")
+
+		countQueryBuilder.WriteString(" AND name ILIKE '%")
+		countQueryBuilder.WriteString(req.Name)
+		countQueryBuilder.WriteString("%'")
 	}
 
 	if req.Category != "" {
-		query += " AND p.category_id = '" + req.Category + "'"
-		countQuery += " AND category_id = '" + req.Category + "'"
+		queryBuilder.WriteString(" AND p.category_id = '")
+		queryBuilder.WriteString(req.Category)
+		queryBuilder.WriteString("'")
+
+		countQueryBuilder.WriteString(" AND category_id = '")
+		countQueryBuilder.WriteString(req.Category)
+		countQueryBuilder.WriteString("'")
 	}
 
 	if req.Unit != "" {
-		query += " AND p.unit_id = '" + req.Unit + "'"
-		countQuery += " AND unit_id = '" + req.Unit + "'"
+		queryBuilder.WriteString(" AND p.unit_id = '")
+		queryBuilder.WriteString(req.Unit)
+		queryBuilder.WriteString("'")
+
+		countQueryBuilder.WriteString(" AND unit_id = '")
+		countQueryBuilder.WriteString(req.Unit)
+		countQueryBuilder.WriteString("'")
 	}
 
-	rows, err := r.db.Query(query)
+	// Add sorting
+	if req.SortBy != "" {
+		queryBuilder.WriteString(" ORDER BY ")
+		queryBuilder.WriteString(req.SortBy)
+		if req.SortOrder != "" {
+			queryBuilder.WriteString(" ")
+			queryBuilder.WriteString(req.SortOrder)
+		}
+	} else {
+		queryBuilder.WriteString(" ORDER BY P.Name")
+	}
+
+	// Add pagination
+	queryBuilder.WriteString(fmt.Sprintf(" LIMIT %d OFFSET %d", req.PageSize, (req.Page-1)*req.PageSize))
+
+	// Execute count query first
+	err := r.db.QueryRow(countQueryBuilder.String()).Scan(&totalItems)
 	if err != nil {
 		return nil, 0, err
 	}
 
-	countRow := r.db.QueryRow(countQuery)
-	err = countRow.Scan(&totalItems)
+	// Execute main query
+	rows, err := r.db.Query(queryBuilder.String())
 	if err != nil {
 		return nil, 0, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
 		var product GetProductResponse
-		err = rows.Scan(&product.ID, &product.Name, &product.Description, &product.Price, &product.Category, &product.Unit, &product.CreatedAt, &product.UpdatedAt)
+		err = rows.Scan(
+			&product.ID,
+			&product.Name,
+			&product.Description,
+			&product.Category,
+			&product.Unit,
+			&product.CreatedAt,
+			&product.UpdatedAt,
+		)
 		if err != nil {
 			return nil, 0, err
 		}
@@ -77,7 +124,24 @@ func (r *ProductRepositoryImpl) GetAll(req GetProductRequest) ([]GetProductRespo
 // GetByID fetches a product by ID
 func (r *ProductRepositoryImpl) GetByID(id string) (*GetProductResponse, error) {
 	var product GetProductResponse
-	err := r.db.QueryRow("Select Id, Name, Description, Price, Category_Id, Unit_Id, Created_At, Updated_At From Product Where Id = $1 And Deleted_At Is Null", id).Scan(&product.ID, &product.Name, &product.Description, &product.Price, &product.Category, &product.Unit, &product.CreatedAt, &product.UpdatedAt)
+	query := `
+		Select P.Id, P.Name, P.Description,
+		       C.Name As Category, U.Name As Unit, 
+		       P.Created_At, P.Updated_At 
+		From Product P
+		Join Category C On P.Category_Id = C.Id
+		Join Unit U On P.Unit_Id = U.Id
+		Where P.Id = $1 And P.Deleted_At Is Null`
+
+	err := r.db.QueryRow(query, id).Scan(
+		&product.ID,
+		&product.Name,
+		&product.Description,
+		&product.Category,
+		&product.Unit,
+		&product.CreatedAt,
+		&product.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -107,8 +171,24 @@ func (r *ProductRepositoryImpl) GetUnitByID(id string) (*unit.GetUnitResponse, e
 // GetByName fetches a product by name
 func (r *ProductRepositoryImpl) GetByName(name string) (*GetProductResponse, error) {
 	var product GetProductResponse
-	err := r.db.QueryRow("Select Id, Name, Description, Created_At, Updated_At From Product Where Name = $1 And Deleted_At Is Null", name).Scan(&product.ID, &product.Name, &product.Description, &product.CreatedAt, &product.UpdatedAt)
-	fmt.Println(err, product)
+	query := `
+		Select P.Id, P.Name, P.Description,
+		       C.Name As Category, U.Name As Unit, 
+		       P.Created_At, P.Updated_At 
+		From Product P
+		Join Category C On P.Category_Id = C.Id
+		Join Unit U On P.Unit_Id = U.Id
+		Where P.Name = $1 And P.Deleted_At Is Null`
+
+	err := r.db.QueryRow(query, name).Scan(
+		&product.ID,
+		&product.Name,
+		&product.Description,
+		&product.Category,
+		&product.Unit,
+		&product.CreatedAt,
+		&product.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -118,7 +198,23 @@ func (r *ProductRepositoryImpl) GetByName(name string) (*GetProductResponse, err
 // Create inserts a new product
 func (r *ProductRepositoryImpl) Create(req CreateProductRequest) (*GetProductResponse, error) {
 	var product GetProductResponse
-	err := r.db.QueryRow("Insert Into Product (Name, Description ,Price, Category_Id, Unit_Id) Values ($1, $2, $3, $4, $5 ) Returning Id, Name, Description, Created_At, Updated_At", req.Name, req.Description, req.Price, req.CategoryID, req.UnitID).Scan(&product.ID, &product.Name, &product.Description, &product.CreatedAt, &product.UpdatedAt)
+	query := `
+		Insert Into Product (Name, Description, Category_Id, Unit_Id) 
+		Values ($1, $2, $3, $4) 
+		Returning Id, Name, Description,
+		(Select Name From Category Where Id = $4) As Category, 
+		(Select Name From Unit Where Id = $5) As Unit, 
+		Created_At, Updated_At`
+
+	err := r.db.QueryRow(query, req.Name, req.Description, req.CategoryID, req.UnitID).Scan(
+		&product.ID,
+		&product.Name,
+		&product.Description,
+		&product.Category,
+		&product.Unit,
+		&product.CreatedAt,
+		&product.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +224,24 @@ func (r *ProductRepositoryImpl) Create(req CreateProductRequest) (*GetProductRes
 // Update updates an existing product
 func (r *ProductRepositoryImpl) Update(req UpdateProductRequest) (*GetProductResponse, error) {
 	var product GetProductResponse
-	err := r.db.QueryRow("Update Product Set Name = $1, Description = $2, Price = $3, Category_Id = $4, Unit_Id = $5, Updated_At = Now() Where Id = $6 Returning Id, Name, Description, Created_At, Updated_At", req.Name, req.Description, req.Price, req.CategoryID, req.UnitID, req.ID).Scan(&product.ID, &product.Name, &product.Description, &product.CreatedAt, &product.UpdatedAt)
+	query := `
+		Update Product 
+		Set Name = $1, Description = $2, Category_Id = $3, Unit_Id = $4, Updated_At = Now() 
+		Where Id = $5
+		Returning Id, Name, Description,
+		(Select Name From Category Where Id = $4) As Category, 
+		(Select Name From Unit Where Id = $5) As Unit, 
+		Created_At, Updated_At`
+
+	err := r.db.QueryRow(query, req.Name, req.Description, req.CategoryID, req.UnitID, req.ID).Scan(
+		&product.ID,
+		&product.Name,
+		&product.Description,
+		&product.Category,
+		&product.Unit,
+		&product.CreatedAt,
+		&product.UpdatedAt,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -142,4 +255,75 @@ func (r *ProductRepositoryImpl) Delete(req DeleteProductRequest) error {
 		return err
 	}
 	return nil
+}
+
+// GetProductBatches fetches all batches for a product with storage information
+func (r *ProductRepositoryImpl) GetProductBatches(req GetProductBatchesRequest) ([]ProductBatchResponse, int, error) {
+	var batches []ProductBatchResponse
+	var totalItems int
+
+	// Count total batches for this product
+	countQuery := "Select Count(Id) From Product_Batch Where Product_Id = $1"
+	err := r.db.QueryRow(countQuery, req.ProductID).Scan(&totalItems)
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Build query for batches with pagination
+	var queryBuilder strings.Builder
+	queryBuilder.WriteString(`
+		Select Id, Sku, Purchase_Order_Id, Initial_Quantity, Current_Quantity, Unit_Price, Created_At
+		From Product_Batch
+		Where Product_Id = $1
+		Order By Created_At Desc
+		Limit $2 Offset $3`)
+
+	rows, err := r.db.Query(queryBuilder.String(), req.ProductID, req.PageSize, (req.Page-1)*req.PageSize)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var batch ProductBatchResponse
+		err = rows.Scan(
+			&batch.BatchID,
+			&batch.SKU,
+			&batch.PurchaseOrderID,
+			&batch.InitialQuantity,
+			&batch.CurrentQuantity,
+			&batch.UnitPrice,
+			&batch.CreatedAt,
+		)
+		if err != nil {
+			return nil, 0, err
+		}
+
+		// Get storage information for this batch
+		storageQuery := `
+			Select Bs.Storage_Id, S.Name, Bs.Quantity
+			From Batch_Storage Bs
+			Join Storage S On Bs.Storage_Id = S.Id
+			Where Bs.Batch_Id = $1 And S.Deleted_At Is Null
+		`
+		storageRows, errQ := r.db.Query(storageQuery, batch.BatchID)
+		if errQ != nil {
+			return nil, 0, errQ
+		}
+
+		for storageRows.Next() {
+			var storage ProductBatchInStorage
+			err = storageRows.Scan(&storage.StorageID, &storage.StorageName, &storage.Quantity)
+			if err != nil {
+				storageRows.Close()
+				return nil, 0, err
+			}
+			batch.StorageDetails = append(batch.StorageDetails, storage)
+		}
+		storageRows.Close()
+
+		batches = append(batches, batch)
+	}
+
+	return batches, totalItems, nil
 }

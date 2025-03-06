@@ -9,124 +9,6 @@ import (
 	"sinartimur-go/utils"
 )
 
-// CreateSupplierHandler creates a new supplier
-func CreateSupplierHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req purchase.CreateSupplierRequest
-		validationErrors := utils.DecodeAndValidate(r, &req)
-		if validationErrors != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
-			return
-		}
-
-		supplier, apiError := supplierService.CreateSupplier(req)
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusCreated, supplier)
-	}
-}
-
-// UpdateSupplierHandler updates a supplier
-func UpdateSupplierHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id := params["id"]
-		var req purchase.UpdateSupplierRequest
-
-		req.ID = id
-		validationErrors := utils.DecodeAndValidate(r, &req)
-
-		if validationErrors != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
-			return
-		}
-
-		supplier, apiError := supplierService.UpdateSupplier(req)
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, supplier)
-	}
-}
-
-// GetSupplierByIDHandler fetches a supplier by ID
-func GetSupplierByIDHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
-
-		supplier, apiError := supplierService.GetSupplierByID(id.String())
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, supplier)
-	}
-}
-
-// GetAllSuppliersHandler fetches all suppliers
-func GetAllSuppliersHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
-	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
-		var req purchase.GetSupplierRequest
-		req.Name, req.Telephone = r.URL.Query().Get("name"), r.URL.Query().Get("telephone")
-		req.Page = page
-		req.PageSize = pageSize
-		req.SortBy = sortBy
-		req.SortOrder = sortOrder
-		// Validate req
-		validationErrors := utils.ValidateStruct(req)
-		if validationErrors != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
-			return
-		}
-
-		suppliers, totalItems, apiError := supplierService.GetAllSuppliers(req)
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WritePaginationJSON(w, http.StatusOK, req.Page, totalItems, req.PageSize, suppliers)
-	})
-}
-
-// DeleteSupplierHandler deletes a supplier
-func DeleteSupplierHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		// Get ID from parameter
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
-		var req purchase.DeleteSupplierRequest
-		req.ID = id.String()
-
-		apiError := supplierService.DeleteSupplier(req.ID)
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Supplier berhasil dihapus"})
-	}
-}
-
 // CreatePurchaseOrderHandler creates a new purchase order
 func CreatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -387,5 +269,123 @@ func DeletePurchaseOrderDetailHandler(purchaseOrderDetailService *purchase.Purch
 		}
 
 		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Item purchase order berhasil dihapus!"})
+	}
+}
+
+// CreateSupplierHandler creates a new supplier
+func CreateSupplierHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req purchase.CreateSupplierRequest
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		supplier, apiError := supplierService.CreateSupplier(req)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusCreated, supplier)
+	}
+}
+
+// UpdateSupplierHandler updates a supplier
+func UpdateSupplierHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		id := params["id"]
+		var req purchase.UpdateSupplierRequest
+
+		req.ID = id
+		validationErrors := utils.DecodeAndValidate(r, &req)
+
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		supplier, apiError := supplierService.UpdateSupplier(req)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, supplier)
+	}
+}
+
+// GetSupplierByIDHandler fetches a supplier by ID
+func GetSupplierByIDHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		id, err := uuid.Parse(params["id"])
+		if err != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
+			return
+		}
+
+		supplier, apiError := supplierService.GetSupplierByID(id.String())
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, supplier)
+	}
+}
+
+// GetAllSuppliersHandler fetches all suppliers
+func GetAllSuppliersHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
+	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+		var req purchase.GetSupplierRequest
+		req.Name, req.Telephone = r.URL.Query().Get("name"), r.URL.Query().Get("telephone")
+		req.Page = page
+		req.PageSize = pageSize
+		req.SortBy = sortBy
+		req.SortOrder = sortOrder
+		// Validate req
+		validationErrors := utils.ValidateStruct(req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		suppliers, totalItems, apiError := supplierService.GetAllSuppliers(req)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WritePaginationJSON(w, http.StatusOK, req.Page, totalItems, req.PageSize, suppliers)
+	})
+}
+
+// DeleteSupplierHandler deletes a supplier
+func DeleteSupplierHandler(supplierService *purchase.SupplierService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get ID from parameter
+		params := mux.Vars(r)
+		id, err := uuid.Parse(params["id"])
+		if err != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
+			return
+		}
+		var req purchase.DeleteSupplierRequest
+		req.ID = id.String()
+
+		apiError := supplierService.DeleteSupplier(req.ID)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Supplier berhasil dihapus"})
 	}
 }

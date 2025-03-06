@@ -143,3 +143,27 @@ func DeleteProductHandler(productService *product.ProductService) http.HandlerFu
 		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Produk berhasil dihapus"})
 	}
 }
+
+// GetProductBatchHandler fetches product batches
+func GetProductBatchHandler(productService *product.ProductService) http.HandlerFunc {
+	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+		var req product.GetProductBatchesRequest
+		req.ProductID = mux.Vars(r)["id"]
+		req.Page = page
+		req.PageSize = pageSize
+
+		validationErrors := utils.ValidateStruct(req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		batches, totalItems, err := productService.GetProductBatches(req)
+		if err != nil {
+			utils.ErrorJSON(w, err)
+			return
+		}
+
+		utils.WritePaginationJSON(w, http.StatusOK, req.Page, totalItems, req.PageSize, batches)
+	})
+}
