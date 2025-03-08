@@ -202,8 +202,8 @@ func (r *ProductRepositoryImpl) Create(req CreateProductRequest) (*GetProductRes
 		Insert Into Product (Name, Description, Category_Id, Unit_Id) 
 		Values ($1, $2, $3, $4) 
 		Returning Id, Name, Description,
-		(Select Name From Category Where Id = $4) As Category, 
-		(Select Name From Unit Where Id = $5) As Unit, 
+		(Select Name From Category Where Id = $3) As Category, 
+		(Select Name From Unit Where Id = $4) As Unit, 
 		Created_At, Updated_At`
 
 	err := r.db.QueryRow(query, req.Name, req.Description, req.CategoryID, req.UnitID).Scan(
@@ -229,8 +229,8 @@ func (r *ProductRepositoryImpl) Update(req UpdateProductRequest) (*GetProductRes
 		Set Name = $1, Description = $2, Category_Id = $3, Unit_Id = $4, Updated_At = Now() 
 		Where Id = $5
 		Returning Id, Name, Description,
-		(Select Name From Category Where Id = $4) As Category, 
-		(Select Name From Unit Where Id = $5) As Unit, 
+		(Select Name From Category Where Id = $3) As Category, 
+		(Select Name From Unit Where Id = $4) As Unit, 
 		Created_At, Updated_At`
 
 	err := r.db.QueryRow(query, req.Name, req.Description, req.CategoryID, req.UnitID, req.ID).Scan(
