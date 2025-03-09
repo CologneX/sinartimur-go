@@ -23,25 +23,146 @@ func CreatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 
 		// Get user ID from context
 		userID := r.Context().Value("user_id").(string)
-		order, apiError := purchaseOrderService.CreatePurchaseOrder(req, userID)
+		apiError := purchaseOrderService.Create(req, userID)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusCreated, order)
+		utils.WriteJSON(w, http.StatusCreated, utils.WriteMessage("Purchase Order berhasil dibuat"))
 	}
 }
 
-// GetAllPurchaseOrdersHandler fetches all purchase orders
-func GetAllPurchaseOrdersHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+// UpdatePurchaseOrderHandler updates a purchase order
+func UpdatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req purchase.UpdatePurchaseOrderRequest
+
+		validationErrors := utils.DecodeAndValidate(r, &req)
+
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		apiError := purchaseOrderService.Update(req)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil diupdate"))
+	}
+}
+
+// DeletePurchaseOrderHandler deletes a purchase order
+func DeletePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		id := params["id"]
+
+		apiError := purchaseOrderService.Delete(id)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil dihapus"))
+	}
+}
+
+// ReceivePurchaseOrderHandler receives a purchase order
+func ReceivePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req []purchase.ReceivedItemRequest
+		validationErrors := utils.DecodeAndValidate(r, &req)
+
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		params := mux.Vars(r)
+		id := params["id"]
+
+		// Get user ID from context
+		userID := r.Context().Value("user_id").(string)
+		apiError := purchaseOrderService.ReceivePurchaseOrder(id, userID, req)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil diterima"))
+	}
+}
+
+// CheckPurchaseOrderHandler checks a purchase order
+func CheckPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		id := params["id"]
+
+		// Get user ID from context
+		userID := r.Context().Value("user_id").(string)
+		apiError := purchaseOrderService.CheckPurchaseOrder(id, userID)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil dicek"))
+	}
+}
+
+// CancelPurchaseOrderHandler cancels a purchase order
+func CancelPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		id := params["id"]
+
+		// Get user ID from context
+		userID := r.Context().Value("user_id").(string)
+		apiError := purchaseOrderService.CancelPurchaseOrder(id, userID)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil dibatalkan"))
+	}
+}
+
+// CreatePurchaseOrderReturnHandler creates a new purchase order return
+func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req purchase.CreatePurchaseOrderReturnRequest
+
+		validationErrors := utils.DecodeAndValidate(r, &req)
+
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		// Get user ID from context
+		userID := r.Context().Value("user_id").(string)
+		apiError := purchaseOrderService.CreateReturn(req, userID)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusCreated, utils.WriteMessage("Purchase Order Return berhasil dibuat"))
+	}
+}
+
+// GetAllPurchaseOrderReturnHandler fetches all purchase order returns
+func GetAllPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
-		req := purchase.GetPurchaseOrderRequest{
-			SupplierName: r.URL.Query().Get("supplier_name"),
-			OrderDate:    r.URL.Query().Get("order_date"),
-			Status:       r.URL.Query().Get("status"),
-			FromDate:     r.URL.Query().Get("from_date"),
-			ToDate:       r.URL.Query().Get("to_date"),
+		req := purchase.GetPurchaseOrderReturnRequest{
+			FromDate: r.URL.Query().Get("from_date"),
+			ToDate:   r.URL.Query().Get("to_date"),
 			PaginationParameter: utils.PaginationParameter{
 				Page:      page,
 				PageSize:  pageSize,
@@ -51,188 +172,84 @@ func GetAllPurchaseOrdersHandler(purchaseOrderService *purchase.PurchaseOrderSer
 		}
 
 		validationErrors := utils.ValidateStruct(req)
-
 		if validationErrors != nil {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
-		orders, totalItems, apiError := purchaseOrderService.GetAllPurchaseOrders(req)
+		returns, totalItems, apiError := purchaseOrderService.GetAllReturns(req)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WritePaginationJSON(w, http.StatusOK, req.Page, totalItems, req.PageSize, orders)
+		utils.WritePaginationJSON(w, http.StatusOK, page, totalItems, pageSize, returns)
 	})
 }
 
-// GetPurchaseOrderByIDHandler GetPurchaseOrderDetailByIDHandler fetches a purchase order with its items by ID
-func GetPurchaseOrderByIDHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+// CancelPurchaseOrderReturnHandler cancels a purchase order return
+func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
+		id := params["id"]
 
-		order, apiError := purchaseOrderService.GetPurchaseOrderByID(id.String())
+		// Get user ID from context
+		userID := r.Context().Value("user_id").(string)
+		apiError := purchaseOrderService.CancelReturn(id, userID)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, order)
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order Return berhasil dibatalkan"))
 	}
 }
 
-// GetPurchaseOrderDetailHandler CancelPurchaseOrderHandler cancels a purchase order
-func GetPurchaseOrderDetailHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+// DeletePurchaseOrderItemHandler deletes a purchase order item
+func DeletePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
+		id := params["id"]
 
-		orderDetail, apiError := purchaseOrderService.GetPurchaseOrderDetailByID(id.String())
+		apiError := purchaseOrderService.RemovePurchaseOrderItem(id)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, orderDetail)
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Item Purchase Order berhasil dihapus"))
 	}
 }
 
-// UpdatePurchaseOrderHandler CancelPurchaseOrderHandler cancels a purchase order
-func UpdatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+// CreatePurchaseOrderItemHandler creates a new purchase order item
+func CreatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
-
-		var req purchase.UpdatePurchaseOrderRequest
-
-		req.ID = id.String()
-		validationErrors := utils.DecodeAndValidate(r, &req)
-
-		if validationErrors != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
-			return
-		}
-
-		order, apiError := purchaseOrderService.UpdatePurchaseOrder(req)
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, order)
-	}
-}
-
-// CancelPurchaseOrderHandler cancels a purchase order
-func CancelPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
-
-		apiError := purchaseOrderService.CancelPurchaseOrder(id.String())
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Purchase order berhasil dibatalkan!"})
-	}
-}
-
-// ReceivePurchaseOrderHandler receives a purchase order
-func ReceivePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
-
-		apiError := purchaseOrderService.ReceivePurchaseOrder(id.String())
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Purchase order berhasil diterima!"})
-	}
-}
-
-// AddPurchaseOrderDetailHandler Purchase Order Detail Handlers
-func AddPurchaseOrderDetailHandler(purchaseOrderDetailService *purchase.PurchaseOrderDetailService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		orderID, err := uuid.Parse(params["order_id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID order tidak valid",
-			}))
-			return
-		}
-
 		var req purchase.CreatePurchaseOrderItemRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
+		params := mux.Vars(r)
+		orderID := params["order_id"]
 
 		if validationErrors != nil {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return
 		}
 
-		detail, apiError := purchaseOrderDetailService.CreateDetail(orderID.String(), req)
+		apiError := purchaseOrderService.AddPurchaseOrderItem(orderID, req)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusCreated, detail)
+		utils.WriteJSON(w, http.StatusCreated, utils.WriteMessage("Item Purchase Order berhasil dibuat"))
 	}
 }
 
-// UpdatePurchaseOrderDetailHandler Purchase Order Detail Handlers
-func UpdatePurchaseOrderDetailHandler(purchaseOrderDetailService *purchase.PurchaseOrderDetailService) http.HandlerFunc {
+// UpdatePurchaseOrderItemHandler updates a purchase order item
+func UpdatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
-		}
-
 		var req purchase.UpdatePurchaseOrderItemRequest
 
-		req.ID = id.String()
 		validationErrors := utils.DecodeAndValidate(r, &req)
 
 		if validationErrors != nil {
@@ -240,36 +257,45 @@ func UpdatePurchaseOrderDetailHandler(purchaseOrderDetailService *purchase.Purch
 			return
 		}
 
-		detail, apiError := purchaseOrderDetailService.UpdateDetail(req)
+		apiError := purchaseOrderService.UpdatePurchaseOrderItem(req)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, detail)
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Item Purchase Order berhasil diupdate"))
 	}
 }
 
-// DeletePurchaseOrderDetailHandler Purchase Order Detail Handlers
-func DeletePurchaseOrderDetailHandler(purchaseOrderDetailService *purchase.PurchaseOrderDetailService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id, err := uuid.Parse(params["id"])
-		if err != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
-				"general": "ID tidak valid",
-			}))
-			return
+// GetAllPurchaseOrderHandler fetch all purchase orders
+func GetAllPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+		req := purchase.GetPurchaseOrderRequest{
+			SupplierID: r.URL.Query().Get("supplier_id"),
+			Status:     r.URL.Query().Get("status"),
+			FromDate:   r.URL.Query().Get("from_date"),
+			ToDate:     r.URL.Query().Get("to_date"),
+			PaginationParameter: utils.PaginationParameter{
+				Page:      page,
+				PageSize:  pageSize,
+				SortBy:    sortBy,
+				SortOrder: sortOrder,
+			},
 		}
 
-		apiError := purchaseOrderDetailService.DeleteDetail(id.String())
+		validationErrors := utils.ValidateStruct(req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+		orders, totalItems, apiError := purchaseOrderService.GetAllPurchaseOrder(req)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Item purchase order berhasil dihapus!"})
-	}
+		utils.WritePaginationJSON(w, http.StatusOK, page, totalItems, pageSize, orders)
+	})
 }
 
 // CreateSupplierHandler creates a new supplier
@@ -282,13 +308,13 @@ func CreateSupplierHandler(supplierService *purchase.SupplierService) http.Handl
 			return
 		}
 
-		supplier, apiError := supplierService.CreateSupplier(req)
+		apiError := supplierService.CreateSupplier(req)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusCreated, supplier)
+		utils.WriteJSON(w, http.StatusCreated, utils.WriteMessage("Supplier berhasil dibuat"))
 	}
 }
 
@@ -307,13 +333,13 @@ func UpdateSupplierHandler(supplierService *purchase.SupplierService) http.Handl
 			return
 		}
 
-		supplier, apiError := supplierService.UpdateSupplier(req)
+		apiError := supplierService.UpdateSupplier(req)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, supplier)
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Supplier berhasil diupdate"))
 	}
 }
 
@@ -386,6 +412,6 @@ func DeleteSupplierHandler(supplierService *purchase.SupplierService) http.Handl
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, map[string]string{"message": "Supplier berhasil dihapus"})
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Supplier berhasil dihapus"))
 	}
 }

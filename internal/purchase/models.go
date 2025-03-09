@@ -41,10 +41,10 @@ type DeleteSupplierRequest struct {
 
 // Purchase Order models
 type GetPurchaseOrderRequest struct {
-	SupplierName string `json:"supplier_name,omitempty"`
-	Status       string `json:"status,omitempty" validate:"omitempty,oneof=ordered received checked completed partially_returned returned cancelled"`
-	FromDate     string `json:"from_date,omitempty" validate:"omitempty,rfc3339"`
-	ToDate       string `json:"to_date,omitempty" validate:"omitempty,rfc3339"`
+	SupplierID string `json:"supplier_id,omitempty" validate:"omitempty,uuid"`
+	Status     string `json:"status,omitempty" validate:"omitempty,oneof=ordered received checked completed partially_returned returned cancelled"`
+	FromDate   string `json:"from_date,omitempty" validate:"omitempty,rfc3339"`
+	ToDate     string `json:"to_date,omitempty" validate:"omitempty,rfc3339"`
 	utils.PaginationParameter
 }
 
@@ -145,4 +145,17 @@ type BatchReturnResponse struct {
 type PurchaseOrderReturnDetailResponse struct {
 	GetPurchaseOrderReturnResponse
 	BatchDetails []BatchReturnResponse `json:"batch_details,omitempty"`
+}
+
+type ReceivedItemRequest struct {
+	DetailID           string                     `json:"detail_id" validate:"required,uuid"`
+	ReceivedQuantity   float64                    `json:"received_quantity" validate:"required,gt=0"`
+	UnitPrice          float64                    `json:"unit_price" validate:"required,gt=0"`
+	PaymentDueDate     string                     `json:"payment_due_date,omitempty" validate:"omitempty,rfc3339"`
+	StorageAllocations []StorageAllocationRequest `json:"storage_allocations" validate:"required,dive"`
+}
+
+type StorageAllocationRequest struct {
+	StorageID string  `json:"storage_id" validate:"required,uuid"`
+	Quantity  float64 `json:"quantity" validate:"required,gt=0"`
 }

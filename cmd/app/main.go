@@ -53,13 +53,13 @@ type Services struct {
 	UserService     *user.UserService
 	EmployeeService *employee.EmployeeService
 	//RoleService     *role.RoleService
-	WageService                *wage.WageService
-	ProductService             *product.ProductService
-	CategoryService            *category.CategoryService
-	UnitService                *unit.UnitService
-	SupplierService            *purchase.SupplierService
-	PurchaseOrderService       *purchase.PurchaseOrderService
-	PurchaseOrderDetailService *purchase.PurchaseOrderDetailService
+	WageService          *wage.WageService
+	ProductService       *product.ProductService
+	CategoryService      *category.CategoryService
+	UnitService          *unit.UnitService
+	SupplierService      *purchase.SupplierService
+	PurchaseOrderService *purchase.PurchaseOrderService
+	//PurchaseOrderDetailService *purchase.PurchaseOrderDetailService
 }
 
 func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
@@ -93,20 +93,16 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 	purchaseOrderRepo := purchase.NewPurchaseOrderRepository(db)
 	purchaseOrderService := purchase.NewPurchaseOrderService(purchaseOrderRepo)
 
-	purchaseOrderDetailRepo := purchase.NewPurchaseOrderDetailRepository(db)
-	purchaseOrderDetailService := purchase.NewPurchaseOrderDetailService(purchaseOrderDetailRepo)
-
 	return &Services{
 		AuthService:     authService,
 		UserService:     userService,
 		EmployeeService: employeeService,
 		//RoleService:     roleService,
-		WageService:                wageService,
-		ProductService:             productService,
-		CategoryService:            categoryService,
-		UnitService:                unitService,
-		SupplierService:            supplierService,
-		PurchaseOrderService:       purchaseOrderService,
-		PurchaseOrderDetailService: purchaseOrderDetailService,
+		WageService:          wageService,
+		ProductService:       productService,
+		CategoryService:      categoryService,
+		UnitService:          unitService,
+		SupplierService:      supplierService,
+		PurchaseOrderService: purchaseOrderService,
 	}
 }

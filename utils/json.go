@@ -62,3 +62,7 @@ func TransformRoles(roles []interface{}) ([]*string, error) {
 	}
 	return result, nil
 }
+
+func WriteMessage(message interface{}) interface{} {
+	return map[string]string{"message": message.(string)}
+}

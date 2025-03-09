@@ -1,7 +1,6 @@
 package purchase
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"fmt"
@@ -14,8 +13,8 @@ type SupplierRepository interface {
 	GetAll(req GetSupplierRequest) ([]GetSupplierResponse, int, error)
 	GetByID(id string) (*GetSupplierResponse, error)
 	GetByName(name string) (*GetSupplierResponse, error)
-	Create(req CreateSupplierRequest) (*GetSupplierResponse, error)
-	Update(req UpdateSupplierRequest) (*GetSupplierResponse, error)
+	Create(req CreateSupplierRequest) error
+	Update(req UpdateSupplierRequest) error
 	Delete(id string) error
 }
 
@@ -24,8 +23,13 @@ type SupplierRepositoryImpl struct {
 	db *sql.DB
 }
 
+// NewSupplierRepository creates a new instance of SupplierRepositoryImpl
+func NewSupplierRepository(db *sql.DB) SupplierRepository {
+	return &SupplierRepositoryImpl{db: db}
+}
+
 // GetAll fetches all suppliers with filtering and pagination
-func (r *SupplierRepositoryImpl) GetAll(ctx context.Context, req GetSupplierRequest) ([]GetSupplierResponse, int, error) {
+func (r *SupplierRepositoryImpl) GetAll(req GetSupplierRequest) ([]GetSupplierResponse, int, error) {
 	// Build count query using QueryBuilder
 	countBuilder := utils.NewQueryBuilder(`
 		Select Count(Id)
@@ -45,7 +49,7 @@ func (r *SupplierRepositoryImpl) GetAll(ctx context.Context, req GetSupplierRequ
 
 	// Execute count query
 	var totalItems int
-	err := r.db.QueryRowContext(ctx, countQuery, countParams...).Scan(&totalItems)
+	err := r.db.QueryRow(countQuery, countParams...).Scan(&totalItems)
 	if err != nil {
 		return nil, 0, fmt.Errorf("count query error: %w", err)
 	}
@@ -70,9 +74,8 @@ func (r *SupplierRepositoryImpl) GetAll(ctx context.Context, req GetSupplierRequ
 
 	// Add pagination
 	mainQuery, queryParams := queryBuilder.AddPagination(req.PageSize, req.Page).Build()
-
 	// Execute main query
-	rows, err := r.db.QueryContext(ctx, mainQuery, queryParams...)
+	rows, err := r.db.Query(mainQuery, queryParams...)
 	if err != nil {
 		return nil, 0, fmt.Errorf("main query error: %w", err)
 	}
@@ -109,11 +112,11 @@ func (r *SupplierRepositoryImpl) GetAll(ctx context.Context, req GetSupplierRequ
 }
 
 // GetByID fetches a supplier by ID
-func (r *SupplierRepositoryImpl) GetByID(ctx context.Context, id string) (*GetSupplierResponse, error) {
+func (r *SupplierRepositoryImpl) GetByID(id string) (*GetSupplierResponse, error) {
 	var supplier GetSupplierResponse
 	var createdAt, updatedAt time.Time
 
-	err := r.db.QueryRowContext(ctx, `
+	err := r.db.QueryRow(`
 		Select Id, Name, Address, Telephone, Created_At, Updated_At
 		From Supplier
 		Where Id = $1 And Deleted_At Is Null
@@ -128,7 +131,7 @@ func (r *SupplierRepositoryImpl) GetByID(ctx context.Context, id string) (*GetSu
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("supplier not found")
+			return nil, fmt.Errorf("supplier tidak ditemukan")
 		}
 		return nil, err
 	}
@@ -140,11 +143,11 @@ func (r *SupplierRepositoryImpl) GetByID(ctx context.Context, id string) (*GetSu
 }
 
 // GetByName fetches a supplier by name
-func (r *SupplierRepositoryImpl) GetByName(ctx context.Context, name string) (*GetSupplierResponse, error) {
+func (r *SupplierRepositoryImpl) GetByName(name string) (*GetSupplierResponse, error) {
 	var supplier GetSupplierResponse
 	var createdAt, updatedAt time.Time
 
-	err := r.db.QueryRowContext(ctx, `
+	err := r.db.QueryRow(`
 		Select Id, Name, Address, Telephone, Created_At, Updated_At
 		From Supplier
 		Where Name = $1 And Deleted_At Is Null
@@ -159,7 +162,7 @@ func (r *SupplierRepositoryImpl) GetByName(ctx context.Context, name string) (*G
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("supplier not found")
+			return nil, fmt.Errorf("supplier tidak ditemukan")
 		}
 		return nil, err
 	}
@@ -171,36 +174,25 @@ func (r *SupplierRepositoryImpl) GetByName(ctx context.Context, name string) (*G
 }
 
 // Create inserts a new supplier
-func (r *SupplierRepositoryImpl) Create(ctx context.Context, req CreateSupplierRequest) (*GetSupplierResponse, error) {
-	var id string
-	var createdAt, updatedAt time.Time
-
-	err := r.db.QueryRowContext(ctx, `
+func (r *SupplierRepositoryImpl) Create(req CreateSupplierRequest) error {
+	_, err := r.db.Exec(`
 		Insert Into Supplier (Name, Address, Telephone)
 		Values ($1, $2, $3)
-		Returning Id, Created_At, Updated_At
-	`, req.Name, req.Address, req.Telephone).Scan(&id, &createdAt, &updatedAt)
+	`, req.Name, req.Address, req.Telephone)
 
 	if err != nil {
-		return nil, fmt.Errorf("create supplier: %w", err)
+		return fmt.Errorf("create supplier: %w", err)
 	}
 
-	return &GetSupplierResponse{
-		ID:        id,
-		Name:      req.Name,
-		Address:   req.Address,
-		Telephone: req.Telephone,
-		CreatedAt: createdAt.Format(time.RFC3339),
-		UpdatedAt: updatedAt.Format(time.RFC3339),
-	}, nil
+	return nil
 }
 
 // Update modifies an existing supplier
-func (r *SupplierRepositoryImpl) Update(ctx context.Context, req UpdateSupplierRequest) (*GetSupplierResponse, error) {
+func (r *SupplierRepositoryImpl) Update(req UpdateSupplierRequest) error {
 	// First get the current supplier to keep unchanged fields
-	current, err := r.GetByID(ctx, req.ID)
+	current, err := r.GetByID(req.ID)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	// Prepare update values
@@ -219,34 +211,25 @@ func (r *SupplierRepositoryImpl) Update(ctx context.Context, req UpdateSupplierR
 		telephone = current.Telephone
 	}
 
-	var updatedAt time.Time
-	err = r.db.QueryRowContext(ctx, `
+	_, err = r.db.Exec(`
 		Update Supplier
 		Set Name = $1, Address = $2, Telephone = $3, Updated_At = Current_Timestamp
 		Where Id = $4 And Deleted_At Is Null
-		Returning Updated_At
-	`, name, address, telephone, req.ID).Scan(&updatedAt)
+	`, name, address, telephone, req.ID)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("supplier not found")
+			return fmt.Errorf("supplier tidak ditemukan")
 		}
-		return nil, fmt.Errorf("update supplier: %w", err)
+		return fmt.Errorf("update supplier: %w", err)
 	}
 
-	return &GetSupplierResponse{
-		ID:        req.ID,
-		Name:      name,
-		Address:   address,
-		Telephone: telephone,
-		CreatedAt: current.CreatedAt,
-		UpdatedAt: updatedAt.Format(time.RFC3339),
-	}, nil
+	return nil
 }
 
 // Delete soft deletes a supplier
-func (r *SupplierRepositoryImpl) Delete(ctx context.Context, id string) error {
-	result, err := r.db.ExecContext(ctx, `
+func (r *SupplierRepositoryImpl) Delete(id string) error {
+	result, err := r.db.Exec(`
 		Update Supplier
 		Set Deleted_At = Current_Timestamp
 		Where Id = $1 And Deleted_At Is Null
@@ -262,7 +245,7 @@ func (r *SupplierRepositoryImpl) Delete(ctx context.Context, id string) error {
 	}
 
 	if affected == 0 {
-		return fmt.Errorf("supplier not found")
+		return fmt.Errorf("supplier tidak ditemukan")
 	}
 
 	return nil
@@ -270,4 +253,1471 @@ func (r *SupplierRepositoryImpl) Delete(ctx context.Context, id string) error {
 
 // PurchaseOrderRepository interface defines methods for purchase order operations
 type PurchaseOrderRepository interface {
+	// Basic CRUD operations
+	GetAll(req GetPurchaseOrderRequest) ([]GetPurchaseOrderResponse, int, error)
+	GetByID(id string) (*PurchaseOrderDetailResponse, error)
+	Create(req CreatePurchaseOrderRequest, userID string) error
+	Update(req UpdatePurchaseOrderRequest) error
+	Delete(id string) error
+
+	// Order processing operations
+	ReceiveOrder(orderID string, receivedItems []ReceivedItemRequest, userID string) error
+	CheckOrder(orderID string, userID string) error
+	CancelOrder(orderID string, userID string) error
+
+	// Return operations
+	CreateReturn(returnRequest CreatePurchaseOrderReturnRequest, userID string) error
+	GetAllReturns(req GetPurchaseOrderReturnRequest) ([]GetPurchaseOrderReturnResponse, int, error)
+	GetReturnByID(returnID string) (*PurchaseOrderReturnDetailResponse, error)
+	CancelReturn(returnID string, userID string) error
+
+	// Order item operations
+	GetByOrderID(orderID string) ([]GetPurchaseOrderItemResponse, error)
+	AddItem(orderID string, req CreatePurchaseOrderItemRequest) error
+	UpdateItem(req UpdatePurchaseOrderItemRequest) error
+	RemoveItem(itemID string) error
+}
+
+// PurchaseOrderRepositoryImpl implements PurchaseOrderRepository
+type PurchaseOrderRepositoryImpl struct {
+	db *sql.DB
+}
+
+// NewPurchaseOrderRepository creates a new instance of PurchaseOrderRepositoryImpl
+func NewPurchaseOrderRepository(db *sql.DB) PurchaseOrderRepository {
+	return &PurchaseOrderRepositoryImpl{db: db}
+}
+
+// GetAll fetches all purchase orders with filtering and pagination
+func (r *PurchaseOrderRepositoryImpl) GetAll(req GetPurchaseOrderRequest) ([]GetPurchaseOrderResponse, int, error) {
+	// Build count query
+	countBuilder := utils.NewQueryBuilder(`
+        SELECT COUNT(po.Id)
+        FROM Purchase_Order po
+        LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
+        WHERE 1=1
+    `)
+
+	if req.SupplierID != "" {
+		countBuilder.AddFilter("s.Id =", req.SupplierID)
+	}
+
+	if req.Status != "" {
+		countBuilder.AddFilter("po.Status =", req.Status)
+	}
+
+	if req.FromDate != "" {
+		countBuilder.AddFilter("po.Order_Date >=", req.FromDate)
+	}
+
+	if req.ToDate != "" {
+		countBuilder.AddFilter("po.Order_Date <=", req.ToDate)
+	}
+
+	countQuery, countParams := countBuilder.Build()
+
+	// Execute count query
+	var totalItems int
+	err := r.db.QueryRow(countQuery, countParams...).Scan(&totalItems)
+	if err != nil {
+		return nil, 0, fmt.Errorf("gagal menghitung jumlah pesanan: %w", err)
+	}
+
+	// Build main query
+	queryBuilder := utils.NewQueryBuilder(`
+        SELECT po.Id, po.Supplier_Id, s.Name as SupplierName,
+               po.Order_Date, po.Status, po.Total_Amount, 
+               u.Username as CreatedBy, po.Created_At, po.Updated_At
+        FROM Purchase_Order po
+        LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
+        LEFT JOIN Appuser u ON po.Created_By = u.Id    
+        WHERE 1=1`)
+
+	if req.SupplierID != "" {
+		queryBuilder.AddFilter("s.Id =", req.SupplierID)
+	}
+
+	if req.Status != "" {
+		queryBuilder.AddFilter("po.Status =", req.Status)
+	}
+
+	if req.FromDate != "" {
+		queryBuilder.AddFilter("po.Order_Date >=", req.FromDate)
+	}
+
+	if req.ToDate != "" {
+		queryBuilder.AddFilter("po.Order_Date <=", req.ToDate)
+	}
+
+	// Add sorting
+	queryBuilder.Query.WriteString(" ORDER BY po.Order_Date DESC")
+
+	// Add pagination
+	mainQuery, queryParams := queryBuilder.AddPagination(req.PageSize, req.Page).Build()
+
+	fmt.Println(queryParams)
+	// Execute main query
+	rows, err := r.db.Query(mainQuery, queryParams...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("gagal mengambil daftar pesanan: %w", err)
+	}
+	defer rows.Close()
+
+	// Process results
+	var orders []GetPurchaseOrderResponse
+	for rows.Next() {
+		var order GetPurchaseOrderResponse
+		err := rows.Scan(
+			&order.ID,
+			&order.SupplierID,
+			&order.SupplierName,
+			&order.OrderDate,
+			&order.Status,
+			&order.TotalAmount,
+			&order.CreatedBy,
+			&order.CreatedAt,
+			&order.UpdatedAt,
+		)
+		if err != nil {
+			return nil, 0, fmt.Errorf("gagal memproses data pesanan: %w", err)
+		}
+
+		orders = append(orders, order)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("gagal saat iterasi hasil query: %w", err)
+	}
+
+	return orders, totalItems, nil
+}
+
+// GetByID fetches a purchase order by ID with its details
+func (r *PurchaseOrderRepositoryImpl) GetByID(id string) (*PurchaseOrderDetailResponse, error) {
+	// Fetch the purchase order header
+	var order GetPurchaseOrderResponse
+
+	queryErr := r.db.QueryRow(`
+        SELECT po.Id, po.Supplier_Id, COALESCE(s.Name, 'Supplier Dihapus') as SupplierName,
+               po.Order_Date, po.Status, po.Total_Amount,
+               u.Username as CreatedBy, po.Created_At, po.Updated_At
+        FROM Purchase_Order po
+        LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
+        LEFT JOIN Appuser u ON po.Created_By = u.Id
+        WHERE po.Id = $1
+    `, id).Scan(
+		&order.ID,
+		&order.SupplierID,
+		&order.SupplierName,
+		&order.OrderDate,
+		&order.Status,
+		&order.TotalAmount,
+		&order.CreatedBy,
+		&order.CreatedAt,
+		&order.UpdatedAt,
+	)
+
+	if queryErr != nil {
+		if errors.Is(queryErr, sql.ErrNoRows) {
+			return nil, fmt.Errorf("pesanan pembelian tidak ditemukan")
+		}
+		return nil, fmt.Errorf("gagal mengambil pesanan pembelian: %w", queryErr)
+	}
+
+	// Fetch the purchase order items
+	rows, queryErr := r.db.Query(`
+        SELECT pod.Id, pod.Product_Id, p.Name, pod.Requested_Quantity, pod.Unit_Price
+        FROM Purchase_Order_Detail pod
+        JOIN Product p ON pod.Product_Id = p.Id
+        WHERE pod.Purchase_Order_Id = $1
+    `, id)
+
+	if queryErr != nil {
+		return nil, fmt.Errorf("gagal mengambil detail pesanan: %w", queryErr)
+	}
+	defer rows.Close()
+
+	var items []GetPurchaseOrderItemResponse
+	for rows.Next() {
+		var item GetPurchaseOrderItemResponse
+		scanErr := rows.Scan(
+			&item.ID,
+			&item.ProductID,
+			&item.ProductName,
+			&item.Quantity,
+			&item.Price,
+		)
+		if scanErr != nil {
+			return nil, fmt.Errorf("gagal memproses detail pesanan: %w", scanErr)
+		}
+		item.Subtotal = item.Quantity * item.Price
+		items = append(items, item)
+	}
+
+	if rowErr := rows.Err(); rowErr != nil {
+		return nil, fmt.Errorf("gagal saat iterasi hasil query: %w", rowErr)
+	}
+
+	return &PurchaseOrderDetailResponse{
+		GetPurchaseOrderResponse: order,
+		Items:                    items,
+	}, nil
+}
+
+// Create creates a new purchase order
+func (r *PurchaseOrderRepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string) error {
+	var orderID string
+
+	txErr := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Insert purchase order header
+		var orderDate time.Time
+		parseErr := orderDate.UnmarshalText([]byte(req.OrderDate))
+		if parseErr != nil {
+			return fmt.Errorf("format tanggal tidak valid: %w", parseErr)
+		}
+
+		// Calculate total amount from items
+		totalAmount := 0.0
+		for _, item := range req.Items {
+			totalAmount += item.Quantity * item.Price
+		}
+
+		var createdAt time.Time
+		insertErr := tx.QueryRow(`
+            INSERT INTO Purchase_Order (Supplier_Id, Order_Date, Status, Total_Amount, Created_By)
+            VALUES ($1, $2, $3, $4, $5)
+            RETURNING Id, Created_At
+        `, req.SupplierID, orderDate, req.Status, totalAmount, userID).Scan(&orderID, &createdAt)
+
+		if insertErr != nil {
+			return fmt.Errorf("gagal membuat pesanan pembelian: %w", insertErr)
+		}
+
+		// Insert purchase order items
+		var items []GetPurchaseOrderItemResponse
+		for _, item := range req.Items {
+			var detailID string
+			var productName string
+
+			// Get product name
+			productErr := tx.QueryRow(`
+                SELECT Name FROM Product WHERE Id = $1
+            `, item.ProductID).Scan(&productName)
+
+			if productErr != nil {
+				return fmt.Errorf("produk tidak ditemukan: %w", productErr)
+			}
+
+			// Insert item
+			detailErr := tx.QueryRow(`
+                INSERT INTO Purchase_Order_Detail (Purchase_Order_Id, Product_Id, Requested_Quantity, Unit_Price)
+                VALUES ($1, $2, $3, $4)
+                RETURNING Id
+            `, orderID, item.ProductID, item.Quantity, item.Price).Scan(&detailID)
+
+			if detailErr != nil {
+				return fmt.Errorf("gagal menambahkan item pesanan: %w", detailErr)
+			}
+
+			// Add to response items
+			items = append(items, GetPurchaseOrderItemResponse{
+				ID:          detailID,
+				ProductID:   item.ProductID,
+				ProductName: productName,
+				Quantity:    item.Quantity,
+				Price:       item.Price,
+				Subtotal:    item.Quantity * item.Price,
+			})
+		}
+
+		// Get supplier name
+		var supplierName string
+		supplierErr := tx.QueryRow(`
+            SELECT Name FROM Supplier WHERE Id = $1
+        `, req.SupplierID).Scan(&supplierName)
+
+		if supplierErr != nil {
+			if errors.Is(supplierErr, sql.ErrNoRows) {
+				supplierName = "Supplier Dihapus"
+			} else {
+				return fmt.Errorf("gagal mengambil informasi supplier: %w", supplierErr)
+			}
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		return txErr
+	}
+
+	return nil
+}
+
+// Update modifies an existing purchase order
+func (r *PurchaseOrderRepositoryImpl) Update(req UpdatePurchaseOrderRequest) error {
+	// Get current purchase order to keep unchanged fields
+	var currentStatus string
+	var supplierID sql.NullString
+	var orderDate, updatedAt time.Time
+
+	queryErr := r.db.QueryRow(`
+        SELECT Status, Supplier_Id, Order_Date
+        FROM Purchase_Order
+        WHERE Id = $1
+    `, req.ID).Scan(&currentStatus, &supplierID, &orderDate)
+
+	if queryErr != nil {
+		if errors.Is(queryErr, sql.ErrNoRows) {
+			return fmt.Errorf("pesanan pembelian tidak ditemukan")
+		}
+		return fmt.Errorf("gagal mengambil pesanan pembelian: %w", queryErr)
+	}
+
+	// Check if status change is allowed
+	if req.Status != "" && req.Status != currentStatus {
+		if !isStatusChangeAllowed(currentStatus, req.Status) {
+			return fmt.Errorf("perubahan status dari %s ke %s tidak diizinkan", currentStatus, req.Status)
+		}
+	}
+
+	// Prepare update values
+	status := req.Status
+	if status == "" {
+		status = currentStatus
+	}
+
+	updateSupplierID := supplierID
+	if req.SupplierID != "" {
+		updateSupplierID = sql.NullString{
+			String: req.SupplierID,
+			Valid:  true,
+		}
+	}
+
+	updateOrderDate := orderDate
+	if req.OrderDate != "" {
+		parseErr := updateOrderDate.UnmarshalText([]byte(req.OrderDate))
+		if parseErr != nil {
+			return fmt.Errorf("format tanggal tidak valid: %w", parseErr)
+		}
+	}
+
+	// Update the purchase order
+	updateErr := r.db.QueryRow(`
+        UPDATE Purchase_Order
+        SET Supplier_Id = $1, Order_Date = $2, Status = $3, Updated_At = CURRENT_TIMESTAMP
+        WHERE Id = $4
+        RETURNING Updated_At
+    `, updateSupplierID, updateOrderDate, status, req.ID).Scan(&updatedAt)
+
+	if updateErr != nil {
+		if errors.Is(updateErr, sql.ErrNoRows) {
+			return fmt.Errorf("pesanan pembelian tidak ditemukan")
+		}
+		return fmt.Errorf("gagal memperbarui pesanan pembelian: %w", updateErr)
+	}
+
+	// Get updated purchase order
+	var supplierName string
+	var totalAmount float64
+	var createdBy string
+	var createdAt time.Time
+
+	getErr := r.db.QueryRow(`
+        SELECT COALESCE(s.Name, 'Supplier Dihapus') as SupplierName,
+               po.Total_Amount, u.Username, po.Created_At
+        FROM Purchase_Order po
+        LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
+        LEFT JOIN Appuser u ON po.Created_By = u.Id
+        WHERE po.Id = $1
+    `, req.ID).Scan(&supplierName, &totalAmount, &createdBy, &createdAt)
+
+	if getErr != nil {
+		return fmt.Errorf("gagal mengambil data pesanan yang diperbarui: %w", getErr)
+	}
+
+	return nil
+}
+
+// Delete soft deletes a purchase order
+func (r *PurchaseOrderRepositoryImpl) Delete(id string) error {
+	// Check if purchase order exists
+	var status string
+	queryErr := r.db.QueryRow(`
+        SELECT Status FROM Purchase_Order WHERE Id = $1
+    `, id).Scan(&status)
+
+	if queryErr != nil {
+		if errors.Is(queryErr, sql.ErrNoRows) {
+			return fmt.Errorf("pesanan pembelian tidak ditemukan")
+		}
+		return fmt.Errorf("gagal memeriksa status pesanan: %w", queryErr)
+	}
+
+	// Only allow deletion of 'ordered' status orders
+	if status != "ordered" {
+		return fmt.Errorf("hanya pesanan dengan status 'ordered' yang dapat dihapus, status saat ini: %s", status)
+	}
+
+	// Delete the order (using UPDATE for soft delete)
+	result, execErr := r.db.Exec(`
+        UPDATE Purchase_Order
+        SET Status = 'cancelled', Cancelled_At = CURRENT_TIMESTAMP
+        WHERE Id = $1 AND Status = 'ordered'
+    `, id)
+
+	if execErr != nil {
+		return fmt.Errorf("gagal menghapus pesanan pembelian: %w", execErr)
+	}
+
+	affected, rowErr := result.RowsAffected()
+	if rowErr != nil {
+		return fmt.Errorf("gagal mendapatkan jumlah baris yang terpengaruh: %w", rowErr)
+	}
+
+	if affected == 0 {
+		return fmt.Errorf("pesanan pembelian tidak ditemukan atau tidak dalam status yang dapat dihapus")
+	}
+
+	return nil
+}
+
+// Helper function to determine if status change is allowed
+func isStatusChangeAllowed(currentStatus, newStatus string) bool {
+	// Define allowed status transitions
+	allowedTransitions := map[string][]string{
+		"ordered":            {"received", "cancelled"},
+		"received":           {"checked"},
+		"checked":            {"completed", "partially_returned"},
+		"partially_returned": {"completed", "returned"},
+		"completed":          {},
+		"returned":           {},
+		"cancelled":          {},
+	}
+
+	// Check if transition is allowed
+	allowed := false
+	if transitions, exists := allowedTransitions[currentStatus]; exists {
+		for _, allowedStatus := range transitions {
+			if allowedStatus == newStatus {
+				allowed = true
+				break
+			}
+		}
+	}
+
+	return allowed
+}
+
+// ReceiveOrder marks a purchase order as received and creates product batches
+func (r *PurchaseOrderRepositoryImpl) ReceiveOrder(orderID string, receivedItems []ReceivedItemRequest, userID string) error {
+	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Check if order exists and is in 'ordered' status
+		var status string
+		orderErr := tx.QueryRow(`
+            SELECT Status 
+            FROM Purchase_Order 
+            WHERE Id = $1
+        `, orderID).Scan(&status)
+
+		if orderErr != nil {
+			if errors.Is(orderErr, sql.ErrNoRows) {
+				return fmt.Errorf("pesanan pembelian tidak ditemukan")
+			}
+			return fmt.Errorf("gagal memeriksa status pesanan: %w", orderErr)
+		}
+
+		if status != "ordered" {
+			return fmt.Errorf("hanya pesanan dengan status 'ordered' yang dapat diterima, status saat ini: %s", status)
+		}
+
+		// Set payment due date if provided with the first item
+		var paymentDueDate *time.Time
+		if len(receivedItems) > 0 && receivedItems[0].PaymentDueDate != "" {
+			parsedDate, parseErr := time.Parse(time.RFC3339, receivedItems[0].PaymentDueDate)
+			if parseErr != nil {
+				return fmt.Errorf("format tanggal jatuh tempo tidak valid: %w", parseErr)
+			}
+			paymentDueDate = &parsedDate
+		}
+
+		// Process each received item
+		for _, item := range receivedItems {
+			// Verify the detail exists and belongs to this order
+			var productID string
+			var requestedQty float64
+			detailErr := tx.QueryRow(`
+                SELECT Product_Id, Requested_Quantity
+                FROM Purchase_Order_Detail
+                WHERE Id = $1 AND Purchase_Order_Id = $2
+            `, item.DetailID, orderID).Scan(&productID, &requestedQty)
+
+			if detailErr != nil {
+				if errors.Is(detailErr, sql.ErrNoRows) {
+					return fmt.Errorf("detail pesanan tidak ditemukan atau tidak termasuk dalam pesanan ini")
+				}
+				return fmt.Errorf("gagal memeriksa detail pesanan: %w", detailErr)
+			}
+
+			// Validate received quantity
+			if item.ReceivedQuantity > requestedQty {
+				return fmt.Errorf("jumlah diterima (%f) tidak boleh lebih dari jumlah pesanan (%f)", item.ReceivedQuantity, requestedQty)
+			}
+
+			// Update detail with received quantity
+			_, updateErr := tx.Exec(`
+                UPDATE Purchase_Order_Detail
+                SET Received_Quantity = $1, Unit_Price = $2
+                WHERE Id = $3
+            `, item.ReceivedQuantity, item.UnitPrice, item.DetailID)
+
+			if updateErr != nil {
+				return fmt.Errorf("gagal memperbarui detail pesanan: %w", updateErr)
+			}
+
+			// Generate SKU for this batch
+			var sku string
+			skuErr := tx.QueryRow(`
+                SELECT 'B-' || TO_CHAR(NOW(), 'YYYYMMDD') || '-' || 
+                       LPAD(COALESCE(
+                          (SELECT COUNT(*) + 1 FROM Product_Batch 
+                           WHERE Created_At::date = CURRENT_DATE), 
+                          1)::text, 4, '0')
+            `).Scan(&sku)
+
+			if skuErr != nil {
+				return fmt.Errorf("gagal generate SKU: %w", skuErr)
+			}
+
+			// Create product batch
+			var batchID string
+			batchErr := tx.QueryRow(`
+                INSERT INTO Product_Batch 
+                (Sku, Product_Id, Purchase_Order_Id, Initial_Quantity, Current_Quantity, Unit_Price)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING Id
+            `, sku, productID, orderID, item.ReceivedQuantity, item.ReceivedQuantity, item.UnitPrice).Scan(&batchID)
+
+			if batchErr != nil {
+				return fmt.Errorf("gagal membuat batch produk: %w", batchErr)
+			}
+
+			// Allocate to storage
+			var totalAllocated float64 = 0
+			for _, allocation := range item.StorageAllocations {
+				// Check if storage exists
+				var exists bool
+				storageErr := tx.QueryRow(`
+                    SELECT EXISTS(SELECT 1 FROM Storage WHERE Id = $1 AND Deleted_At IS NULL)
+                `, allocation.StorageID).Scan(&exists)
+
+				if storageErr != nil {
+					return fmt.Errorf("gagal memeriksa penyimpanan: %w", storageErr)
+				}
+
+				if !exists {
+					return fmt.Errorf("penyimpanan dengan ID %s tidak ditemukan", allocation.StorageID)
+				}
+
+				// Create storage allocation
+				_, allocErr := tx.Exec(`
+                    INSERT INTO Batch_Storage (Batch_Id, Storage_Id, Quantity)
+                    VALUES ($1, $2, $3)
+                `, batchID, allocation.StorageID, allocation.Quantity)
+
+				if allocErr != nil {
+					return fmt.Errorf("gagal mengalokasikan batch ke penyimpanan: %w", allocErr)
+				}
+
+				// Create inventory log
+				_, logErr := tx.Exec(`
+                    INSERT INTO Inventory_Log 
+                    (Batch_Id, Storage_Id, User_Id, Purchase_Order_Id, Action, Quantity, Description)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                `, batchID, allocation.StorageID, userID, orderID, "add", allocation.Quantity,
+					fmt.Sprintf("Penerimaan barang dari PO #%s", orderID))
+
+				if logErr != nil {
+					return fmt.Errorf("gagal mencatat log inventaris: %w", logErr)
+				}
+
+				totalAllocated += allocation.Quantity
+			}
+
+			// Verify total allocated matches received quantity
+			if totalAllocated != item.ReceivedQuantity {
+				return fmt.Errorf("jumlah alokasi (%f) tidak sama dengan jumlah diterima (%f)",
+					totalAllocated, item.ReceivedQuantity)
+			}
+		}
+
+		// Update purchase order status and mark as received
+		_, updateOrderErr := tx.Exec(`
+            UPDATE Purchase_Order
+            SET Status = 'received', Received_By = $1, Received_At = CURRENT_TIMESTAMP,
+                Payment_Due_Date = $2
+            WHERE Id = $3
+        `, userID, paymentDueDate, orderID)
+
+		if updateOrderErr != nil {
+			return fmt.Errorf("gagal memperbarui status pesanan: %w", updateOrderErr)
+		}
+
+		return nil
+	})
+}
+
+// CheckOrder marks a received purchase order as checked
+func (r *PurchaseOrderRepositoryImpl) CheckOrder(orderID string, userID string) error {
+	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Check if order exists and is in 'received' status
+		var status string
+		orderErr := tx.QueryRow(`
+            SELECT Status 
+            FROM Purchase_Order 
+            WHERE Id = $1
+        `, orderID).Scan(&status)
+
+		if orderErr != nil {
+			if errors.Is(orderErr, sql.ErrNoRows) {
+				return fmt.Errorf("pesanan pembelian tidak ditemukan")
+			}
+			return fmt.Errorf("gagal memeriksa status pesanan: %w", orderErr)
+		}
+
+		if status != "received" {
+			return fmt.Errorf("hanya pesanan dengan status 'received' yang dapat diperiksa, status saat ini: %s", status)
+		}
+
+		// Update purchase order status and mark as checked
+		_, updateErr := tx.Exec(`
+            UPDATE Purchase_Order
+            SET Status = 'checked', Checked_By = $1, Checked_At = CURRENT_TIMESTAMP
+            WHERE Id = $2
+        `, userID, orderID)
+
+		if updateErr != nil {
+			return fmt.Errorf("gagal memperbarui status pesanan: %w", updateErr)
+		}
+
+		return nil
+	})
+}
+
+// CancelOrder cancels a purchase order
+func (r *PurchaseOrderRepositoryImpl) CancelOrder(orderID string, userID string) error {
+	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Check if order exists and is in 'ordered' status
+		var status string
+		orderErr := tx.QueryRow(`
+            SELECT Status 
+            FROM Purchase_Order 
+            WHERE Id = $1
+        `, orderID).Scan(&status)
+
+		if orderErr != nil {
+			if errors.Is(orderErr, sql.ErrNoRows) {
+				return fmt.Errorf("pesanan pembelian tidak ditemukan")
+			}
+			return fmt.Errorf("gagal memeriksa status pesanan: %w", orderErr)
+		}
+
+		// Only allow cancellation of orders in 'ordered' status
+		if status != "ordered" {
+			return fmt.Errorf("hanya pesanan dengan status 'ordered' yang dapat dibatalkan, status saat ini: %s", status)
+		}
+
+		// Update purchase order status and mark as cancelled
+		_, updateErr := tx.Exec(`
+            UPDATE Purchase_Order
+            SET Status = 'cancelled', Cancelled_By = $1, Cancelled_At = CURRENT_TIMESTAMP
+            WHERE Id = $2
+        `, userID, orderID)
+
+		if updateErr != nil {
+			return fmt.Errorf("gagal memperbarui status pesanan: %w", updateErr)
+		}
+
+		return nil
+	})
+}
+
+// CreateReturn creates a new purchase order return record
+func (r *PurchaseOrderRepositoryImpl) CreateReturn(returnRequest CreatePurchaseOrderReturnRequest, userID string) error {
+	var returnResponse PurchaseOrderReturnDetailResponse
+
+	txErr := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Verify purchase order exists and check status
+		var orderStatus string
+		orderErr := tx.QueryRow(`
+            SELECT Status
+            FROM Purchase_Order
+            WHERE Id = $1
+        `, returnRequest.PurchaseOrderID).Scan(&orderStatus)
+
+		if orderErr != nil {
+			if errors.Is(orderErr, sql.ErrNoRows) {
+				return fmt.Errorf("pesanan pembelian tidak ditemukan")
+			}
+			return fmt.Errorf("gagal memeriksa status pesanan: %w", orderErr)
+		}
+
+		// Only allow returns for received or checked orders
+		if orderStatus != "received" && orderStatus != "checked" {
+			return fmt.Errorf("hanya pesanan dengan status 'received' atau 'checked' yang dapat dikembalikan, status saat ini: %s", orderStatus)
+		}
+
+		// Verify purchase order detail exists and has sufficient quantity
+		var productID string
+		var receivedQty, returnedQty float64
+		detailErr := tx.QueryRow(`
+            SELECT pod.Product_Id, pod.Received_Quantity, pod.Total_Returned_Quantity
+            FROM Purchase_Order_Detail pod
+            WHERE pod.Id = $1 AND pod.Purchase_Order_Id = $2
+        `, returnRequest.ProductDetailID, returnRequest.PurchaseOrderID).Scan(&productID, &receivedQty, &returnedQty)
+
+		if detailErr != nil {
+			if errors.Is(detailErr, sql.ErrNoRows) {
+				return fmt.Errorf("detail produk tidak ditemukan")
+			}
+			return fmt.Errorf("gagal memverifikasi detail pesanan: %w", detailErr)
+		}
+
+		// Calculate remaining quantity that can be returned
+		remainingQty := receivedQty - returnedQty
+
+		// Check if return quantity is valid
+		if returnRequest.ReturnQuantity > remainingQty {
+			return fmt.Errorf("jumlah pengembalian melebihi jumlah yang tersisa (%f)", remainingQty)
+		}
+
+		// Create return record
+		var returnID string
+		var returnedAt time.Time
+		createReturnErr := tx.QueryRow(`
+            INSERT INTO Purchase_Order_Return (
+                Purchase_Order_Id, Product_Detail_Id, Return_Quantity, 
+                Remaining_Quantity, Return_Reason, Return_Status, Returned_By
+            ) VALUES ($1, $2, $3, $4, $5, 'pending', $6)
+            RETURNING Id, Returned_At
+        `,
+			returnRequest.PurchaseOrderID,
+			returnRequest.ProductDetailID,
+			returnRequest.ReturnQuantity,
+			remainingQty-returnRequest.ReturnQuantity,
+			returnRequest.ReturnReason,
+			userID,
+		).Scan(&returnID, &returnedAt)
+
+		if createReturnErr != nil {
+			return fmt.Errorf("gagal membuat catatan pengembalian: %w", createReturnErr)
+		}
+
+		// Update returned quantity in purchase order detail
+		_, updateDetailErr := tx.Exec(`
+            UPDATE Purchase_Order_Detail
+            SET Total_Returned_Quantity = Total_Returned_Quantity + $1
+            WHERE Id = $2
+        `, returnRequest.ReturnQuantity, returnRequest.ProductDetailID)
+
+		if updateDetailErr != nil {
+			return fmt.Errorf("gagal memperbarui jumlah pengembalian pada detail pesanan: %w", updateDetailErr)
+		}
+
+		// If all items returned, update purchase order status
+		var totalReceived, totalReturned float64
+		totalsErr := tx.QueryRow(`
+            SELECT SUM(Received_Quantity), SUM(Total_Returned_Quantity)
+            FROM Purchase_Order_Detail
+            WHERE Purchase_Order_Id = $1
+        `, returnRequest.PurchaseOrderID).Scan(&totalReceived, &totalReturned)
+
+		if totalsErr != nil {
+			return fmt.Errorf("gagal menghitung total barang: %w", totalsErr)
+		}
+
+		// If all received items are now returned, update order status
+		if totalReceived == totalReturned {
+			_, updateOrderErr := tx.Exec(`
+                UPDATE Purchase_Order 
+                SET Status = 'returned', Fully_Returned_By = $1, Fully_Returned_At = CURRENT_TIMESTAMP
+                WHERE Id = $2
+            `, userID, returnRequest.PurchaseOrderID)
+
+			if updateOrderErr != nil {
+				return fmt.Errorf("gagal memperbarui status pesanan: %w", updateOrderErr)
+			}
+		} else if totalReturned > 0 {
+			// If some items returned, update status to partially_returned
+			_, updatePartialErr := tx.Exec(`
+                UPDATE Purchase_Order 
+                SET Status = 'partially_returned'
+                WHERE Id = $1 AND Status != 'returned'
+            `, returnRequest.PurchaseOrderID)
+
+			if updatePartialErr != nil {
+				return fmt.Errorf("gagal memperbarui status pesanan sebagian: %w", updatePartialErr)
+			}
+		}
+
+		// Process batch returns
+		for _, batchReturn := range returnRequest.BatchDetailsToReturn {
+			// Verify batch exists and has sufficient quantity
+			var batchQty float64
+			batchErr := tx.QueryRow(`
+                SELECT Current_Quantity
+                FROM Product_Batch
+                WHERE Id = $1 AND Purchase_Order_Id = $2
+            `, batchReturn.BatchID, returnRequest.PurchaseOrderID).Scan(&batchQty)
+
+			if batchErr != nil {
+				if errors.Is(batchErr, sql.ErrNoRows) {
+					return fmt.Errorf("batch dengan ID %s tidak ditemukan", batchReturn.BatchID)
+				}
+				return fmt.Errorf("gagal memeriksa batch: %w", batchErr)
+			}
+
+			if batchReturn.ReturnQuantity > batchQty {
+				return fmt.Errorf("jumlah pengembalian untuk batch %s melebihi jumlah yang tersedia (%f)", batchReturn.BatchID, batchQty)
+			}
+
+			// Create batch return record
+			_, createBatchReturnErr := tx.Exec(`
+                INSERT INTO Purchase_Order_Return_Batch (
+                    Purchase_Return_Id, Batch_Id, Return_Quantity
+                ) VALUES ($1, $2, $3)
+            `, returnID, batchReturn.BatchID, batchReturn.ReturnQuantity)
+
+			if createBatchReturnErr != nil {
+				return fmt.Errorf("gagal membuat catatan pengembalian batch: %w", createBatchReturnErr)
+			}
+
+			// Update batch quantity
+			_, updateBatchErr := tx.Exec(`
+                UPDATE Product_Batch
+                SET Current_Quantity = Current_Quantity - $1
+                WHERE Id = $2
+            `, batchReturn.ReturnQuantity, batchReturn.BatchID)
+
+			if updateBatchErr != nil {
+				return fmt.Errorf("gagal memperbarui jumlah batch: %w", updateBatchErr)
+			}
+		}
+
+		// Set the return response data
+		returnResponse.ID = returnID
+		returnResponse.PurchaseOrderID = returnRequest.PurchaseOrderID
+		returnResponse.ProductDetailID = returnRequest.ProductDetailID
+		returnResponse.ReturnQuantity = returnRequest.ReturnQuantity
+		returnResponse.RemainingQuantity = remainingQty - returnRequest.ReturnQuantity
+		returnResponse.ReturnReason = returnRequest.ReturnReason
+		returnResponse.ReturnStatus = "pending"
+		returnResponse.ReturnedBy = userID
+		returnResponse.ReturnedAt = returnedAt.Format(time.RFC3339)
+
+		// Set batch details in response
+		var batchDetails []BatchReturnResponse
+		for _, batch := range returnRequest.BatchDetailsToReturn {
+			batchDetails = append(batchDetails, BatchReturnResponse{
+				BatchID:        batch.BatchID,
+				ReturnQuantity: batch.ReturnQuantity,
+			})
+		}
+		returnResponse.BatchDetails = batchDetails
+
+		return nil
+	})
+
+	if txErr != nil {
+		return txErr
+	}
+
+	return nil
+}
+
+// GetAllReturns fetches all purchase order returns with filtering and pagination
+func (r *PurchaseOrderRepositoryImpl) GetAllReturns(req GetPurchaseOrderReturnRequest) ([]GetPurchaseOrderReturnResponse, int, error) {
+	// Build count query
+	countBuilder := utils.NewQueryBuilder(`
+        SELECT COUNT(r.Id)
+        FROM Purchase_Order_Return r
+        JOIN Purchase_Order po ON r.Purchase_Order_Id = po.Id
+        WHERE 1=1
+    `)
+
+	if req.PurchaseOrderID != "" {
+		countBuilder.AddFilter("r.Purchase_Order_Id =", req.PurchaseOrderID)
+	}
+
+	if req.Status != "" {
+		countBuilder.AddFilter("r.Return_Status =", req.Status)
+	}
+
+	if req.FromDate != "" {
+		countBuilder.AddFilter("r.Returned_At >=", req.FromDate)
+	}
+
+	if req.ToDate != "" {
+		countBuilder.AddFilter("r.Returned_At <=", req.ToDate)
+	}
+
+	countQuery, countParams := countBuilder.Build()
+
+	// Execute count query
+	var totalItems int
+	countErr := r.db.QueryRow(countQuery, countParams...).Scan(&totalItems)
+	if countErr != nil {
+		return nil, 0, fmt.Errorf("gagal menghitung jumlah pengembalian: %w", countErr)
+	}
+
+	// Build main query
+	queryBuilder := utils.NewQueryBuilder(`
+        SELECT r.Id, r.Purchase_Order_Id, r.Product_Detail_Id,
+               r.Return_Quantity, r.Remaining_Quantity, r.Return_Reason,
+               r.Return_Status, COALESCE(u1.Username, '') as ReturnedBy,
+               r.Returned_At, u2.Username as CancelledBy, r.Cancelled_At
+        FROM Purchase_Order_Return r
+        JOIN Purchase_Order po ON r.Purchase_Order_Id = po.Id
+        LEFT JOIN Appuser u1 ON r.Returned_By = u1.Id
+        LEFT JOIN Appuser u2 ON r.Cancelled_By = u2.Id
+        WHERE 1=1
+    `)
+
+	if req.PurchaseOrderID != "" {
+		queryBuilder.AddFilter("r.Purchase_Order_Id =", req.PurchaseOrderID)
+	}
+
+	if req.Status != "" {
+		queryBuilder.AddFilter("r.Return_Status =", req.Status)
+	}
+
+	if req.FromDate != "" {
+		queryBuilder.AddFilter("r.Returned_At >=", req.FromDate)
+	}
+
+	if req.ToDate != "" {
+		queryBuilder.AddFilter("r.Returned_At <=", req.ToDate)
+	}
+
+	// Add sorting
+	queryBuilder.Query.WriteString(" ORDER BY r.Returned_At DESC")
+
+	// Add pagination
+	mainQuery, queryParams := queryBuilder.AddPagination(req.PageSize, req.Page).Build()
+
+	// Execute main query
+	rows, queryErr := r.db.Query(mainQuery, queryParams...)
+	if queryErr != nil {
+		return nil, 0, fmt.Errorf("gagal mengambil data pengembalian: %w", queryErr)
+	}
+	defer rows.Close()
+
+	// Process results
+	var returns []GetPurchaseOrderReturnResponse
+	for rows.Next() {
+		var returnItem GetPurchaseOrderReturnResponse
+		var returnedAt time.Time
+		var cancelledBy sql.NullString
+		var cancelledAt sql.NullTime
+
+		scanErr := rows.Scan(
+			&returnItem.ID,
+			&returnItem.PurchaseOrderID,
+			&returnItem.ProductDetailID,
+			&returnItem.ReturnQuantity,
+			&returnItem.RemainingQuantity,
+			&returnItem.ReturnReason,
+			&returnItem.ReturnStatus,
+			&returnItem.ReturnedBy,
+			&returnedAt,
+			&cancelledBy,
+			&cancelledAt,
+		)
+		if scanErr != nil {
+			return nil, 0, fmt.Errorf("gagal membaca data pengembalian: %w", scanErr)
+		}
+
+		returnItem.ReturnedAt = returnedAt.Format(time.RFC3339)
+
+		if cancelledAt.Valid {
+			returnItem.CancelledAt = cancelledAt.Time.Format(time.RFC3339)
+		}
+
+		if cancelledBy.Valid {
+			returnItem.CancelledBy = cancelledBy.String
+		}
+
+		returns = append(returns, returnItem)
+	}
+
+	if rowErr := rows.Err(); rowErr != nil {
+		return nil, 0, fmt.Errorf("gagal memproses data pengembalian: %w", rowErr)
+	}
+
+	return returns, totalItems, nil
+}
+
+// GetReturnByID fetches a specific purchase order return by ID
+func (r *PurchaseOrderRepositoryImpl) GetReturnByID(returnID string) (*PurchaseOrderReturnDetailResponse, error) {
+	// Fetch the return record
+	var returnDetail PurchaseOrderReturnDetailResponse
+	var returnedAt time.Time
+	var cancelledBy sql.NullString
+	var cancelledAt sql.NullTime
+
+	queryErr := r.db.QueryRow(`
+        SELECT r.Id, r.Purchase_Order_Id, r.Product_Detail_Id,
+               r.Return_Quantity, r.Remaining_Quantity, r.Return_Reason,
+               r.Return_Status, COALESCE(u1.Username, '') as ReturnedBy,
+               r.Returned_At, u2.Username as CancelledBy, r.Cancelled_At
+        FROM Purchase_Order_Return r
+        LEFT JOIN Appuser u1 ON r.Returned_By = u1.Id
+        LEFT JOIN Appuser u2 ON r.Cancelled_By = u2.Id
+        WHERE r.Id = $1
+    `, returnID).Scan(
+		&returnDetail.ID,
+		&returnDetail.PurchaseOrderID,
+		&returnDetail.ProductDetailID,
+		&returnDetail.ReturnQuantity,
+		&returnDetail.RemainingQuantity,
+		&returnDetail.ReturnReason,
+		&returnDetail.ReturnStatus,
+		&returnDetail.ReturnedBy,
+		&returnedAt,
+		&cancelledBy,
+		&cancelledAt,
+	)
+
+	if queryErr != nil {
+		if errors.Is(queryErr, sql.ErrNoRows) {
+			return nil, fmt.Errorf("pengembalian dengan ID %s tidak ditemukan", returnID)
+		}
+		return nil, fmt.Errorf("gagal mengambil data pengembalian: %w", queryErr)
+	}
+
+	returnDetail.ReturnedAt = returnedAt.Format(time.RFC3339)
+
+	if cancelledAt.Valid {
+		returnDetail.CancelledAt = cancelledAt.Time.Format(time.RFC3339)
+	}
+
+	if cancelledBy.Valid {
+		returnDetail.CancelledBy = cancelledBy.String
+	}
+
+	// Fetch the batch details
+	rows, batchQueryErr := r.db.Query(`
+        SELECT rb.Batch_Id, rb.Return_Quantity
+        FROM Purchase_Order_Return_Batch rb
+        WHERE rb.Purchase_Return_Id = $1
+    `, returnID)
+
+	if batchQueryErr != nil {
+		return nil, fmt.Errorf("gagal mengambil detail batch pengembalian: %w", batchQueryErr)
+	}
+	defer rows.Close()
+
+	var batchDetails []BatchReturnResponse
+	for rows.Next() {
+		var batchReturn BatchReturnResponse
+		scanErr := rows.Scan(
+			&batchReturn.BatchID,
+			&batchReturn.ReturnQuantity,
+		)
+		if scanErr != nil {
+			return nil, fmt.Errorf("gagal membaca data batch pengembalian: %w", scanErr)
+		}
+		batchDetails = append(batchDetails, batchReturn)
+	}
+
+	if rowErr := rows.Err(); rowErr != nil {
+		return nil, fmt.Errorf("gagal memproses data batch pengembalian: %w", rowErr)
+	}
+
+	returnDetail.BatchDetails = batchDetails
+
+	return &returnDetail, nil
+}
+
+// CancelReturn cancels a purchase order return
+func (r *PurchaseOrderRepositoryImpl) CancelReturn(returnID string, userID string) error {
+	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Check if return exists and is pending
+		var returnStatus string
+		var purchaseOrderID, productDetailID string
+		var returnQuantity float64
+
+		checkErr := tx.QueryRow(`
+            SELECT Return_Status, Purchase_Order_Id, Product_Detail_Id, Return_Quantity
+            FROM Purchase_Order_Return 
+            WHERE Id = $1
+        `, returnID).Scan(&returnStatus, &purchaseOrderID, &productDetailID, &returnQuantity)
+
+		if checkErr != nil {
+			if errors.Is(checkErr, sql.ErrNoRows) {
+				return fmt.Errorf("pengembalian dengan ID %s tidak ditemukan", returnID)
+			}
+			return fmt.Errorf("gagal memeriksa status pengembalian: %w", checkErr)
+		}
+
+		if returnStatus != "pending" {
+			return fmt.Errorf("hanya pengembalian dengan status 'pending' yang dapat dibatalkan")
+		}
+
+		// Update return status to cancelled
+		_, updateErr := tx.Exec(`
+            UPDATE Purchase_Order_Return
+            SET Return_Status = 'cancelled', Cancelled_By = $1, Cancelled_At = CURRENT_TIMESTAMP
+            WHERE Id = $2
+        `, userID, returnID)
+
+		if updateErr != nil {
+			return fmt.Errorf("gagal memperbarui status pengembalian: %w", updateErr)
+		}
+
+		// Update purchase order detail to decrease returned quantity
+		_, detailUpdateErr := tx.Exec(`
+            UPDATE Purchase_Order_Detail
+            SET Total_Returned_Quantity = Total_Returned_Quantity - $1
+            WHERE Id = $2
+        `, returnQuantity, productDetailID)
+
+		if detailUpdateErr != nil {
+			return fmt.Errorf("gagal memperbarui jumlah pengembalian pada detail pesanan: %w", detailUpdateErr)
+		}
+
+		// Check if order status needs to be updated from returned/partially_returned to checked
+		var orderStatus string
+		var totalReceived, totalReturned float64
+
+		statusErr := tx.QueryRow(`
+            SELECT po.Status, 
+                SUM(pod.Received_Quantity) as TotalReceived,
+                SUM(pod.Total_Returned_Quantity) as TotalReturned
+            FROM Purchase_Order po 
+            JOIN Purchase_Order_Detail pod ON po.Id = pod.Purchase_Order_Id
+            WHERE po.Id = $1
+            GROUP BY po.Status
+        `, purchaseOrderID).Scan(&orderStatus, &totalReceived, &totalReturned)
+
+		if statusErr != nil {
+			return fmt.Errorf("gagal memeriksa status pesanan: %w", statusErr)
+		}
+
+		// If order was in a returned status and now there's no returns, update to checked
+		if (orderStatus == "returned" || orderStatus == "partially_returned") && totalReturned == 0 {
+			_, orderUpdateErr := tx.Exec(`
+                UPDATE Purchase_Order
+                SET Status = 'checked', Return_Cancelled_At = CURRENT_TIMESTAMP, Return_Cancelled_By = $1
+                WHERE Id = $2
+            `, userID, purchaseOrderID)
+
+			if orderUpdateErr != nil {
+				return fmt.Errorf("gagal memperbarui status pesanan: %w", orderUpdateErr)
+			}
+		} else if orderStatus == "returned" && totalReturned > 0 && totalReturned < totalReceived {
+			// If partial returns remain, update to partially_returned
+			_, orderUpdateErr := tx.Exec(`
+                UPDATE Purchase_Order
+                SET Status = 'partially_returned'
+                WHERE Id = $1
+            `, purchaseOrderID)
+
+			if orderUpdateErr != nil {
+				return fmt.Errorf("gagal memperbarui status pesanan: %w", orderUpdateErr)
+			}
+		}
+
+		return nil
+	})
+}
+
+// GetByOrderID fetches all items for a specific purchase order
+func (r *PurchaseOrderRepositoryImpl) GetByOrderID(orderID string) ([]GetPurchaseOrderItemResponse, error) {
+	rows, err := r.db.Query(`
+        SELECT pod.Id, pod.Product_Id, p.Name, pod.Requested_Quantity, pod.Unit_Price, 
+               (pod.Requested_Quantity * pod.Unit_Price) as Subtotal
+        FROM Purchase_Order_Detail pod
+        JOIN Product p ON pod.Product_Id = p.Id
+        WHERE pod.Purchase_Order_Id = $1
+    `, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil detail pesanan: %w", err)
+	}
+	defer rows.Close()
+
+	var items []GetPurchaseOrderItemResponse
+	for rows.Next() {
+		var item GetPurchaseOrderItemResponse
+		errScan := rows.Scan(
+			&item.ID,
+			&item.ProductID,
+			&item.ProductName,
+			&item.Quantity,
+			&item.Price,
+			&item.Subtotal,
+		)
+		if errScan != nil {
+			return nil, fmt.Errorf("gagal memproses data detail pesanan: %w", errScan)
+		}
+		items = append(items, item)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("gagal memproses hasil query: %w", err)
+	}
+
+	return items, nil
+}
+
+// RemoveItem removes an item from a purchase order
+func (r *PurchaseOrderRepositoryImpl) RemoveItem(itemID string) error {
+	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Check if item exists and get order ID
+		var orderID string
+		var orderStatus string
+
+		err := tx.QueryRow(`
+            SELECT pod.Purchase_Order_Id, po.Status
+            FROM Purchase_Order_Detail pod
+            JOIN Purchase_Order po ON pod.Purchase_Order_Id = po.Id
+            WHERE pod.Id = $1
+        `, itemID).Scan(&orderID, &orderStatus)
+
+		if err != nil {
+			if errors.Is(err, sql.ErrNoRows) {
+				return fmt.Errorf("item pesanan tidak ditemukan")
+			}
+			return fmt.Errorf("gagal memeriksa detail item: %w", err)
+		}
+
+		// Only allow removals if order is still in 'ordered' status
+		if orderStatus != "ordered" {
+			return fmt.Errorf("item hanya dapat dihapus pada pesanan dengan status 'ordered', status saat ini: %s", orderStatus)
+		}
+
+		// Delete item
+		result, err := tx.Exec(`
+            DELETE FROM Purchase_Order_Detail
+            WHERE Id = $1
+        `, itemID)
+
+		if err != nil {
+			return fmt.Errorf("gagal menghapus item pesanan: %w", err)
+		}
+
+		affected, err := result.RowsAffected()
+		if err != nil {
+			return fmt.Errorf("gagal memeriksa hasil penghapusan: %w", err)
+		}
+
+		if affected == 0 {
+			return fmt.Errorf("item pesanan tidak ditemukan")
+		}
+
+		// Update total amount in purchase order
+		_, err = tx.Exec(`
+            UPDATE Purchase_Order
+            SET Total_Amount = COALESCE((
+                SELECT SUM(Requested_Quantity * Unit_Price)
+                FROM Purchase_Order_Detail
+                WHERE Purchase_Order_Id = $1
+            ), 0),
+            Updated_At = CURRENT_TIMESTAMP
+            WHERE Id = $1
+        `, orderID)
+
+		if err != nil {
+			return fmt.Errorf("gagal memperbarui total pesanan: %w", err)
+		}
+
+		return nil
+	})
+}
+
+// AddItem adds a new item to an existing purchase order
+func (r *PurchaseOrderRepositoryImpl) AddItem(orderID string, req CreatePurchaseOrderItemRequest) error {
+	txErr := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Verify purchase order exists and is in "ordered" status
+		var status string
+		orderErr := tx.QueryRow(`
+            SELECT Status 
+            FROM Purchase_Order 
+            WHERE Id = $1
+        `, orderID).Scan(&status)
+
+		if orderErr != nil {
+			if errors.Is(orderErr, sql.ErrNoRows) {
+				return fmt.Errorf("pesanan dengan ID %s tidak ditemukan", orderID)
+			}
+			return fmt.Errorf("gagal memeriksa status pesanan: %w", orderErr)
+		}
+
+		if status != "ordered" {
+			return fmt.Errorf("item hanya dapat ditambahkan ke pesanan dengan status 'ordered', status saat ini: %s", status)
+		}
+
+		// Verify product exists
+		var productName string
+		productErr := tx.QueryRow(`
+            SELECT Name 
+            FROM Product 
+            WHERE Id = $1 AND Deleted_At IS NULL
+        `, req.ProductID).Scan(&productName)
+
+		if productErr != nil {
+			if errors.Is(productErr, sql.ErrNoRows) {
+				return fmt.Errorf("produk dengan ID %s tidak ditemukan", req.ProductID)
+			}
+			return fmt.Errorf("gagal memeriksa produk: %w", productErr)
+		}
+
+		// Check if product already exists in this order
+		var existingDetailID string
+		dupErr := tx.QueryRow(`
+            SELECT Id 
+            FROM Purchase_Order_Detail 
+            WHERE Purchase_Order_Id = $1 AND Product_Id = $2
+        `, orderID, req.ProductID).Scan(&existingDetailID)
+
+		if dupErr == nil {
+			// Product already exists in this order
+			return fmt.Errorf("produk %s sudah ada dalam pesanan ini", productName)
+		} else if !errors.Is(dupErr, sql.ErrNoRows) {
+			return fmt.Errorf("gagal memeriksa duplikasi produk: %w", dupErr)
+		}
+
+		// Insert new detail
+		var detailID string
+		insertErr := tx.QueryRow(`
+            INSERT INTO Purchase_Order_Detail 
+                (Purchase_Order_Id, Product_Id, Requested_Quantity, Unit_Price)
+            VALUES ($1, $2, $3, $4)
+            RETURNING Id
+        `, orderID, req.ProductID, req.Quantity, req.Price).Scan(&detailID)
+
+		if insertErr != nil {
+			return fmt.Errorf("gagal menambahkan item pesanan: %w", insertErr)
+		}
+
+		// Update order total amount
+		_, updateOrderErr := tx.Exec(`
+            UPDATE Purchase_Order 
+            SET Total_Amount = (
+                SELECT SUM(Requested_Quantity * Unit_Price) 
+                FROM Purchase_Order_Detail 
+                WHERE Purchase_Order_Id = $1
+            ), Updated_At = CURRENT_TIMESTAMP
+            WHERE Id = $1
+        `, orderID)
+
+		if updateOrderErr != nil {
+			return fmt.Errorf("gagal memperbarui total pesanan: %w", updateOrderErr)
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		return txErr
+	}
+
+	return nil
+}
+
+// UpdateItem updates an existing purchase order item
+func (r *PurchaseOrderRepositoryImpl) UpdateItem(req UpdatePurchaseOrderItemRequest) error {
+	txErr := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Verify item exists
+		var orderID, productID string
+		var currentQty, currentPrice float64
+
+		itemErr := tx.QueryRow(`
+            SELECT pod.Purchase_Order_Id, pod.Product_Id, pod.Requested_Quantity, pod.Unit_Price
+            FROM Purchase_Order_Detail pod
+            WHERE pod.Id = $1
+        `, req.ID).Scan(&orderID, &productID, &currentQty, &currentPrice)
+
+		if itemErr != nil {
+			if errors.Is(itemErr, sql.ErrNoRows) {
+				return fmt.Errorf("item pesanan dengan ID %s tidak ditemukan", req.ID)
+			}
+			return fmt.Errorf("gagal memeriksa item pesanan: %w", itemErr)
+		}
+
+		// Verify purchase order is in "ordered" status
+		var status string
+		orderErr := tx.QueryRow(`
+            SELECT Status 
+            FROM Purchase_Order 
+            WHERE Id = $1
+        `, orderID).Scan(&status)
+
+		if orderErr != nil {
+			return fmt.Errorf("gagal memeriksa status pesanan: %w", orderErr)
+		}
+
+		if status != "ordered" {
+			return fmt.Errorf("item hanya dapat diperbarui pada pesanan dengan status 'ordered', status saat ini: %s", status)
+		}
+
+		// Prepare update values
+		updatedQty := currentQty
+		if req.Quantity > 0 {
+			updatedQty = req.Quantity
+		}
+
+		updatedPrice := currentPrice
+		if req.Price > 0 {
+			updatedPrice = req.Price
+		}
+
+		// Update the item
+		updateErr := tx.QueryRow(`
+            UPDATE Purchase_Order_Detail 
+            SET Requested_Quantity = $1, Unit_Price = $2, Updated_At = CURRENT_TIMESTAMP
+            WHERE Id = $3
+            RETURNING Product_Id
+        `, updatedQty, updatedPrice, req.ID).Scan(&productID)
+
+		if updateErr != nil {
+			return fmt.Errorf("gagal memperbarui item pesanan: %w", updateErr)
+		}
+
+		// Update order total amount
+		_, updateOrderErr := tx.Exec(`
+            UPDATE Purchase_Order 
+            SET Total_Amount = (
+                SELECT SUM(Requested_Quantity * Unit_Price) 
+                FROM Purchase_Order_Detail 
+                WHERE Purchase_Order_Id = $1
+            ), Updated_At = CURRENT_TIMESTAMP
+            WHERE Id = $1
+        `, orderID)
+
+		if updateOrderErr != nil {
+			return fmt.Errorf("gagal memperbarui total pesanan: %w", updateOrderErr)
+		}
+
+		// Get product name
+		var productName string
+		nameErr := tx.QueryRow(`
+            SELECT Name 
+            FROM Product 
+            WHERE Id = $1
+        `, productID).Scan(&productName)
+
+		if nameErr != nil {
+			return fmt.Errorf("gagal mendapatkan nama produk: %w", nameErr)
+		}
+
+		return nil
+	})
+
+	if txErr != nil {
+		return txErr
+	}
+
+	return nil
 }

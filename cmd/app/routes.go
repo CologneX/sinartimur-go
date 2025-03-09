@@ -34,19 +34,23 @@ func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
 //	router.HandleFunc("/role/unassign", v1.UnassignRoleFromUserHandler(roleService)).Methods("POST")
 //}
 
-func RegisterPurchaseOrderRoutes(router *mux.Router, purchaseOrderService *purchase.PurchaseOrderService, purchaseDetailService *purchase.PurchaseOrderDetailService) {
+func RegisterPurchaseOrderRoutes(router *mux.Router, purchaseOrderService *purchase.PurchaseOrderService) {
+	// Purchase Orders
+	router.HandleFunc("/orders", v1.GetAllPurchaseOrderHandler(purchaseOrderService)).Methods("GET")
 	router.HandleFunc("/order", v1.CreatePurchaseOrderHandler(purchaseOrderService)).Methods("POST")
-	router.HandleFunc("/orders", v1.GetAllPurchaseOrdersHandler(purchaseOrderService)).Methods("GET")
-	//router.HandleFunc("/order/{id}", v1.GetPurchaseOrderByIDHandler(purchaseOrderService)).Methods("GET")
 	router.HandleFunc("/order/{id}", v1.UpdatePurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
-	router.HandleFunc("/order/{id}/cancel", v1.CancelPurchaseOrderHandler(purchaseOrderService)).Methods("POST")
-	router.HandleFunc("/order/{id}/receive", v1.ReceivePurchaseOrderHandler(purchaseOrderService)).Methods("POST")
+	router.HandleFunc("/order/{id}", v1.DeletePurchaseOrderHandler(purchaseOrderService)).Methods("DELETE")
+	router.HandleFunc("/order/{id}/receive", v1.ReceivePurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/order/{id}/cancel", v1.CancelPurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/order/{id}/check", v1.CheckPurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/order/returns", v1.GetAllPurchaseOrderReturnHandler(purchaseOrderService)).Methods("GET")
+	router.HandleFunc("/order/{id}/return", v1.CreatePurchaseOrderReturnHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/order/return/{id}/cancel", v1.CancelPurchaseOrderReturnHandler(purchaseOrderService)).Methods("PUT")
 
-	// Purchase order detail routes
-	router.HandleFunc("/order/{id}/detail", v1.GetPurchaseOrderDetailHandler(purchaseOrderService)).Methods("GET")
-	router.HandleFunc("/order/{order_id}/item", v1.AddPurchaseOrderDetailHandler(purchaseDetailService)).Methods("POST")
-	router.HandleFunc("/order/item/{id}", v1.UpdatePurchaseOrderDetailHandler(purchaseDetailService)).Methods("PUT")
-	router.HandleFunc("/order/item/{id}", v1.DeletePurchaseOrderDetailHandler(purchaseDetailService)).Methods("DELETE")
+	// Purchase Order Items
+	router.HandleFunc("/order/items/{id}", v1.DeletePurchaseOrderItemHandler(purchaseOrderService)).Methods("DELETE")
+	router.HandleFunc("/order/items/{id}", v1.UpdatePurchaseOrderItemHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/order/items", v1.CreatePurchaseOrderItemHandler(purchaseOrderService)).Methods("POST")
 }
 
 func RegisterSupplierRoutes(router *mux.Router, supplierService *purchase.SupplierService) {
@@ -136,7 +140,7 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()
 	PurchaseRoutes.Use(middleware.RoleMiddleware("purchase"))
 	RegisterSupplierRoutes(PurchaseRoutes, services.SupplierService)
-	RegisterPurchaseOrderRoutes(PurchaseRoutes, services.PurchaseOrderService, services.PurchaseOrderDetailService)
+	RegisterPurchaseOrderRoutes(PurchaseRoutes, services.PurchaseOrderService)
 
 	//// Purchase middleware setup
 	//PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()
