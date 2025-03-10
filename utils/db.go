@@ -9,7 +9,7 @@ import (
 // QueryBuilder helps construct SQL queries dynamically
 type QueryBuilder struct {
 	Query  strings.Builder
-	params []interface{}
+	Params []interface{}
 	count  int
 }
 
@@ -26,7 +26,7 @@ func NewQueryBuilder(baseQuery string) *QueryBuilder {
 func (qb *QueryBuilder) AddFilter(condition string, value interface{}) *QueryBuilder {
 	if value != nil && value != "" {
 		qb.Query.WriteString(fmt.Sprintf(" AND %s $%d", condition, qb.count))
-		qb.params = append(qb.params, value)
+		qb.Params = append(qb.Params, value)
 		qb.count++
 	}
 	return qb
@@ -35,14 +35,14 @@ func (qb *QueryBuilder) AddFilter(condition string, value interface{}) *QueryBui
 // AddPagination adds pagination parameters
 func (qb *QueryBuilder) AddPagination(pageSize, page int) *QueryBuilder {
 	qb.Query.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", qb.count, qb.count+1))
-	qb.params = append(qb.params, pageSize, (page-1)*pageSize)
+	qb.Params = append(qb.Params, pageSize, (page-1)*pageSize)
 	qb.count += 2
 	return qb
 }
 
 // Build returns the final query and parameters
 func (qb *QueryBuilder) Build() (string, []interface{}) {
-	return qb.Query.String(), qb.params
+	return qb.Query.String(), qb.Params
 }
 
 // WithTransaction executes a function within a transaction

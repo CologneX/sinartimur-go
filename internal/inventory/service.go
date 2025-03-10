@@ -1,187 +1,191 @@
 package inventory
 
 import (
+	"database/sql"
+	"errors"
 	"sinartimur-go/pkg/dto"
+	"strings"
 )
 
-// ProductService is the service for the Product domain.
-type ProductService struct {
-	repo InventoryRepository
+// StorageService is the service for the Storage domain
+type StorageService struct {
+	repo StorageRepository
 }
 
-// NewProductService creates a new instance of ProductService
-func NewProductService(repo InventoryRepository) *ProductService {
-	return &ProductService{repo: repo}
+// NewStorageService creates a new instance of StorageService
+func NewStorageService(repo StorageRepository) *StorageService {
+	return &StorageService{repo: repo}
 }
 
-// GetAllProducts fetches all products
-func (s *ProductService) GetAllProducts(search GetProductRequest) ([]GetProductResponse, int, *dto.APIError) {
-	products, totalItem, err := s.repo.GetAll(search)
+// GetAllStorages fetches all storage locations with filtering and pagination
+func (s *StorageService) GetAllStorages(req GetStorageRequest) ([]GetStorageResponse, int, *dto.APIError) {
+	storages, totalItems, err := s.repo.GetAllStorages(req)
 	if err != nil {
-		return nil, 0, &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": err.Error(),
-			},
-		}
+		return nil, 0, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal mengambil data gudang",
+		})
 	}
-	return products, totalItem, nil
+	return storages, totalItems, nil
 }
 
-// GetProductByID fetches a product by ID
-func (s *ProductService) GetProductByID(id string) (*GetProductResponse, *dto.APIError) {
-	product, err := s.repo.GetByID(id)
+// GetStorageByID fetches a storage location by ID
+func (s *StorageService) GetStorageByID(id string) (*GetStorageResponse, *dto.APIError) {
+	storage, err := s.repo.GetStorageByID(id)
 	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"general": "Produk tidak ditemukan",
-			},
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, dto.NewAPIError(404, map[string]string{
+				"general": "Gudang tidak ditemukan",
+			})
 		}
+		return nil, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal mengambil data gudang",
+		})
 	}
-	return product, nil
+	return storage, nil
 }
 
-// GetProductByName fetches a product by name
-func (s *ProductService) GetProductByName(name string) (*GetProductResponse, *dto.APIError) {
-	product, err := s.repo.GetByName(name)
-	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"general": "Produk tidak ditemukan",
-			},
-		}
+// CreateStorage creates a new storage location
+func (s *StorageService) CreateStorage(req CreateStorageRequest) (*GetStorageResponse, *dto.APIError) {
+	// Check if storage with same name already exists
+	existing, err := s.repo.GetStorageByName(req.Name)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memeriksa nama gudang",
+		})
 	}
-	return product, nil
+
+	if existing != nil {
+		return nil, dto.NewAPIError(400, map[string]string{
+			"name": "Nama gudang sudah digunakan",
+		})
+	}
+
+	storage, err := s.repo.CreateStorage(req)
+	if err != nil {
+		return nil, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal membuat gudang baru",
+		})
+	}
+
+	return storage, nil
 }
 
-// CreateProduct creates a new product
-func (s *ProductService) CreateProduct(request CreateProductRequest) (*GetProductResponse, *dto.APIError) {
-	// Check if product name is already used
-	product, err := s.repo.GetByName(request.Name)
-	if err == nil && product != nil {
-		return nil, &dto.APIError{
-			StatusCode: 400,
-			Details: map[string]string{
-				"name": "Nama produk sudah digunakan",
-			},
+// UpdateStorage updates an existing storage location
+func (s *StorageService) UpdateStorage(req UpdateStorageRequest) (*GetStorageResponse, *dto.APIError) {
+	// Check if storage exists
+	_, err := s.repo.GetStorageByID(req.ID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, dto.NewAPIError(404, map[string]string{
+				"general": "Gudang tidak ditemukan",
+			})
 		}
+		return nil, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memeriksa keberadaan gudang",
+		})
 	}
 
-	// Check if category exists
-	_, err = s.repo.GetCategoryByID(request.CategoryID)
-	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"category": "Kategori tidak ditemukan",
-			},
-		}
+	// Check if name is already taken by another storage
+	existing, err := s.repo.GetStorageByName(req.Name)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return nil, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memeriksa nama gudang",
+		})
 	}
 
-	// Check if unit exists
-	_, err = s.repo.GetUnitByID(request.UnitID)
-	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"unit": "Unit tidak ditemukan",
-			},
-		}
+	if existing != nil && existing.ID != req.ID.String() {
+		return nil, dto.NewAPIError(400, map[string]string{
+			"name": "Nama gudang sudah digunakan",
+		})
 	}
 
-	product, err = s.repo.Create(request)
+	storage, err := s.repo.UpdateStorage(req)
 	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": err.Error(),
-			},
-		}
+		return nil, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal mengupdate gudang",
+		})
 	}
-	return product, nil
+
+	return storage, nil
 }
 
-// UpdateProduct updates a product
-func (s *ProductService) UpdateProduct(request UpdateProductRequest) (*GetProductResponse, *dto.APIError) {
-	// Check if product exists
-	_, err := s.repo.GetByID(request.ID.String())
+// DeleteStorage deletes a storage location
+func (s *StorageService) DeleteStorage(id string) *dto.APIError {
+	// Check if storage exists
+	_, err := s.repo.GetStorageByID(id)
 	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"general": "Produk tidak ditemukan",
-			},
+		if errors.Is(err, sql.ErrNoRows) {
+			return dto.NewAPIError(404, map[string]string{
+				"general": "Gudang tidak ditemukan",
+			})
 		}
+		return dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memeriksa keberadaan gudang",
+		})
 	}
 
-	// Check if product name is already used
-	prod, err := s.repo.GetByName(request.Name)
-	if err == nil && prod.ID != request.ID {
-		return nil, &dto.APIError{
-			StatusCode: 400,
-			Details: map[string]string{
-				"name": "Nama produk sudah digunakan",
-			},
-		}
+	if err := s.repo.DeleteStorage(id); err != nil {
+		return dto.NewAPIError(500, map[string]string{
+			"general": "Gagal menghapus gudang",
+		})
 	}
 
-	// Check if category exists
-	_, err = s.repo.GetCategoryByID(request.CategoryID)
-	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"category": "Kategori tidak ditemukan",
-			},
-		}
-	}
-
-	// Check if unit exists
-	_, err = s.repo.GetUnitByID(request.UnitID)
-	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"unit": "Unit tidak ditemukan",
-			},
-		}
-	}
-
-	product, err := s.repo.Update(request)
-	if err != nil {
-		return nil, &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Kesalahan Server",
-			},
-		}
-	}
-	return product, nil
+	return nil
 }
 
-// DeleteProduct deletes a product
-func (s *ProductService) DeleteProduct(request DeleteProductRequest) *dto.APIError {
-	// Check if product exists
-	_, err := s.repo.GetByID(request.ID.String())
+// MoveBatch moves products from one storage to another
+func (s *StorageService) MoveBatch(req MoveBatchRequest, userID string) *dto.APIError {
+	// Validate source storage exists
+	_, err := s.repo.GetStorageByID(req.SourceStorageID.String())
 	if err != nil {
-		return &dto.APIError{
-			StatusCode: 404,
-			Details: map[string]string{
-				"general": "Produk tidak ditemukan",
-			},
+		if errors.Is(err, sql.ErrNoRows) {
+			return dto.NewAPIError(404, map[string]string{
+				"source_storage_id": "Gudang sumber tidak ditemukan",
+			})
 		}
+		return dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memeriksa gudang sumber",
+		})
 	}
 
-	err = s.repo.Delete(request)
+	// Validate target storage exists
+	_, err = s.repo.GetStorageByID(req.TargetStorageID.String())
 	if err != nil {
-		return &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Kesalahan Server",
-			},
+		if errors.Is(err, sql.ErrNoRows) {
+			return dto.NewAPIError(404, map[string]string{
+				"target_storage_id": "Gudang tujuan tidak ditemukan",
+			})
 		}
+		return dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memeriksa gudang tujuan",
+		})
 	}
+
+	// Check if batch exists in source
+	_, err = s.repo.GetBatchInStorage(req.BatchID.String(), req.SourceStorageID.String())
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return dto.NewAPIError(404, map[string]string{
+				"batch_id": "Batch produk tidak ditemukan di gudang sumber",
+			})
+		}
+		return dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memeriksa ketersediaan batch",
+		})
+	}
+
+	// Perform the move operation
+	err = s.repo.MoveBatch(req, userID)
+	if err != nil {
+		if strings.Contains(err.Error(), "kuantitas tidak mencukupi") {
+			return dto.NewAPIError(400, map[string]string{
+				"quantity": "Kuantitas tidak mencukupi di gudang sumber",
+			})
+		}
+		return dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memindahkan batch: " + err.Error(),
+		})
+	}
+
 	return nil
 }

@@ -308,6 +308,7 @@ Create Table Inventory_Log
     User_Id           Uuid References Appuser (Id),
     Purchase_Order_Id Uuid           References Purchase_Order (Id) On Delete Set Null,
     Sales_Order_Id    Uuid           References Sales_Order (Id) On Delete Set Null,
+    Target_Storage_Id Uuid REFERENCES Storage (Id) ON DELETE SET NULL,
     Action            VARCHAR(50)    Not Null, -- e.g., "add", "remove", "transfer", "return"
     Quantity          NUMERIC(15, 2) Not Null,
     Log_Date          Timestamptz      Default Current_Timestamp,

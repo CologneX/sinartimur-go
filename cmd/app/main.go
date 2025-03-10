@@ -11,6 +11,7 @@ import (
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/internal/category"
 	"sinartimur-go/internal/employee"
+	"sinartimur-go/internal/inventory"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
 	"sinartimur-go/internal/unit"
@@ -59,7 +60,7 @@ type Services struct {
 	UnitService          *unit.UnitService
 	SupplierService      *purchase.SupplierService
 	PurchaseOrderService *purchase.PurchaseOrderService
-	//PurchaseOrderDetailService *purchase.PurchaseOrderDetailService
+	InventoryService     *inventory.StorageService
 }
 
 func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
@@ -93,6 +94,9 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 	purchaseOrderRepo := purchase.NewPurchaseOrderRepository(db)
 	purchaseOrderService := purchase.NewPurchaseOrderService(purchaseOrderRepo)
 
+	inventoryRepo := inventory.NewStorageRepository(db)
+	inventoryService := inventory.NewStorageService(inventoryRepo)
+
 	return &Services{
 		AuthService:     authService,
 		UserService:     userService,
@@ -104,5 +108,6 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 		UnitService:          unitService,
 		SupplierService:      supplierService,
 		PurchaseOrderService: purchaseOrderService,
+		InventoryService:     inventoryService,
 	}
 }

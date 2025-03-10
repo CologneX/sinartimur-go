@@ -3,143 +3,230 @@ package inventory
 import (
 	"database/sql"
 	"fmt"
-	"sinartimur-go/internal/category"
-	"sinartimur-go/internal/unit"
+	"github.com/google/uuid"
+	"sinartimur-go/utils"
+	"time"
 )
 
-type InventoryRepository interface {
-	GetAll(req GetProductRequest) ([]GetProductResponse, int, error)
-	GetByID(id string) (*GetProductResponse, error)
-	GetByName(name string) (*GetProductResponse, error)
-	Create(req CreateProductRequest) (*GetProductResponse, error)
-	Update(req UpdateProductRequest) (*GetProductResponse, error)
-	Delete(req DeleteProductRequest) error
-	GetCategoryByID(id string) (*category.GetCategoryResponse, error)
-	GetUnitByID(id string) (*unit.GetUnitResponse, error)
+// StorageRepository defines the interface for storage data operations
+type StorageRepository interface {
+	// Storage CRUD operations
+	GetAllStorages(req GetStorageRequest) ([]GetStorageResponse, int, error)
+	GetStorageByID(id string) (*GetStorageResponse, error)
+	GetStorageByName(name string) (*Storage, error)
+	CreateStorage(req CreateStorageRequest) (*GetStorageResponse, error)
+	UpdateStorage(req UpdateStorageRequest) (*GetStorageResponse, error)
+	DeleteStorage(id string) error
+
+	// Batch movement operations
+	MoveBatch(req MoveBatchRequest, userID string) error
+	GetBatchInStorage(batchID string, storageID string) (*BatchStorage, error)
+	UpdateBatchInStorage(batchStorage BatchStorage) error
+	CreateBatchInStorage(batchStorage BatchStorage) error
+	LogInventoryMovement(log InventoryLog) error
 }
 
-type ProductRepositoryImpl struct {
+// StorageRepositoryImpl implements the StorageRepository interface
+type StorageRepositoryImpl struct {
 	db *sql.DB
 }
 
-func NewProductRepository(db *sql.DB) InventoryRepository {
-	return &ProductRepositoryImpl{db: db}
+// NewStorageRepository creates a new storage repository instance
+func NewStorageRepository(db *sql.DB) StorageRepository {
+	return &StorageRepositoryImpl{db: db}
 }
 
-// GetAll fetches all product
-func (r *ProductRepositoryImpl) GetAll(req GetProductRequest) ([]GetProductResponse, int, error) {
-	var products []GetProductResponse
+// GetAllStorages fetches all storage locations with pagination
+func (r *StorageRepositoryImpl) GetAllStorages(req GetStorageRequest) ([]GetStorageResponse, int, error) {
+	var storages []GetStorageResponse
 	var totalItems int
-	// Query for fetching all products with category and unit name
-	query := "Select P.Id, P.Name,P.Description, P.Price, C.Name As Category, U.Name As Unit, P.Created_At, P.Updated_At From Product P Join Category C On P.Category_Id = C.Id Join Unit U On P.Unit_Id = U.Id Where P.Deleted_At Is Null"
 
-	countQuery := "Select Count(Id) From Product Where Deleted_At Is Null"
+	// Build base query
+	qb := utils.NewQueryBuilder("Select Id, Name, Location, Created_At, Updated_At From Storage Where Deleted_At Is Null")
 
+	// Add filters
 	if req.Name != "" {
-		query += " AND p.name ILIKE '%" + req.Name + "%'"
-		countQuery += " AND name ILIKE '%" + req.Name + "%'"
+		qb.AddFilter("name ILIKE '%' || $%d || '%'", req.Name)
+	}
+	if req.Location != "" {
+		qb.AddFilter("location ILIKE '%' || $%d || '%'", req.Location)
 	}
 
-	if req.Category != "" {
-		query += " AND p.category_id = '" + req.Category + "'"
-		countQuery += " AND category_id = '" + req.Category + "'"
-	}
-
-	if req.Unit != "" {
-		query += " AND p.unit_id = '" + req.Unit + "'"
-		countQuery += " AND unit_id = '" + req.Unit + "'"
-	}
-
-	rows, err := r.db.Query(query)
-	if err != nil {
+	// Get count first
+	//countQuery := fmt.Sprintf("Select Count(*) From (%S) As Filtered_Storages", qb.Query.String())
+	countQuery := `Select Count(*) From (` + qb.Query.String() + `) As Filtered_Storages`
+	countRow := r.db.QueryRow(countQuery, qb.Params...)
+	if err := countRow.Scan(&totalItems); err != nil {
 		return nil, 0, err
 	}
 
-	countRow := r.db.QueryRow(countQuery)
-	err = countRow.Scan(&totalItems)
+	// Add sorting
+	if req.SortBy != "" && req.SortOrder != "" {
+		qb.Query.WriteString(" ORDER BY " + req.SortBy + " " + req.SortOrder)
+	} else {
+		qb.Query.WriteString(" ORDER BY created_at DESC")
+	}
+
+	// Add pagination
+	qb.AddPagination(req.PageSize, req.Page)
+
+	// Execute final query
+	query, params := qb.Build()
+	rows, err := r.db.Query(query, params...)
 	if err != nil {
 		return nil, 0, err
 	}
+	defer rows.Close()
 
 	for rows.Next() {
-		var product GetProductResponse
-		err = rows.Scan(&product.ID, &product.Name, &product.Description, &product.Price, &product.Category, &product.Unit, &product.CreatedAt, &product.UpdatedAt)
-		if err != nil {
+		var storage GetStorageResponse
+		if err := rows.Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt); err != nil {
 			return nil, 0, err
 		}
-
-		products = append(products, product)
+		storages = append(storages, storage)
 	}
 
-	return products, totalItems, nil
+	return storages, totalItems, nil
 }
 
-// GetByID fetches a product by ID
-func (r *ProductRepositoryImpl) GetByID(id string) (*GetProductResponse, error) {
-	var product GetProductResponse
-	err := r.db.QueryRow("Select Id, Name, Description, Price, Category_Id, Unit_Id, Created_At, Updated_At From Product Where Id = $1 And Deleted_At Is Null", id).Scan(&product.ID, &product.Name, &product.Description, &product.Price, &product.Category, &product.Unit, &product.CreatedAt, &product.UpdatedAt)
+// GetStorageByID fetches a storage location by ID
+func (r *StorageRepositoryImpl) GetStorageByID(id string) (*GetStorageResponse, error) {
+	var storage GetStorageResponse
+	err := r.db.QueryRow("Select Id, Name, Location, Created_At, Updated_At From Storage Where Id = $1 And Deleted_At Is Null", id).
+		Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return &product, nil
+	return &storage, nil
 }
 
-// GetCategoryByID fetches a category by ID
-func (r *ProductRepositoryImpl) GetCategoryByID(id string) (*category.GetCategoryResponse, error) {
-	var cat category.GetCategoryResponse
-	err := r.db.QueryRow("Select Id, Name, Description, Created_At, Updated_At From Category Where Id = $1 And Deleted_At Is Null", id).Scan(&cat.ID, &cat.Name, &cat.Description, &cat.CreatedAt, &cat.UpdatedAt)
+// GetStorageByName fetches a storage location by name
+func (r *StorageRepositoryImpl) GetStorageByName(name string) (*Storage, error) {
+	var storage Storage
+	err := r.db.QueryRow("Select Id, Name, Location, Created_At, Updated_At, Deleted_At From Storage Where Name = $1 And Deleted_At Is Null", name).
+		Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt, &storage.DeletedAt)
 	if err != nil {
 		return nil, err
 	}
-	return &cat, nil
+	return &storage, nil
 }
 
-// GetUnitByID fetches a unit by ID
-func (r *ProductRepositoryImpl) GetUnitByID(id string) (*unit.GetUnitResponse, error) {
-	var un unit.GetUnitResponse
-	err := r.db.QueryRow("Select Id, Name, Description, Created_At, Updated_At From Unit Where Id = $1 And Deleted_At Is Null", id).Scan(&un.ID, &un.Name, &un.Description, &un.CreatedAt, &un.UpdatedAt)
+// CreateStorage creates a new storage location
+func (r *StorageRepositoryImpl) CreateStorage(req CreateStorageRequest) (*GetStorageResponse, error) {
+	var storage GetStorageResponse
+	err := r.db.QueryRow("Insert Into Storage (Id, Name, Location) Values ($1, $2, $3) Returning Id, Name, Location, Created_At, Updated_At",
+		uuid.New().String(), req.Name, req.Location).
+		Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return &un, nil
+	return &storage, nil
 }
 
-// GetByName fetches a product by name
-func (r *ProductRepositoryImpl) GetByName(name string) (*GetProductResponse, error) {
-	var product GetProductResponse
-	err := r.db.QueryRow("Select Id, Name, Description, Created_At, Updated_At From Product Where Name = $1 And Deleted_At Is Null", name).Scan(&product.ID, &product.Name, &product.Description, &product.CreatedAt, &product.UpdatedAt)
-	fmt.Println(err, product)
+// UpdateStorage updates an existing storage location
+func (r *StorageRepositoryImpl) UpdateStorage(req UpdateStorageRequest) (*GetStorageResponse, error) {
+	var storage GetStorageResponse
+	err := r.db.QueryRow("Update Storage Set Name = $1, Location = $2, Updated_At = Now() Where Id = $3 And Deleted_At Is Null Returning Id, Name, Location, Created_At, Updated_At",
+		req.Name, req.Location, req.ID.String()).
+		Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return &product, nil
+	return &storage, nil
 }
 
-// Create inserts a new product
-func (r *ProductRepositoryImpl) Create(req CreateProductRequest) (*GetProductResponse, error) {
-	var product GetProductResponse
-	err := r.db.QueryRow("Insert Into Product (Name, Description ,Price, Category_Id, Unit_Id) Values ($1, $2, $3, $4, $5 ) Returning Id, Name, Description, Created_At, Updated_At", req.Name, req.Description, req.Price, req.CategoryID, req.UnitID).Scan(&product.ID, &product.Name, &product.Description, &product.CreatedAt, &product.UpdatedAt)
+// DeleteStorage performs a soft delete on a storage location
+func (r *StorageRepositoryImpl) DeleteStorage(id string) error {
+	_, err := r.db.Exec("Update Storage Set Deleted_At = Now() Where Id = $1 And Deleted_At Is Null", id)
+	return err
+}
+
+// GetBatchInStorage fetches a batch in a specific storage
+func (r *StorageRepositoryImpl) GetBatchInStorage(batchID string, storageID string) (*BatchStorage, error) {
+	var batchStorage BatchStorage
+	err := r.db.QueryRow("Select Id, Batch_Id, Storage_Id, Quantity, Created_At, Updated_At From Batch_Storage Where Batch_Id = $1 And Storage_Id = $2",
+		batchID, storageID).
+		Scan(&batchStorage.ID, &batchStorage.BatchID, &batchStorage.StorageID, &batchStorage.Quantity, &batchStorage.CreatedAt, &batchStorage.UpdatedAt)
 	if err != nil {
 		return nil, err
 	}
-	return &product, nil
+	return &batchStorage, nil
 }
 
-// Update updates an existing product
-func (r *ProductRepositoryImpl) Update(req UpdateProductRequest) (*GetProductResponse, error) {
-	var product GetProductResponse
-	err := r.db.QueryRow("Update Product Set Name = $1, Description = $2, Price = $3, Category_Id = $4, Unit_Id = $5, Updated_At = Now() Where Id = $6 Returning Id, Name, Description, Created_At, Updated_At", req.Name, req.Description, req.Price, req.CategoryID, req.UnitID, req.ID).Scan(&product.ID, &product.Name, &product.Description, &product.CreatedAt, &product.UpdatedAt)
-	if err != nil {
-		return nil, err
-	}
-	return &product, nil
+// UpdateBatchInStorage updates the quantity of a batch in storage
+func (r *StorageRepositoryImpl) UpdateBatchInStorage(batchStorage BatchStorage) error {
+	_, err := r.db.Exec("Update Batch_Storage Set Quantity = $1, Updated_At = Now() Where Id = $2",
+		batchStorage.Quantity, batchStorage.ID)
+	return err
 }
 
-// Delete marks a product as deleted
-func (r *ProductRepositoryImpl) Delete(req DeleteProductRequest) error {
-	_, err := r.db.Exec("Update Product Set Deleted_At = Now() Where Id = $1", req.ID)
-	if err != nil {
-		return err
-	}
-	return nil
+// CreateBatchInStorage creates a new batch in storage entry
+func (r *StorageRepositoryImpl) CreateBatchInStorage(batchStorage BatchStorage) error {
+	_, err := r.db.Exec("Insert Into Batch_Storage (Id, Batch_Id, Storage_Id, Quantity) Values ($1, $2, $3, $4)",
+		uuid.New().String(), batchStorage.BatchID, batchStorage.StorageID, batchStorage.Quantity)
+	return err
+}
+
+// LogInventoryMovement logs an inventory movement action
+func (r *StorageRepositoryImpl) LogInventoryMovement(log InventoryLog) error {
+	_, err := r.db.Exec("Insert Into Inventory_Log (Id, Batch_Id, Storage_Id, Target_Storage_Id, User_Id, Action, Quantity, Log_Date, Description) Values ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+		uuid.New().String(), log.BatchID, log.StorageID, log.TargetStorageID, log.UserID, log.Action, log.Quantity, log.LogDate, log.Description)
+	return err
+}
+
+// MoveBatch moves a batch from one storage to another
+func (r *StorageRepositoryImpl) MoveBatch(req MoveBatchRequest, userID string) error {
+	// Use a transaction to ensure data consistency
+	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
+		// Get batch in source storage
+		var sourceBatchStorage BatchStorage
+		err := tx.QueryRow("Select Id, Batch_Id, Storage_Id, Quantity, Created_At, Updated_At From Batch_Storage Where Batch_Id = $1 And Storage_Id = $2",
+			req.BatchID.String(), req.SourceStorageID.String()).
+			Scan(&sourceBatchStorage.ID, &sourceBatchStorage.BatchID, &sourceBatchStorage.StorageID, &sourceBatchStorage.Quantity, &sourceBatchStorage.CreatedAt, &sourceBatchStorage.UpdatedAt)
+		if err != nil {
+			return err
+		}
+
+		// Check if source has enough quantity
+		if sourceBatchStorage.Quantity < req.Quantity {
+			return fmt.Errorf("kuantitas tidak mencukupi di gudang sumber")
+		}
+
+		// Update source storage quantity
+		_, err = tx.Exec("Update Batch_Storage Set Quantity = Quantity - $1, Updated_At = Now() Where Id = $2",
+			req.Quantity, sourceBatchStorage.ID)
+		if err != nil {
+			return err
+		}
+
+		// Check if batch exists in target storage
+		var targetBatchExists bool
+		err = tx.QueryRow("Select Exists(Select 1 From Batch_Storage Where Batch_Id = $1 And Storage_Id = $2)",
+			req.BatchID.String(), req.TargetStorageID.String()).Scan(&targetBatchExists)
+		if err != nil {
+			return err
+		}
+
+		// If batch exists in target, update quantity, otherwise create new entry
+		if targetBatchExists {
+			_, err = tx.Exec("Update Batch_Storage Set Quantity = Quantity + $1, Updated_At = Now() Where Batch_Id = $2 And Storage_Id = $3",
+				req.Quantity, req.BatchID.String(), req.TargetStorageID.String())
+		} else {
+			newID := uuid.New().String()
+			_, err = tx.Exec("Insert Into Batch_Storage (Id, Batch_Id, Storage_Id, Quantity) Values ($1, $2, $3, $4)",
+				newID, req.BatchID.String(), req.TargetStorageID.String(), req.Quantity)
+		}
+		if err != nil {
+			return err
+		}
+
+		// Log the movement
+		_, err = tx.Exec("Insert Into Inventory_Log (Id, Batch_Id, Storage_Id, Target_Storage_Id, User_Id, Action, Quantity, Log_Date, Description) Values ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+			uuid.New().String(), req.BatchID.String(), req.SourceStorageID.String(), req.TargetStorageID.String(), userID, "transfer", req.Quantity, time.Now(), req.Description)
+		if err != nil {
+			return err
+		}
+
+		return nil
+	})
 }

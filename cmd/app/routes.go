@@ -6,6 +6,7 @@ import (
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/internal/category"
 	"sinartimur-go/internal/employee"
+	"sinartimur-go/internal/inventory"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
 	"sinartimur-go/internal/unit"
@@ -98,6 +99,15 @@ func RegisterCategoryRoutes(router *mux.Router, categoryService *category.Catego
 	router.HandleFunc("/categories", v1.GetAllCategoryHandler(categoryService)).Methods("GET")
 }
 
+func RegisterInventoryRoutes(router *mux.Router, storageService *inventory.StorageService) {
+	router.HandleFunc("/storage", v1.CreateStorageHandler(storageService)).Methods("POST")
+	router.HandleFunc("/storage/{id}", v1.UpdateStorageHandler(storageService)).Methods("PUT")
+	router.HandleFunc("/storage/{id}", v1.DeleteStorageHandler(storageService)).Methods("DELETE")
+	router.HandleFunc("/storages", v1.GetAllStoragesHandler(storageService)).Methods("GET")
+	router.HandleFunc("/move-batch", v1.MoveBatchHandler(storageService)).Methods("POST")
+
+}
+
 // SetupRoutes registers all API routes
 func SetupRoutes(router *mux.Router, services *Services) {
 	// Auth Routes
@@ -127,6 +137,7 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	RegisterProductRoutes(InventoryRoutes, services.ProductService)
 	RegisterCategoryRoutes(InventoryRoutes, services.CategoryService)
 	RegisterUnitRoutes(InventoryRoutes, services.UnitService)
+	RegisterInventoryRoutes(InventoryRoutes, services.InventoryService)
 
 	// Finance middleware setup
 	FinanceRoutes := router.PathPrefix("/finance").Subrouter()
