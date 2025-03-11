@@ -2,6 +2,7 @@ package customer
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"sinartimur-go/utils"
@@ -21,7 +22,7 @@ type RepositoryImpl struct {
 	db *sql.DB
 }
 
-func NewProductRepository(db *sql.DB) CustomerRepository {
+func NewCustomerRepository(db *sql.DB) CustomerRepository {
 	return &RepositoryImpl{db: db}
 }
 
@@ -30,9 +31,9 @@ func (r *RepositoryImpl) GetAll(req GetCustomerRequest) ([]GetCustomerResponse, 
 	queryBuilder := utils.NewQueryBuilder("SELECT id, name, address, telephone, created_at, updated_at FROM customer WHERE deleted_at IS NULL")
 
 	// Add filters based on the request parameters
-	queryBuilder.AddFilter("name LIKE $%d", "%"+req.Name+"%")
-	queryBuilder.AddFilter("address LIKE $%d", "%"+req.Address+"%")
-	queryBuilder.AddFilter("telephone LIKE $%d", "%"+req.Telephone+"%")
+	queryBuilder.AddFilter("name ILIKE ", "%"+req.Name+"%")
+	queryBuilder.AddFilter("address ILIKE ", "%"+req.Address+"%")
+	queryBuilder.AddFilter("telephone ILIKE ", "%"+req.Telephone+"%")
 
 	// Build count query to get total items
 	countQuery, countParams := queryBuilder.Build()
@@ -54,16 +55,7 @@ func (r *RepositoryImpl) GetAll(req GetCustomerRequest) ([]GetCustomerResponse, 
 		queryBuilder.Query.WriteString(fmt.Sprintf(" ORDER BY %s %s", req.SortBy, direction))
 	}
 
-	page := req.Page
-	if page < 1 {
-		page = utils.DefaultPage
-	}
-	pageSize := req.PageSize
-	if pageSize < 1 {
-		pageSize = utils.DefaultPageSize
-	}
-
-	queryBuilder.AddPagination(pageSize, page)
+	queryBuilder.AddPagination(req.PageSize, req.Page)
 
 	// Execute the final query
 	query, params := queryBuilder.Build()
@@ -79,8 +71,8 @@ func (r *RepositoryImpl) GetAll(req GetCustomerRequest) ([]GetCustomerResponse, 
 		var c GetCustomerResponse
 		var createdAt, updatedAt time.Time
 
-		if err := rows.Scan(&c.ID, &c.Name, &c.Address, &c.Telephone, &createdAt, &updatedAt); err != nil {
-			return nil, 0, fmt.Errorf("gagal membaca data pelanggan: %w", err)
+		if errScan := rows.Scan(&c.ID, &c.Name, &c.Address, &c.Telephone, &createdAt, &updatedAt); errScan != nil {
+			return nil, 0, fmt.Errorf("gagal membaca data pelanggan: %w", errScan)
 		}
 
 		c.CreatedAt = createdAt.Format(time.RFC3339)
@@ -147,7 +139,7 @@ func (r *RepositoryImpl) GetByName(name string) (*GetCustomerResponse, error) {
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("pelanggan dengan nama %s tidak ditemukan", name)
 		}
 		return nil, fmt.Errorf("gagal mengambil data pelanggan: %w", err)
@@ -185,7 +177,7 @@ func (r *RepositoryImpl) Update(req UpdateCustomerRequest) error {
 		var customerID string
 		err := tx.QueryRow(checkQuery, req.ID).Scan(&customerID)
 		if err != nil {
-			if err == sql.ErrNoRows {
+			if errors.Is(err, sql.ErrNoRows) {
 				return fmt.Errorf("pelanggan dengan ID %s tidak ditemukan", req.ID)
 			}
 			return fmt.Errorf("gagal memeriksa keberadaan pelanggan: %w", err)

@@ -156,6 +156,7 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	SalesRoutes := router.PathPrefix("/sales").Subrouter()
 	SalesRoutes.Use(middleware.RoleMiddleware("sales"))
 	RegisterProductRoutes(SalesRoutes, services.ProductService)
+	RegisterCustomerRoutes(SalesRoutes, services.CustomerService)
 
 	// Purchase middleware setup
 	PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()
