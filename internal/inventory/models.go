@@ -76,11 +76,11 @@ type BatchStorage struct {
 
 // MoveBatchRequest holds data needed to move products between storages
 type MoveBatchRequest struct {
-	BatchID         uuid.UUID `json:"batch_id" validate:"required,uuid"`
-	SourceStorageID uuid.UUID `json:"source_storage_id" validate:"required,uuid"`
-	TargetStorageID uuid.UUID `json:"target_storage_id" validate:"required,uuid,nefield=SourceStorageID"`
-	Quantity        float64   `json:"quantity" validate:"required,gt=0"`
-	Description     string    `json:"description" validate:"omitempty"`
+	BatchID         string  `json:"batch_id" validate:"required,uuid"`
+	SourceStorageID string  `json:"source_storage_id" validate:"required,uuid"`
+	TargetStorageID string  `json:"target_storage_id" validate:"required,uuid,nefield=SourceStorageID"`
+	Quantity        float64 `json:"quantity" validate:"required,gt=0"`
+	Description     string  `json:"description" validate:"omitempty"`
 }
 
 // InventoryLog represents a record of inventory movement or change
@@ -95,4 +95,39 @@ type InventoryLog struct {
 	LogDate         time.Time `json:"log_date"`
 	Description     string    `json:"description"`
 	CreatedAt       time.Time `json:"created_at"`
+}
+
+// GetInventoryLogsRequest defines filters for querying inventory logs
+type GetInventoryLogsRequest struct {
+	BatchID         string `json:"batch_id" validate:"omitempty,uuid"`
+	ProductID       string `json:"product_id" validate:"omitempty,uuid"`
+	StorageID       string `json:"storage_id" validate:"omitempty,uuid"`
+	TargetStorageID string `json:"target_storage_id" validate:"omitempty,uuid"`
+	UserID          string `json:"user_id" validate:"omitempty,uuid"`
+	Action          string `json:"action" validate:"omitempty,oneof=add remove transfer return"`
+	FromDate        string `json:"from_date" validate:"omitempty,rfc3339"`
+	ToDate          string `json:"to_date" validate:"omitempty,rfc3339"`
+	utils.PaginationParameter
+}
+
+// GetInventoryLogResponse represents the data structure for inventory log responses
+type GetInventoryLogResponse struct {
+	ID                string    `json:"id"`
+	BatchID           string    `json:"batch_id"`
+	BatchSKU          string    `json:"batch_sku"`
+	ProductID         string    `json:"product_id"`
+	ProductName       string    `json:"product_name"`
+	StorageID         string    `json:"storage_id"`
+	StorageName       string    `json:"storage_name"`
+	TargetStorageID   *string   `json:"target_storage_id,omitempty"`
+	TargetStorageName *string   `json:"target_storage_name,omitempty"`
+	UserID            string    `json:"user_id"`
+	Username          string    `json:"username"`
+	PurchaseOrderID   *string   `json:"purchase_order_id,omitempty"`
+	SalesOrderID      *string   `json:"sales_order_id,omitempty"`
+	Action            string    `json:"action"`
+	Quantity          float64   `json:"quantity"`
+	LogDate           time.Time `json:"log_date"`
+	Description       string    `json:"description,omitempty"`
+	CreatedAt         time.Time `json:"created_at"`
 }

@@ -1,6 +1,8 @@
 package purchase
 
-import "sinartimur-go/utils"
+import (
+	"sinartimur-go/utils"
+)
 
 // GetSupplierResponse represents the response for a supplier retrieval
 type GetSupplierResponse struct {

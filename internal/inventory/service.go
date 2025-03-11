@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sinartimur-go/pkg/dto"
 	"strings"
+	"time"
 )
 
 // StorageService is the service for the Storage domain
@@ -136,7 +137,7 @@ func (s *StorageService) DeleteStorage(id string) *dto.APIError {
 // MoveBatch moves products from one storage to another
 func (s *StorageService) MoveBatch(req MoveBatchRequest, userID string) *dto.APIError {
 	// Validate source storage exists
-	_, err := s.repo.GetStorageByID(req.SourceStorageID.String())
+	_, err := s.repo.GetStorageByID(req.SourceStorageID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return dto.NewAPIError(404, map[string]string{
@@ -149,7 +150,7 @@ func (s *StorageService) MoveBatch(req MoveBatchRequest, userID string) *dto.API
 	}
 
 	// Validate target storage exists
-	_, err = s.repo.GetStorageByID(req.TargetStorageID.String())
+	_, err = s.repo.GetStorageByID(req.TargetStorageID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return dto.NewAPIError(404, map[string]string{
@@ -162,7 +163,7 @@ func (s *StorageService) MoveBatch(req MoveBatchRequest, userID string) *dto.API
 	}
 
 	// Check if batch exists in source
-	_, err = s.repo.GetBatchInStorage(req.BatchID.String(), req.SourceStorageID.String())
+	_, err = s.repo.GetBatchInStorage(req.BatchID, req.SourceStorageID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return dto.NewAPIError(404, map[string]string{
@@ -188,4 +189,37 @@ func (s *StorageService) MoveBatch(req MoveBatchRequest, userID string) *dto.API
 	}
 
 	return nil
+}
+
+// GetInventoryLogs fetches inventory logs with filtering and pagination
+func (s *StorageService) GetInventoryLogs(req GetInventoryLogsRequest) ([]GetInventoryLogResponse, int, *dto.APIError) {
+	logs, totalItems, err := s.repo.GetInventoryLogs(req)
+	if err != nil {
+		return nil, 0, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal mengambil log inventaris: " + err.Error(),
+		})
+	}
+	return logs, totalItems, nil
+}
+
+// RefreshInventoryLogView refreshes the materialized view
+func (s *StorageService) RefreshInventoryLogView() *dto.APIError {
+	err := s.repo.RefreshInventoryLogView()
+	if err != nil {
+		return dto.NewAPIError(500, map[string]string{
+			"general": "Gagal memperbarui data log inventaris: " + err.Error(),
+		})
+	}
+	return nil
+}
+
+// GetInventoryLogLastRefreshed fetches the last time the inventory log was refreshed
+func (s *StorageService) GetInventoryLogLastRefreshed() (*time.Time, *dto.APIError) {
+	lastRefreshed, err := s.repo.GetInventoryLogLastRefreshed()
+	if err != nil {
+		return nil, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal mendapatkan informasi waktu refresh terakhir: " + err.Error(),
+		})
+	}
+	return lastRefreshed, nil
 }

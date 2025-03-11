@@ -1721,3 +1721,5 @@ func (r *PurchaseOrderRepositoryImpl) UpdateItem(req UpdatePurchaseOrderItemRequ
 
 	return nil
 }
+
+// GetInventoryLogs fetches all inventory logs with filtering and pagination

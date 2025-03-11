@@ -1,4 +1,4 @@
-package sales
+package customer
 
 import (
 	"database/sql"

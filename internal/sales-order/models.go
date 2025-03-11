@@ -1,4 +1,4 @@
-package sales
+package customer
 
 // GetSalesOrderResponse
 type GetSalesOrderResponse struct {

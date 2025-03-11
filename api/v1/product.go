@@ -152,7 +152,7 @@ func GetProductBatchHandler(productService *product.ProductService) http.Handler
 		req.Page = page
 		req.PageSize = pageSize
 
-		validationErrors := utils.ValidateStruct(req)
+		validationErrors := utils.ValidateStruct(&req)
 		if validationErrors != nil {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return

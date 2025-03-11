@@ -66,7 +66,7 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 	}
 
 	if user.IsSales {
-		role := "sales"
+		role := "customer"
 		roles = append(roles, &role)
 	}
 

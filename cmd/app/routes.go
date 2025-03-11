@@ -5,6 +5,7 @@ import (
 	v1 "sinartimur-go/api/v1"
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/internal/category"
+	"sinartimur-go/internal/customer"
 	"sinartimur-go/internal/employee"
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/internal/product"
@@ -105,7 +106,15 @@ func RegisterInventoryRoutes(router *mux.Router, storageService *inventory.Stora
 	router.HandleFunc("/storage/{id}", v1.DeleteStorageHandler(storageService)).Methods("DELETE")
 	router.HandleFunc("/storages", v1.GetAllStoragesHandler(storageService)).Methods("GET")
 	router.HandleFunc("/move-batch", v1.MoveBatchHandler(storageService)).Methods("POST")
+	router.HandleFunc("/logs", v1.GetAllInventoryLogHandler(storageService)).Methods("GET")
+	router.HandleFunc("/logs/refresh", v1.RefreshInventoryLogViewHandler(storageService)).Methods("POST")
+}
 
+func RegisterCustomerRoutes(router *mux.Router, customerService *customer.CustomerService) {
+	router.HandleFunc("/customer", v1.CreateCustomerHandler(customerService)).Methods("POST")
+	router.HandleFunc("/customer/{id}", v1.UpdateCustomerHandler(customerService)).Methods("PUT")
+	router.HandleFunc("/customer/{id}", v1.DeleteCustomerHandler(customerService)).Methods("DELETE")
+	router.HandleFunc("/customers", v1.GetAllCustomersHandler(customerService)).Methods("GET")
 }
 
 // SetupRoutes registers all API routes
@@ -146,6 +155,7 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	// Sales middleware setup
 	SalesRoutes := router.PathPrefix("/sales").Subrouter()
 	SalesRoutes.Use(middleware.RoleMiddleware("sales"))
+	RegisterProductRoutes(SalesRoutes, services.ProductService)
 
 	// Purchase middleware setup
 	PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()

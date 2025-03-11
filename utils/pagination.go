@@ -6,10 +6,10 @@ import (
 )
 
 type PaginationParameter struct {
-	Page      int    `json:"page"`
-	PageSize  int    `json:"page_size"`
+	Page      int    `json:"page" validate:"omitempty,min=1"`
+	PageSize  int    `json:"page_size" validate:"omitempty,min=1"`
 	SortBy    string `json:"sort_by,omitempty"`
-	SortOrder string `json:"sort_order,omitempty"`
+	SortOrder string `json:"sort_order,omitempty" validate:"omitempty,oneof=asc desc"`
 }
 
 const (

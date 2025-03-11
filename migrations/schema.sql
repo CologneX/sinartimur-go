@@ -333,6 +333,50 @@ Create Table Financial_Transaction
     Deleted_At        Timestamptz      Default Null
 );
 
+-- Create materialized view for inventory logs with joined data
+CREATE MATERIALIZED VIEW inventory_log_view AS
+SELECT
+    il.id,
+    il.batch_id,
+    pb.sku AS batch_sku,
+    pb.product_id,
+    p.name AS product_name,
+    il.storage_id,
+    s1.name AS storage_name,
+    il.target_storage_id,
+    s2.name AS target_storage_name,
+    il.user_id,
+    a.username,
+    il.purchase_order_id,
+    il.sales_order_id,
+    il.action,
+    il.quantity,
+    il.log_date,
+    il.description,
+    il.created_at
+FROM
+    inventory_log il
+        LEFT JOIN
+    product_batch pb ON il.batch_id = pb.id
+        LEFT JOIN
+    product p ON pb.product_id = p.id
+        LEFT JOIN
+    storage s1 ON il.storage_id = s1.id
+        LEFT JOIN
+    storage s2 ON il.target_storage_id = s2.id
+        LEFT JOIN
+    appuser a ON il.user_id = a.id
+WITH DATA;
+
+CREATE TABLE IF NOT EXISTS materialized_view_refresh (
+                                                         view_name VARCHAR(100) PRIMARY KEY,
+                                                         last_refreshed TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+);
+
+INSERT INTO materialized_view_refresh (view_name, last_refreshed)
+VALUES ('inventory_log_view', NOW())
+ON CONFLICT (view_name) DO NOTHING;
+
 -- Indexes to improve query performance
 Create Index Idx_Financial_Transactions_User_Id On Financial_Transaction (User_Id);
 Create Index Idx_Users_Username On Appuser (Username);
@@ -375,3 +419,9 @@ Create Index Idx_Sales_Order_Return_Cancelled_By On Sales_Order (Return_Cancelle
 Create Index Idx_Sales_Order_Return_Order_Id On Sales_Order_Return (Sales_Order_Id);
 Create Index Idx_Sales_Order_Return_Detail_Id On Sales_Order_Return (Sales_Detail_Id);
 Create Index Idx_Sales_Order_Return_Batch_Return_Id On Sales_Order_Return_Batch (Sales_Return_Id);
+CREATE INDEX idx_inventory_log_view_product_id ON inventory_log_view(product_id);
+CREATE INDEX idx_inventory_log_view_storage_id ON inventory_log_view(storage_id);
+CREATE INDEX idx_inventory_log_view_action ON inventory_log_view(action);
+CREATE INDEX idx_inventory_log_view_log_date ON inventory_log_view(log_date);
+CREATE INDEX idx_inventory_log_view_user_id ON inventory_log_view(user_id);
+CREATE INDEX idx_inventory_log_view_batch_id ON inventory_log_view(batch_id);

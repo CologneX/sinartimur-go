@@ -103,7 +103,7 @@ func (r *userRepositoryImpl) GetAll(search string) ([]*GetUserResponse, error) {
 			roles = append(roles, "inventory")
 		}
 		if isSales {
-			roles = append(roles, "sales")
+			roles = append(roles, "customer")
 		}
 		if isPurchase {
 			roles = append(roles, "purchase")

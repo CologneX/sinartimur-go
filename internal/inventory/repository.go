@@ -2,6 +2,7 @@ package inventory
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"sinartimur-go/utils"
@@ -24,6 +25,11 @@ type StorageRepository interface {
 	UpdateBatchInStorage(batchStorage BatchStorage) error
 	CreateBatchInStorage(batchStorage BatchStorage) error
 	LogInventoryMovement(log InventoryLog) error
+
+	// StorageRepository interface
+	GetInventoryLogs(req GetInventoryLogsRequest) ([]GetInventoryLogResponse, int, error)
+	RefreshInventoryLogView() error
+	GetInventoryLogLastRefreshed() (*time.Time, error)
 }
 
 // StorageRepositoryImpl implements the StorageRepository interface
@@ -46,10 +52,10 @@ func (r *StorageRepositoryImpl) GetAllStorages(req GetStorageRequest) ([]GetStor
 
 	// Add filters
 	if req.Name != "" {
-		qb.AddFilter("name ILIKE '%' || $%d || '%'", req.Name)
+		qb.AddFilter("Name ILIKE ", `%`+req.Name+`%`)
 	}
 	if req.Location != "" {
-		qb.AddFilter("location ILIKE '%' || $%d || '%'", req.Location)
+		qb.AddFilter("Location ILIKE ", `%`+req.Location+`%`)
 	}
 
 	// Get count first
@@ -80,8 +86,8 @@ func (r *StorageRepositoryImpl) GetAllStorages(req GetStorageRequest) ([]GetStor
 
 	for rows.Next() {
 		var storage GetStorageResponse
-		if err := rows.Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt); err != nil {
-			return nil, 0, err
+		if errScan := rows.Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt); errScan != nil {
+			return nil, 0, errScan
 		}
 		storages = append(storages, storage)
 	}
@@ -181,7 +187,7 @@ func (r *StorageRepositoryImpl) MoveBatch(req MoveBatchRequest, userID string) e
 		// Get batch in source storage
 		var sourceBatchStorage BatchStorage
 		err := tx.QueryRow("Select Id, Batch_Id, Storage_Id, Quantity, Created_At, Updated_At From Batch_Storage Where Batch_Id = $1 And Storage_Id = $2",
-			req.BatchID.String(), req.SourceStorageID.String()).
+			req.BatchID, req.SourceStorageID).
 			Scan(&sourceBatchStorage.ID, &sourceBatchStorage.BatchID, &sourceBatchStorage.StorageID, &sourceBatchStorage.Quantity, &sourceBatchStorage.CreatedAt, &sourceBatchStorage.UpdatedAt)
 		if err != nil {
 			return err
@@ -202,7 +208,7 @@ func (r *StorageRepositoryImpl) MoveBatch(req MoveBatchRequest, userID string) e
 		// Check if batch exists in target storage
 		var targetBatchExists bool
 		err = tx.QueryRow("Select Exists(Select 1 From Batch_Storage Where Batch_Id = $1 And Storage_Id = $2)",
-			req.BatchID.String(), req.TargetStorageID.String()).Scan(&targetBatchExists)
+			req.BatchID, req.TargetStorageID).Scan(&targetBatchExists)
 		if err != nil {
 			return err
 		}
@@ -210,11 +216,11 @@ func (r *StorageRepositoryImpl) MoveBatch(req MoveBatchRequest, userID string) e
 		// If batch exists in target, update quantity, otherwise create new entry
 		if targetBatchExists {
 			_, err = tx.Exec("Update Batch_Storage Set Quantity = Quantity + $1, Updated_At = Now() Where Batch_Id = $2 And Storage_Id = $3",
-				req.Quantity, req.BatchID.String(), req.TargetStorageID.String())
+				req.Quantity, req.BatchID, req.TargetStorageID)
 		} else {
 			newID := uuid.New().String()
 			_, err = tx.Exec("Insert Into Batch_Storage (Id, Batch_Id, Storage_Id, Quantity) Values ($1, $2, $3, $4)",
-				newID, req.BatchID.String(), req.TargetStorageID.String(), req.Quantity)
+				newID, req.BatchID, req.TargetStorageID, req.Quantity)
 		}
 		if err != nil {
 			return err
@@ -222,11 +228,162 @@ func (r *StorageRepositoryImpl) MoveBatch(req MoveBatchRequest, userID string) e
 
 		// Log the movement
 		_, err = tx.Exec("Insert Into Inventory_Log (Id, Batch_Id, Storage_Id, Target_Storage_Id, User_Id, Action, Quantity, Log_Date, Description) Values ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
-			uuid.New().String(), req.BatchID.String(), req.SourceStorageID.String(), req.TargetStorageID.String(), userID, "transfer", req.Quantity, time.Now(), req.Description)
+			uuid.New().String(), req.BatchID, req.SourceStorageID, req.TargetStorageID, userID, "transfer", req.Quantity, time.Now(), req.Description)
 		if err != nil {
 			return err
 		}
 
 		return nil
 	})
+}
+
+// RefreshInventoryLogView refreshes the materialized view
+func (r *StorageRepositoryImpl) RefreshInventoryLogView() error {
+	tx, err := r.db.Begin()
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+
+	// Refresh the materialized view
+	_, err = tx.Exec("REFRESH MATERIALIZED VIEW inventory_log_view")
+	if err != nil {
+		return err
+	}
+
+	// Update the refresh timestamp
+	_, err = tx.Exec("UPDATE materialized_view_refresh SET last_refreshed = NOW() WHERE view_name = 'inventory_log_view'")
+	if err != nil {
+		return err
+	}
+
+	return tx.Commit()
+}
+
+func (r *StorageRepositoryImpl) GetInventoryLogLastRefreshed() (*time.Time, error) {
+	var lastRefreshed time.Time
+	err := r.db.QueryRow("SELECT last_refreshed FROM materialized_view_refresh WHERE view_name = 'inventory_log_view'").Scan(&lastRefreshed)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil // No refresh record found
+		}
+		return nil, err
+	}
+	return &lastRefreshed, nil
+}
+
+// GetInventoryLogs retrieves inventory logs based on the provided filters
+func (r *StorageRepositoryImpl) GetInventoryLogs(req GetInventoryLogsRequest) ([]GetInventoryLogResponse, int, error) {
+	var logs []GetInventoryLogResponse
+	var totalItems int
+
+	// Build base query
+	qb := utils.NewQueryBuilder("SELECT * FROM inventory_log_view WHERE 1=1")
+
+	// Add filters
+	if req.BatchID != "" {
+		qb.AddFilter("batch_id =", req.BatchID)
+	}
+
+	if req.ProductID != "" {
+		qb.AddFilter("product_id =", req.ProductID)
+	}
+
+	if req.StorageID != "" {
+		qb.AddFilter("storage_id =", req.StorageID)
+	}
+
+	if req.TargetStorageID != "" {
+		qb.AddFilter("target_storage_id =", req.TargetStorageID)
+	}
+
+	if req.UserID != "" {
+		qb.AddFilter("user_id =", req.UserID)
+	}
+
+	if req.Action != "" {
+		qb.AddFilter("action =", req.Action)
+	}
+
+	if req.FromDate != "" {
+		qb.AddFilter("log_date >", req.FromDate)
+	}
+
+	if req.ToDate != "" {
+		qb.AddFilter("log_date <", req.ToDate)
+	}
+
+	// Count total records
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS filtered_logs", qb.Query.String())
+	err := r.db.QueryRow(countQuery, qb.Params...).Scan(&totalItems)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to count total logs: %w", err)
+	}
+
+	// Add sorting
+	if req.SortBy != "" && req.SortOrder != "" {
+		qb.Query.WriteString(fmt.Sprintf(" ORDER BY %s %s", req.SortBy, req.SortOrder))
+	} else {
+		qb.Query.WriteString(" ORDER BY log_date DESC")
+	}
+
+	// Add pagination
+	qb.AddPagination(req.PageSize, req.Page)
+
+	// Execute final query
+	query, params := qb.Build()
+	rows, err := r.db.Query(query, params...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("failed to query inventory logs: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var log GetInventoryLogResponse
+		var targetStorageID, targetStorageName, purchaseOrderID, salesOrderID sql.NullString
+
+		errScan := rows.Scan(
+			&log.ID,
+			&log.BatchID,
+			&log.BatchSKU,
+			&log.ProductID,
+			&log.ProductName,
+			&log.StorageID,
+			&log.StorageName,
+			&targetStorageID,
+			&targetStorageName,
+			&log.UserID,
+			&log.Username,
+			&purchaseOrderID,
+			&salesOrderID,
+			&log.Action,
+			&log.Quantity,
+			&log.LogDate,
+			&log.Description,
+			&log.CreatedAt,
+		)
+		if errScan != nil {
+			return nil, 0, fmt.Errorf("failed to scan inventory log: %w", errScan)
+		}
+
+		if targetStorageID.Valid {
+			log.TargetStorageID = &targetStorageID.String
+		}
+
+		if targetStorageName.Valid {
+			log.TargetStorageName = &targetStorageName.String
+		}
+
+		if purchaseOrderID.Valid {
+			log.PurchaseOrderID = &purchaseOrderID.String
+		}
+
+		if salesOrderID.Valid {
+			log.SalesOrderID = &salesOrderID.String
+		}
+
+		logs = append(logs, log)
+	}
+
+	return logs, totalItems, nil
 }
