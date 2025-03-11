@@ -1,7 +1,6 @@
 package user
 
 import (
-	"fmt"
 	"net/http"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
@@ -102,10 +101,15 @@ func (s *UserService) UpdateCredential(request UpdateUserCredentialRequest) *dto
 }
 
 // GetAllUsers fetches all users
-func (s *UserService) GetAllUsers(search string) ([]*GetUserResponse, error) {
-	users, err := s.repo.GetAll(search)
+func (s *UserService) GetAllUsers(req GetAllUserRequest) ([]*GetUserResponse, int, *dto.APIError) {
+	users, totalItems, err := s.repo.GetAll(req)
 	if err != nil {
-		return nil, fmt.Errorf("Gagal mengambil data user: %w", err)
+		return nil, 0, &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Kesalahan Server",
+			},
+		}
 	}
-	return users, nil
+	return users, totalItems, nil
 }

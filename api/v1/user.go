@@ -28,17 +28,26 @@ func CreateUserHandler(userService *user.UserService) http.HandlerFunc {
 	}
 }
 
+// GetAllUsersHandler handles fetching all users
 func GetAllUsersHandler(userService *user.UserService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		search := r.URL.Query().Get("search")
-		users, err := userService.GetAllUsers(search)
-		if err != nil {
-			utils.WriteJSON(w, http.StatusInternalServerError, map[string]string{"error": err.Error()})
+	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+		var req user.GetAllUserRequest
+		req.Search = r.URL.Query().Get("search")
+
+		// Set pagination parameters
+		req.Page = page
+		req.PageSize = pageSize
+		req.SortBy = sortBy
+		req.SortOrder = sortOrder
+
+		users, totalItems, apiErr := userService.GetAllUsers(req)
+		if apiErr != nil {
+			utils.ErrorJSON(w, apiErr)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, users)
-	}
+		utils.WritePaginationJSON(w, http.StatusOK, page, totalItems, pageSize, users)
+	})
 }
 
 func UpdateUserHandler(userService *user.UserService) http.HandlerFunc {

@@ -1,6 +1,9 @@
 package user
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"sinartimur-go/utils"
+)
 
 type User struct {
 	ID           uuid.UUID `json:"id"`
@@ -39,6 +42,11 @@ type UpdateUserRequest struct {
 	IsPurchase  bool      `json:"is_purchase" validate:"boolean"`
 	Username    string    `json:"username" validate:"required"`
 	IsActive    bool      `json:"is_active" validate:"boolean"`
+}
+
+type GetAllUserRequest struct {
+	Search string `json:"search,omitempty"`
+	utils.PaginationParameter
 }
 
 type UpdateUserCredentialRequest struct {
