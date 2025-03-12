@@ -146,6 +146,6 @@ VALUES
     ('17171717-1717-1717-1717-171717171717', '09090909-0909-0909-0909-090909090909', 'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5', '05050505-0505-0505-0505-050505050505', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', 'add', 10, 'Initial stock added');
 
 -- Insert a Financial Transaction entry
-INSERT INTO Financial_Transaction (Id, User_Id, Amount, Type, Sales_Order_Id, Description, Transaction_Date)
+INSERT INTO financial_transaction_log (Id, User_Id, Amount, Type, Sales_Order_Id, Description, Transaction_Date)
 VALUES
     ('18181818-1818-1818-1818-181818181818', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5', 1500.00, 'sale', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', 'Sale transaction', CURRENT_TIMESTAMP);
