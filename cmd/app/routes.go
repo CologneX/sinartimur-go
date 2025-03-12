@@ -7,6 +7,7 @@ import (
 	"sinartimur-go/internal/category"
 	"sinartimur-go/internal/customer"
 	"sinartimur-go/internal/employee"
+	"sinartimur-go/internal/finance"
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
@@ -116,6 +117,13 @@ func RegisterCustomerRoutes(router *mux.Router, customerService *customer.Custom
 	router.HandleFunc("/customer/{id}", v1.DeleteCustomerHandler(customerService)).Methods("DELETE")
 	router.HandleFunc("/customers", v1.GetAllCustomersHandler(customerService)).Methods("GET")
 }
+func RegisterFinanceTransactionRoutes(router *mux.Router, service *finance.FinanceService) {
+	router.HandleFunc("/transaction", v1.CreateFinanceTransactionHandler(service)).Methods("POST")
+	router.HandleFunc("/transactions", v1.GetAllFinanceTransactionsHandler(service)).Methods("GET")
+	router.HandleFunc("/transaction/cancel/{id}", v1.CancelFinanceTransactionHandler(service)).Methods("POST")
+	router.HandleFunc("/transactions/summary", v1.GetFinanceTransactionSummaryHandler(service)).Methods("GET")
+	router.HandleFunc("/transactions/refresh", v1.RefreshFinanceTransactionViewHandler(service)).Methods("POST")
+}
 
 // SetupRoutes registers all API routes
 func SetupRoutes(router *mux.Router, services *Services) {
@@ -139,6 +147,7 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	AdminRoutes.Use(middleware.RoleMiddleware())
 	RegisterUserRoutes(AdminRoutes, services.UserService)
 	//RegisterRoleRoutes(AdminRoutes, services.RoleService)
+	RegisterFinanceTransactionRoutes(AdminRoutes, services.FinanceService)
 
 	// Inventory middleware setup
 	InventoryRoutes := router.PathPrefix("/inventory").Subrouter()
@@ -148,9 +157,9 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	RegisterUnitRoutes(InventoryRoutes, services.UnitService)
 	RegisterInventoryRoutes(InventoryRoutes, services.InventoryService)
 
-	// Finance middleware setup
-	FinanceRoutes := router.PathPrefix("/finance").Subrouter()
-	FinanceRoutes.Use(middleware.RoleMiddleware("finance"))
+	//// Finance middleware setup
+	//FinanceRoutes := router.PathPrefix("/finance").Subrouter()
+	//FinanceRoutes.Use(middleware.RoleMiddleware("finance"))
 
 	// Sales middleware setup
 	SalesRoutes := router.PathPrefix("/sales").Subrouter()

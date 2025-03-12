@@ -318,7 +318,7 @@ Create Table Inventory_Log
 );
 
 -- Table: Financial Transactions
-Create Table Financial_Transaction
+Create Table Financial_Transaction_Log
 (
     Id                Uuid Primary Key Default Uuid_Generate_V4(),
     User_Id           Uuid References Appuser (Id),
@@ -327,6 +327,7 @@ Create Table Financial_Transaction
     Purchase_Order_Id Uuid           References Purchase_Order (Id) On Delete Set Null,
     Sales_Order_Id    Uuid           References Sales_Order (Id) On Delete Set Null,
     Description       TEXT,
+    Is_System        BOOLEAN        Default True,
     Transaction_Date  Timestamptz    Not Null,
     Created_At        Timestamptz      Default Current_Timestamp,
     Edited_At         Timestamptz      Default Null,
@@ -375,10 +376,42 @@ CREATE TABLE IF NOT EXISTS materialized_view_refresh (
 
 INSERT INTO materialized_view_refresh (view_name, last_refreshed)
 VALUES ('inventory_log_view', NOW())
-ON CONFLICT (view_name) DO NOTHING;
+ON CONFLICT (view_name) DO UPDATE SET last_refreshed = NOW();
+
+-- Create materialized view for financial transactions
+CREATE MATERIALIZED VIEW finance_transaction_log_view AS
+SELECT
+    ft.Id,
+    ft.User_Id,
+    u.Username,
+    ft.Amount,
+    ft.Type,
+    ft.Purchase_Order_Id,
+    ft.Sales_Order_Id,
+    ft.Description,
+    ft.Is_System,
+    ft.Transaction_Date,
+    ft.Created_At,
+    ft.Edited_At
+FROM
+    Financial_Transaction_Log ft
+        LEFT JOIN
+    Appuser u ON ft.User_Id = u.Id
+        LEFT JOIN
+    Purchase_Order po ON ft.Purchase_Order_Id = po.Id
+        LEFT JOIN
+    Sales_Order so ON ft.Sales_Order_Id = so.Id
+WHERE
+    ft.Deleted_At IS NULL
+WITH DATA;
+
+-- Add entry to track refresh time
+INSERT INTO materialized_view_refresh (view_name, last_refreshed)
+VALUES ('finance_transaction_log_view', NOW())
+ON CONFLICT (view_name) DO UPDATE SET last_refreshed = NOW();
 
 -- Indexes to improve query performance
-Create Index Idx_Financial_Transactions_User_Id On Financial_Transaction (User_Id);
+Create Index Idx_Financial_Transactions_User_Id On Financial_Transaction_Log (User_Id);
 Create Index Idx_Users_Username On Appuser (Username);
 Create Index Idx_Employees_Name On Employee (Name);
 Create Index Idx_Employees_Position On Employee (Position);
@@ -425,3 +458,9 @@ CREATE INDEX idx_inventory_log_view_action ON inventory_log_view(action);
 CREATE INDEX idx_inventory_log_view_log_date ON inventory_log_view(log_date);
 CREATE INDEX idx_inventory_log_view_user_id ON inventory_log_view(user_id);
 CREATE INDEX idx_inventory_log_view_batch_id ON inventory_log_view(batch_id);
+CREATE INDEX idx_finance_transaction_log_view_id ON finance_transaction_log_view (id);
+CREATE INDEX idx_finance_transaction_log_view_user_id ON finance_transaction_log_view (user_id);
+CREATE INDEX idx_finance_transaction_log_view_type ON finance_transaction_log_view (type);
+CREATE INDEX idx_finance_transaction_log_view_date ON finance_transaction_log_view (transaction_date);
+CREATE INDEX idx_finance_transaction_log_view_purchase_id ON finance_transaction_log_view (purchase_order_id);
+CREATE INDEX idx_finance_transaction_log_view_sales_id ON finance_transaction_log_view (sales_order_id);
