@@ -1,6 +1,9 @@
 package employee
 
-import "github.com/google/uuid"
+import (
+	"github.com/google/uuid"
+	"sinartimur-go/utils"
+)
 
 type Employee struct {
 	ID        uuid.UUID `json:"id"`
@@ -44,4 +47,9 @@ type CreateEmployeeRequest struct {
 
 type DeleteEmployeeRequest struct {
 	ID uuid.UUID `json:"id"`
+}
+
+type GetAllEmployeeRequest struct {
+	Name string `json:"name,omitempty"`
+	utils.PaginationParameter
 }

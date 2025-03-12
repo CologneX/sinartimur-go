@@ -2,13 +2,15 @@ package employee
 
 import (
 	"database/sql"
+	"fmt"
+	"sinartimur-go/utils"
 )
 
 type EmployeeRepository interface {
 	Create(request CreateEmployeeRequest) error
 	Delete(request DeleteEmployeeRequest) error
 	Update(request UpdateEmployeeRequest) error
-	GetAll(name string) ([]GetEmployeeResponse, error)
+	GetAll(req GetAllEmployeeRequest) ([]GetEmployeeResponse, int, error)
 	GetByID(id string) (*GetEmployeeResponse, error)
 	GetByNIK(nik string) (*GetEmployeeResponse, error)
 	GetByPhone(phone string) (*GetEmployeeResponse, error)
@@ -51,31 +53,78 @@ func (r *employeeRepositoryImpl) Update(request UpdateEmployeeRequest) error {
 }
 
 // GetAll fetches all employees
-func (r *employeeRepositoryImpl) GetAll(name string) ([]GetEmployeeResponse, error) {
-	var rows *sql.Rows
-	var err error
+func (r *employeeRepositoryImpl) GetAll(req GetAllEmployeeRequest) ([]GetEmployeeResponse, int, error) {
+	// Build the base query
+	queryBuilder := utils.NewQueryBuilder(`
+		SELECT Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At 
+		FROM Employee 
+		WHERE Deleted_At IS NULL
+	`)
 
-	if name != "" {
-		rows, err = r.db.Query("Select Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At From Employee Where Deleted_At Is Null And Name Ilike $1", "%"+name+"%")
-	} else {
-		rows, err = r.db.Query("Select Id, Name, Position, Nik, Phone, Hired_Date, Created_At, Updated_At From Employee Where Deleted_At Is Null")
+	// Add filters based on request parameters
+	if req.Name != "" {
+		queryBuilder.AddFilter("Name ILIKE", "%"+req.Name+"%")
 	}
 
+	//if req.Position != "" {
+	//	queryBuilder.AddFilter("Position ILIKE", "%"+req.Position+"%")
+	//}
+
+	// Build count query to get total items
+	countQuery, countParams := queryBuilder.Build()
+	countQuery = fmt.Sprintf("SELECT COUNT(*) FROM (%s) AS count_query", countQuery)
+
+	// Execute count query
+	var totalItems int
+	err := r.db.QueryRow(countQuery, countParams...).Scan(&totalItems)
 	if err != nil {
-		return nil, err
+		return nil, 0, fmt.Errorf("gagal menghitung total karyawan: %w", err)
+	}
+
+	// Add sorting if provided
+	if req.SortBy != "" {
+		direction := "ASC"
+		if req.SortOrder == "desc" {
+			direction = "DESC"
+		}
+		queryBuilder.Query.WriteString(fmt.Sprintf(" ORDER BY %s %s", req.SortBy, direction))
+	}
+
+	// Add pagination
+	queryBuilder.AddPagination(req.PageSize, req.Page)
+
+	// Execute final query
+	query, params := queryBuilder.Build()
+	rows, err := r.db.Query(query, params...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("gagal mengambil data karyawan: %w", err)
 	}
 	defer rows.Close()
 
 	var employees []GetEmployeeResponse
 	for rows.Next() {
 		var employee GetEmployeeResponse
-		err = rows.Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Nik, &employee.Phone, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt)
+		err = rows.Scan(
+			&employee.ID,
+			&employee.Name,
+			&employee.Position,
+			&employee.Nik,
+			&employee.Phone,
+			&employee.HiredDate,
+			&employee.CreatedAt,
+			&employee.UpdatedAt,
+		)
 		if err != nil {
-			return nil, err
+			return nil, 0, fmt.Errorf("gagal membaca data karyawan: %w", err)
 		}
 		employees = append(employees, employee)
 	}
-	return employees, nil
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("terjadi kesalahan saat membaca data karyawan: %w", err)
+	}
+
+	return employees, totalItems, nil
 }
 
 // GetByID fetches an employee by ID

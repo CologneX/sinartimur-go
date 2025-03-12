@@ -122,15 +122,15 @@ func (s *EmployeeService) DeleteEmployee(request DeleteEmployeeRequest) *dto.API
 }
 
 // GetAllEmployees fetches all employees
-func (s *EmployeeService) GetAllEmployees(name string) ([]GetEmployeeResponse, *dto.APIError) {
-	employees, err := s.repo.GetAll(name)
+func (s *EmployeeService) GetAllEmployees(req GetAllEmployeeRequest) ([]GetEmployeeResponse, int, *dto.APIError) {
+	employees, totalItems, err := s.repo.GetAll(req)
 	if err != nil {
-		return nil, &dto.APIError{
+		return nil, 0, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
 				"general": "Kesalahan Server",
 			},
 		}
 	}
-	return employees, nil
+	return employees, totalItems, nil
 }
