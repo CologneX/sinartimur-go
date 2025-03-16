@@ -11,6 +11,7 @@ import (
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
+	"sinartimur-go/internal/sales"
 	"sinartimur-go/internal/unit"
 	"sinartimur-go/internal/user"
 	"sinartimur-go/internal/wage"
@@ -123,6 +124,33 @@ func RegisterFinanceTransactionRoutes(router *mux.Router, service *finance.Finan
 	router.HandleFunc("/transaction/cancel/{id}", v1.CancelFinanceTransactionHandler(service)).Methods("POST")
 	router.HandleFunc("/transactions/summary", v1.GetFinanceTransactionSummaryHandler(service)).Methods("GET")
 	router.HandleFunc("/transactions/refresh", v1.RefreshFinanceTransactionViewHandler(service)).Methods("POST")
+}
+
+func RegisterSalesRoutes(router *mux.Router, salesService sales.SalesService) {
+	// Sales Order endpoints
+	router.HandleFunc("/orders", v1.GetSalesOrdersHandler(salesService)).Methods("GET")
+	router.HandleFunc("/order", v1.CreateSalesOrderHandler(salesService)).Methods("POST")
+	router.HandleFunc("/order/{id}", v1.UpdateSalesOrderHandler(salesService)).Methods("PUT")
+	router.HandleFunc("/order/{id}", v1.GetSalesOrderDetailsHandler(salesService)).Methods("GET")
+	router.HandleFunc("/order/{id}/cancel", v1.CancelSalesOrderHandler(salesService)).Methods("POST")
+
+	// Sales Order Item endpoints
+	router.HandleFunc("/order/item", v1.AddItemToSalesOrderHandler(salesService)).Methods("POST")
+	router.HandleFunc("/order/item", v1.UpdateSalesOrderItemHandler(salesService)).Methods("PUT")
+	router.HandleFunc("/order/{order_id}/item/{detail_id}", v1.DeleteSalesOrderItemHandler(salesService)).Methods("DELETE")
+
+	// Sales Invoice endpoints
+	router.HandleFunc("/invoices", v1.GetSalesInvoicesHandler(salesService)).Methods("GET")
+	router.HandleFunc("/invoice", v1.CreateSalesInvoiceHandler(salesService)).Methods("POST")
+	router.HandleFunc("/invoice/cancel", v1.CancelSalesInvoiceHandler(salesService)).Methods("POST")
+
+	// Sales Invoice Return endpoints
+	router.HandleFunc("/invoice/return", v1.ReturnInvoiceItemsHandler(salesService)).Methods("POST")
+	router.HandleFunc("/invoice/return/{return_id}/cancel", v1.CancelInvoiceReturnHandler(salesService)).Methods("POST")
+
+	// Delivery Note endpoints
+	router.HandleFunc("/delivery-note", v1.CreateDeliveryNoteHandler(salesService)).Methods("POST")
+	router.HandleFunc("/delivery-note/{delivery_note_id}/cancel", v1.CancelDeliveryNoteHandler(salesService)).Methods("POST")
 }
 
 // SetupRoutes registers all API routes

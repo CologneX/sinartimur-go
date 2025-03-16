@@ -68,8 +68,8 @@ VALUES
 -- Insert Purchase Orders (using the provided Appuser for Created_By and other related columns)
 INSERT INTO Purchase_Order (Id, Supplier_Id, Order_Date, Status, Total_Amount, Payment_Due_Date, Created_By, Received_By)
 VALUES
-    ('05050505-0505-0505-0505-050505050505', '03030303-0303-0303-0303-030303030303', CURRENT_TIMESTAMP, 'ordered', 1500.00, CURRENT_TIMESTAMP + INTERVAL '30 days', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5', NULL),
-    ('06060606-0606-0606-0606-060606060606', '04040404-0404-0404-0404-040404040404', CURRENT_TIMESTAMP, 'received', 800.00, CURRENT_TIMESTAMP + INTERVAL '30 days', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5');
+    ('05050505-0505-0505-0505-050505050505', '03030303-0303-0303-0303-030303030303', CURRENT_TIMESTAMP, 'ordered', 1500.00, CURRENT_TIMESTAMP + INTERVAL '30 days', 'c169417c-0885-42eb-9172-a295c832c563', NULL),
+    ('06060606-0606-0606-0606-060606060606', '04040404-0404-0404-0404-040404040404', CURRENT_TIMESTAMP, 'received', 800.00, CURRENT_TIMESTAMP + INTERVAL '30 days', 'c169417c-0885-42eb-9172-a295c832c563', 'c169417c-0885-42eb-9172-a295c832c563');
 
 -- Insert Purchase Order Details
 INSERT INTO Purchase_Order_Detail (Id, Purchase_Order_Id, Product_Id, Requested_Quantity, Unit_Price)
@@ -92,49 +92,49 @@ VALUES
 -- Insert a Purchase Order Return for the first purchase order detail
 INSERT INTO Purchase_Order_Return (Id, Purchase_Order_Id, Product_Detail_Id, Return_Quantity, Remaining_Quantity, Return_Reason, Return_Status, Returned_By)
 VALUES
-    ('0d0d0d0d-0d0d-0d0d-0d0d-0d0d0d0d0d0d', '05050505-0505-0505-0505-050505050505', '07070707-0707-0707-0707-070707070707', 2, 8, 'Damaged items', 'pending', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5');
+    ('0d0d0d0d-0d0d-0d0d-0d0d-0d0d0d0d0d0d', '05050505-0505-0505-0505-050505050505', '07070707-0707-0707-0707-070707070707', 2, 8, 'Damaged items', 'pending', 'c169417c-0885-42eb-9172-a295c832c563');
 
 -- Link the Purchase Return to a specific Batch
 INSERT INTO Purchase_Order_Return_Batch (Id, Purchase_Return_Id, Batch_Id, Return_Quantity)
 VALUES
     ('0e0e0e0e-0e0e-0e0e-0e0e-0e0e0e0e0e0e', '0d0d0d0d-0d0d-0d0d-0d0d-0d0d0d0d0d0d', '09090909-0909-0909-0909-090909090909', 2);
+--
+-- -- ================================================
+-- -- Seed Data for Sales
+-- -- ================================================
+--
+-- -- Insert Sales Orders
+-- INSERT INTO Sales_Order (Id, Customer_Id, Customer_Name, Order_Date, Status, Payment_Method, Total_Amount, Invoice_Created, Created_By)
+-- VALUES
+--     ('0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', '01010101-0101-0101-0101-010101010101', 'Acme Corp', CURRENT_TIMESTAMP, 'invoiced', 'cash', 1500.00, true, 'c169417c-0885-42eb-9172-a295c832c563'),
+--     ('10101010-1010-1010-1010-101010101010', '02020202-0202-0202-0202-020202020202', 'Beta LLC', CURRENT_TIMESTAMP, 'draft', 'paylater', 800.00, false, 'c169417c-0885-42eb-9172-a295c832c563');
+--
+-- -- Insert Sales Order Details
+-- INSERT INTO Sales_Order_Detail (Id, Sales_Order_Id, Batch_Id, Product_Id, Quantity, Unit_Price)
+-- VALUES
+--     ('11111111-2222-3333-4444-555555555555', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', '09090909-0909-0909-0909-090909090909', 'c0c0c0c0-c0c0-c0c0-c0c0-c0c0c0c0c0c0', 1, 1500.00),
+--     ('66666666-7777-8888-9999-aaaaaaaaaaaa', '10101010-1010-1010-1010-101010101010', '0a0a0a0a-0a0a-0a0a-0a0a-0a0a0a0a0a0a', 'd0d0d0d0-d0d0-d0d0-d0d0-d0d0d0d0d0d0', 2, 800.00);
+--
+-- -- Insert Sales Order Storage records
+-- INSERT INTO Sales_Order_Storage (Id, Sales_Order_Detail_Id, Storage_Id, Batch_Id, Quantity)
+-- VALUES
+--     ('12121212-1212-1212-1212-121212121212', '11111111-2222-3333-4444-555555555555', 'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0', '09090909-0909-0909-0909-090909090909', 1),
+--     ('13131313-1313-1313-1313-131313131313', '66666666-7777-8888-9999-aaaaaaaaaaaa', 'f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0', '0a0a0a0a-0a0a-0a0a-0a0a-0a0a0a0a0a0a', 2);
+--
+-- -- Insert a Sales Order Return (for the first customer order detail)
+-- INSERT INTO Sales_Order_Return (Id, Sales_Order_Id, Sales_Detail_Id, Return_Quantity, Remaining_Quantity, Total_Returned_Quantity, Return_Reason, Return_Status, Returned_By)
+-- VALUES
+--     ('14141414-1414-1414-1414-141414141414', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', '11111111-2222-3333-4444-555555555555', 1, 0, 1, 'Customer returned item', 'completed', 'c169417c-0885-42eb-9172-a295c832c563');
+--
+-- -- Link the Sales Return to a Batch
+-- INSERT INTO Sales_Order_Return_Batch (Id, Sales_Return_Id, Batch_Id, Return_Quantity)
+-- VALUES
+--     ('15151515-1515-1515-1515-151515151515', '14141414-1414-1414-1414-141414141414', '09090909-0909-0909-0909-090909090909', 1);
 
--- ================================================
--- Seed Data for Sales
--- ================================================
-
--- Insert Sales Orders
-INSERT INTO Sales_Order (Id, Customer_Id, Customer_Name, Order_Date, Status, Payment_Method, Total_Amount, Invoice_Created, Created_By)
-VALUES
-    ('0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', '01010101-0101-0101-0101-010101010101', 'Acme Corp', CURRENT_TIMESTAMP, 'invoiced', 'cash', 1500.00, true, '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5'),
-    ('10101010-1010-1010-1010-101010101010', '02020202-0202-0202-0202-020202020202', 'Beta LLC', CURRENT_TIMESTAMP, 'draft', 'paylater', 800.00, false, '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5');
-
--- Insert Sales Order Details
-INSERT INTO Sales_Order_Detail (Id, Sales_Order_Id, Batch_Id, Product_Id, Quantity, Unit_Price)
-VALUES
-    ('11111111-2222-3333-4444-555555555555', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', '09090909-0909-0909-0909-090909090909', 'c0c0c0c0-c0c0-c0c0-c0c0-c0c0c0c0c0c0', 1, 1500.00),
-    ('66666666-7777-8888-9999-aaaaaaaaaaaa', '10101010-1010-1010-1010-101010101010', '0a0a0a0a-0a0a-0a0a-0a0a-0a0a0a0a0a0a', 'd0d0d0d0-d0d0-d0d0-d0d0-d0d0d0d0d0d0', 2, 800.00);
-
--- Insert Sales Order Storage records
-INSERT INTO Sales_Order_Storage (Id, Sales_Order_Detail_Id, Storage_Id, Batch_Id, Quantity)
-VALUES
-    ('12121212-1212-1212-1212-121212121212', '11111111-2222-3333-4444-555555555555', 'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0', '09090909-0909-0909-0909-090909090909', 1),
-    ('13131313-1313-1313-1313-131313131313', '66666666-7777-8888-9999-aaaaaaaaaaaa', 'f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0', '0a0a0a0a-0a0a-0a0a-0a0a-0a0a0a0a0a0a', 2);
-
--- Insert a Sales Order Return (for the first customer order detail)
-INSERT INTO Sales_Order_Return (Id, Sales_Order_Id, Sales_Detail_Id, Return_Quantity, Remaining_Quantity, Total_Returned_Quantity, Return_Reason, Return_Status, Returned_By)
-VALUES
-    ('14141414-1414-1414-1414-141414141414', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', '11111111-2222-3333-4444-555555555555', 1, 0, 1, 'Customer returned item', 'completed', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5');
-
--- Link the Sales Return to a Batch
-INSERT INTO Sales_Order_Return_Batch (Id, Sales_Return_Id, Batch_Id, Return_Quantity)
-VALUES
-    ('15151515-1515-1515-1515-151515151515', '14141414-1414-1414-1414-141414141414', '09090909-0909-0909-0909-090909090909', 1);
-
--- Insert a Delivery Note for a Sales Order
-INSERT INTO Delivery_Note (Id, Sales_Order_Id, Delivery_Date, Driver_Name, Recipient_Name, Created_By)
-VALUES
-    ('16161616-1616-1616-1616-161616161616', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', CURRENT_TIMESTAMP, 'Alex Driver', 'John Recipient', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5');
+-- -- Insert a Delivery Note for a Sales Order
+-- INSERT INTO Delivery_Note (Id, Sales_Order_Id, Delivery_Date, Driver_Name, Recipient_Name, Created_By)
+-- VALUES
+--     ('16161616-1616-1616-1616-161616161616', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', CURRENT_TIMESTAMP, 'Alex Driver', 'John Recipient', 'c169417c-0885-42eb-9172-a295c832c563');
 
 -- ================================================
 -- Seed Data for Inventory & Financial Transactions
@@ -143,9 +143,9 @@ VALUES
 -- Insert an Inventory Log entry
 INSERT INTO Inventory_Log (Id, Batch_Id, Storage_Id, User_Id, Purchase_Order_Id, Sales_Order_Id, Action, Quantity, Description)
 VALUES
-    ('17171717-1717-1717-1717-171717171717', '09090909-0909-0909-0909-090909090909', 'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5', '05050505-0505-0505-0505-050505050505', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', 'add', 10, 'Initial stock added');
+    ('17171717-1717-1717-1717-171717171717', '09090909-0909-0909-0909-090909090909', 'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0', 'c169417c-0885-42eb-9172-a295c832c563', '05050505-0505-0505-0505-050505050505', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', 'add', 10, 'Initial stock added');
 
 -- Insert a Financial Transaction entry
 INSERT INTO financial_transaction_log (Id, User_Id, Amount, Type, Sales_Order_Id, Description, Transaction_Date)
 VALUES
-    ('18181818-1818-1818-1818-181818181818', '432ffdb0-f2c6-4d7a-9048-f6e9a38c70c5', 1500.00, 'sale', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', 'Sale transaction', CURRENT_TIMESTAMP);
+    ('18181818-1818-1818-1818-181818181818', 'c169417c-0885-42eb-9172-a295c832c563', 1500.00, 'sale', '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f', 'Sale transaction', CURRENT_TIMESTAMP);

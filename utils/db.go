@@ -2,8 +2,10 @@ package utils
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"strings"
+	"time"
 )
 
 // QueryBuilder helps construct SQL queries dynamically
@@ -72,4 +74,44 @@ func WithTransaction(db *sql.DB, fn func(*sql.Tx) error) error {
 	}
 
 	return nil
+}
+
+// GenerateNextSerialID generates the next serial ID for a document type
+// Note: This should be called within a transaction to ensure atomicity
+func GenerateNextSerialID(tx *sql.Tx, documentType string) (string, error) {
+	now := time.Now()
+	year, month, day := now.Year(), int(now.Month()), now.Day()
+
+	// Try to update existing counter for today
+	var counter int
+	err := tx.QueryRow(`
+        UPDATE document_counter 
+        SET counter = counter + 1, last_updated = NOW()
+        WHERE document_type = $1 AND year = $2 AND month = $3 AND day = $4
+        RETURNING counter
+    `, documentType, year, month, day).Scan(&counter)
+
+	// If no rows exist for today, insert a new counter
+	if errors.Is(err, sql.ErrNoRows) {
+		err = tx.QueryRow(`
+            INSERT INTO document_counter (document_type, year, month, day, counter)
+            VALUES ($1, $2, $3, $4, 1)
+            ON CONFLICT (document_type, year, month, day) 
+            DO UPDATE SET counter = document_counter.counter + 1
+            RETURNING counter
+        `, documentType, year, month, day).Scan(&counter)
+	}
+
+	if err != nil {
+		return "", fmt.Errorf("gagal mengupdate penghitung dokumen: %w", err)
+	}
+
+	// Format the serial number: XX-YYYYMMDD-NNNN
+	// XX = document type, YYYYMMDD = date, NNNN = counter (padded with zeros)
+	return fmt.Sprintf(
+		"%s-%04d%02d%02d-%04d",
+		documentType,
+		year, month, day,
+		counter,
+	), nil
 }
