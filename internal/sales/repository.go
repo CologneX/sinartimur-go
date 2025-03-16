@@ -2002,7 +2002,7 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
             i.sales_order_id, 
             i.serial_id, 
             s.serial_id,
-            s.customer_name,
+            c.name as customer_name,
             i.cancelled_at IS NOT NULL,
             EXISTS (
                 SELECT 1 FROM delivery_note dn 
@@ -2010,6 +2010,7 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
             )
         FROM sales_invoice i
         JOIN sales_order s ON i.sales_order_id = s.id
+        JOIN customer c ON s.customer_id = c.id
         WHERE i.id = $1
     `, req.SalesInvoiceID).Scan(&salesOrderID, &invoiceSerialID, &salesOrderSerialID, &customerName, &invoiceCancelled, &hasDeliveryNote)
 

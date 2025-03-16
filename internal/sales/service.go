@@ -157,7 +157,7 @@ func (s *SalesService) AddItemToSalesOrder(req AddItemToSalesOrderRequest, userI
 			totalAllocated, req.Quantity)
 	}
 
-	return s.repo.AddItemToSalesOrder(req, userID)
+	return s.repo.AddItemToSalesOrder(req)
 }
 
 // UpdateSalesOrderItem updates an existing item in a sales order
@@ -205,7 +205,7 @@ func (s *SalesService) DeleteSalesOrderItem(req DeleteItemRequest, userID string
 		return fmt.Errorf("ID pesanan dan ID detail harus diisi")
 	}
 
-	return s.repo.DeleteSalesOrderItem(req, userID)
+	return s.repo.DeleteSalesOrderItem(req)
 }
 
 // GetSalesInvoices returns a paginated list of sales invoices
