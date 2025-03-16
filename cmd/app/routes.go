@@ -126,7 +126,7 @@ func RegisterFinanceTransactionRoutes(router *mux.Router, service *finance.Finan
 	router.HandleFunc("/transactions/refresh", v1.RefreshFinanceTransactionViewHandler(service)).Methods("POST")
 }
 
-func RegisterSalesRoutes(router *mux.Router, salesService sales.SalesService) {
+func RegisterSalesRoutes(router *mux.Router, salesService *sales.SalesService) {
 	// Sales Order endpoints
 	router.HandleFunc("/orders", v1.GetSalesOrdersHandler(salesService)).Methods("GET")
 	router.HandleFunc("/order", v1.CreateSalesOrderHandler(salesService)).Methods("POST")
@@ -194,6 +194,7 @@ func SetupRoutes(router *mux.Router, services *Services) {
 	SalesRoutes.Use(middleware.RoleMiddleware("sales"))
 	RegisterProductRoutes(SalesRoutes, services.ProductService)
 	RegisterCustomerRoutes(SalesRoutes, services.CustomerService)
+	RegisterSalesRoutes(SalesRoutes, services.SalesService)
 
 	// Purchase middleware setup
 	PurchaseRoutes := router.PathPrefix("/purchase").Subrouter()

@@ -11,7 +11,7 @@ import (
 )
 
 // GetSalesOrdersHandler retrieves a list of sales orders with pagination and filtering
-func GetSalesOrdersHandler(salesService sales.SalesService) http.HandlerFunc {
+func GetSalesOrdersHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
 		// Extract filter parameters
 		req := sales.GetSalesOrdersRequest{
@@ -56,7 +56,7 @@ func GetSalesOrdersHandler(salesService sales.SalesService) http.HandlerFunc {
 }
 
 // CreateSalesOrderHandler handles creation of a new sales order
-func CreateSalesOrderHandler(salesService sales.SalesService) http.HandlerFunc {
+func CreateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -91,7 +91,7 @@ func CreateSalesOrderHandler(salesService sales.SalesService) http.HandlerFunc {
 }
 
 // UpdateSalesOrderHandler handles updating basic sales order information
-func UpdateSalesOrderHandler(salesService sales.SalesService) http.HandlerFunc {
+func UpdateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req sales.UpdateSalesOrderRequest
 
@@ -128,7 +128,7 @@ func UpdateSalesOrderHandler(salesService sales.SalesService) http.HandlerFunc {
 }
 
 // AddItemToSalesOrderHandler handles adding a new item to an existing sales order
-func AddItemToSalesOrderHandler(salesService sales.SalesService) http.HandlerFunc {
+func AddItemToSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -163,7 +163,7 @@ func AddItemToSalesOrderHandler(salesService sales.SalesService) http.HandlerFun
 }
 
 // UpdateSalesOrderItemHandler handles updating an existing item in a sales order
-func UpdateSalesOrderItemHandler(salesService sales.SalesService) http.HandlerFunc {
+func UpdateSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -198,7 +198,7 @@ func UpdateSalesOrderItemHandler(salesService sales.SalesService) http.HandlerFu
 }
 
 // DeleteSalesOrderItemHandler handles removing an item from a sales order
-func DeleteSalesOrderItemHandler(salesService sales.SalesService) http.HandlerFunc {
+func DeleteSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -244,7 +244,7 @@ func DeleteSalesOrderItemHandler(salesService sales.SalesService) http.HandlerFu
 }
 
 // GetSalesOrderDetailsHandler retrieves detailed information about a specific sales order
-func GetSalesOrderDetailsHandler(salesService sales.SalesService) http.HandlerFunc {
+func GetSalesOrderDetailsHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract order ID from URL path parameters
 		vars := mux.Vars(r)
@@ -278,7 +278,7 @@ func GetSalesOrderDetailsHandler(salesService sales.SalesService) http.HandlerFu
 }
 
 // CancelSalesOrderHandler handles cancelling a sales order
-func CancelSalesOrderHandler(salesService sales.SalesService) http.HandlerFunc {
+func CancelSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -316,7 +316,7 @@ func CancelSalesOrderHandler(salesService sales.SalesService) http.HandlerFunc {
 }
 
 // GetSalesInvoicesHandler retrieves a paginated list of sales invoices with filtering
-func GetSalesInvoicesHandler(salesService sales.SalesService) http.HandlerFunc {
+func GetSalesInvoicesHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract pagination parameters
 		page, _ := strconv.Atoi(r.URL.Query().Get("page"))
@@ -374,7 +374,7 @@ func GetSalesInvoicesHandler(salesService sales.SalesService) http.HandlerFunc {
 }
 
 // CreateSalesInvoiceHandler handles creation of a new sales invoice from an order
-func CreateSalesInvoiceHandler(salesService sales.SalesService) http.HandlerFunc {
+func CreateSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -409,7 +409,7 @@ func CreateSalesInvoiceHandler(salesService sales.SalesService) http.HandlerFunc
 }
 
 // CancelSalesInvoiceHandler handles cancellation of a sales invoice
-func CancelSalesInvoiceHandler(salesService sales.SalesService) http.HandlerFunc {
+func CancelSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -446,7 +446,7 @@ func CancelSalesInvoiceHandler(salesService sales.SalesService) http.HandlerFunc
 }
 
 // ReturnInvoiceItemsHandler handles processing returns for invoice items
-func ReturnInvoiceItemsHandler(salesService sales.SalesService) http.HandlerFunc {
+func ReturnInvoiceItemsHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -481,7 +481,7 @@ func ReturnInvoiceItemsHandler(salesService sales.SalesService) http.HandlerFunc
 }
 
 // CancelInvoiceReturnHandler handles cancellation of a previously processed return
-func CancelInvoiceReturnHandler(salesService sales.SalesService) http.HandlerFunc {
+func CancelInvoiceReturnHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -525,7 +525,7 @@ func CancelInvoiceReturnHandler(salesService sales.SalesService) http.HandlerFun
 }
 
 // CreateDeliveryNoteHandler handles creation of a new delivery note for a sales invoice
-func CreateDeliveryNoteHandler(salesService sales.SalesService) http.HandlerFunc {
+func CreateDeliveryNoteHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
@@ -560,7 +560,7 @@ func CreateDeliveryNoteHandler(salesService sales.SalesService) http.HandlerFunc
 }
 
 // CancelDeliveryNoteHandler handles cancellation of a delivery note
-func CancelDeliveryNoteHandler(salesService sales.SalesService) http.HandlerFunc {
+func CancelDeliveryNoteHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
 		claims := r.Context().Value("claims").(jwt.MapClaims)
