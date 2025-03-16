@@ -21,9 +21,9 @@ type SalesRepository interface {
 	CancelSalesOrder(req CancelSalesOrderRequest, userID string) error
 
 	// Sales Order Item operations
-	AddItemToSalesOrder(req AddItemToSalesOrderRequest, userID string) (*UpdateItemResponse, error)
+	AddItemToSalesOrder(req AddItemToSalesOrderRequest) (*UpdateItemResponse, error)
 	UpdateSalesOrderItem(req UpdateItemRequest, userID string) (*UpdateItemResponse, error)
-	DeleteSalesOrderItem(req DeleteItemRequest, userID string) error
+	DeleteSalesOrderItem(req DeleteItemRequest) error
 
 	// Invoice operations
 	GetSalesInvoices(req GetSalesInvoicesRequest) ([]GetSalesInvoicesResponse, int, error)
@@ -247,7 +247,7 @@ func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSa
         FROM sales_order_detail sod
         JOIN product p ON sod.product_id = p.id
         JOIN product_batch pb ON sod.batch_id = pb.id
-        WHERE sod.sales_order_id = $1 AND sod.deleted_at IS NULL`
+        WHERE sod.sales_order_id = $1`
 
 	rows, err := r.db.Query(query, salesOrderID)
 	if err != nil {
@@ -319,8 +319,13 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 		// Insert sales order
 		var orderID, serialID string
 		var orderDate time.Time
-		var totalAmount float64
 		var paymentDueDate sql.NullTime
+
+		// Calculate total amount for the order
+		var totalAmount float64
+		for _, item := range req.Items {
+			totalAmount += item.Quantity * item.UnitPrice
+		}
 
 		// Convert payment due date if provided
 		if req.PaymentDueDate != "" {
@@ -334,9 +339,9 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 
 		// Insert sales order
 		orderQuery := `
-			INSERT INTO sales_order (customer_id, payment_method, payment_due_date, created_by)
-			VALUES ($1, $2, $3, $4)
-			RETURNING id, serial_id, order_date, total_amount, created_at`
+			INSERT INTO sales_order (customer_id, payment_method, payment_due_date, created_by, status, total_amount)
+			VALUES ($1, $2, $3, $4, 'order', $5)
+			RETURNING id, serial_id, order_date, created_at`
 
 		errOrder := tx.QueryRow(
 			orderQuery,
@@ -344,6 +349,7 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 			req.PaymentMethod,
 			paymentDueDate,
 			userID,
+			totalAmount,
 		).Scan(&orderID, &serialID, &orderDate, &totalAmount, &response.CreatedAt)
 
 		if errOrder != nil {
@@ -478,32 +484,14 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 			}
 		}
 
-		// Update total_amount in sales_order - recalculate based on details
-		_, errTotal := tx.Exec(
-			`UPDATE sales_order SET total_amount = 
-			(SELECT COALESCE(SUM(quantity * unit_price), 0) FROM sales_order_detail 
-			WHERE sales_order_id = $1 AND deleted_at IS NULL) 
-			WHERE id = $1`,
-			orderID,
-		)
-
-		if errTotal != nil {
-			return fmt.Errorf("gagal memperbarui total pesanan: %w", errTotal)
-		}
-
-		// Fetch updated total amount
-		errAmount := tx.QueryRow("SELECT total_amount FROM sales_order WHERE id = $1", orderID).Scan(&totalAmount)
-		if errAmount != nil {
-			return fmt.Errorf("gagal mengambil total pesanan: %w", errAmount)
-		}
-
 		// Create invoice if requested
 		if req.CreateInvoice {
 			var invoiceID, invoiceSerialID string
 			errInvoice := tx.QueryRow(
-				"INSERT INTO sales_invoice (sales_order_id, created_by) VALUES ($1, $2) RETURNING id, serial_id",
+				"INSERT INTO sales_invoice (sales_order_id, created_by, total_amount) VALUES ($1, $2, $3) RETURNING id, serial_id",
 				orderID,
 				userID,
+				totalAmount,
 			).Scan(&invoiceID, &invoiceSerialID)
 
 			if errInvoice != nil {
@@ -525,8 +513,6 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 			response.PaymentDueDate = paymentDueDate.Time.Format(time.RFC3339)
 		}
 		response.TotalAmount = totalAmount
-		response.CreatedAt = response.CreatedAt
-
 		return nil
 	})
 
@@ -615,7 +601,6 @@ func (r *SalesRepositoryImpl) UpdateSalesOrder(req UpdateSalesOrderRequest) (*Up
 		&response.ID,
 		&response.SerialID,
 		&response.CustomerID,
-		&response.CustomerName,
 		&response.Status,
 		&response.PaymentMethod,
 		&paymentDueDate,
@@ -668,7 +653,7 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 		rows, errDetails := tx.Query(`
             SELECT sod.id, sod.batch_id, sod.quantity 
             FROM sales_order_detail sod
-            WHERE sod.sales_order_id = $1 AND sod.deleted_at IS NULL
+            WHERE sod.sales_order_id = $1
         `, req.SalesOrderID)
 
 		if errDetails != nil {
@@ -739,7 +724,7 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 }
 
 // AddItemToSalesOrder adds a new item to an existing sales order
-func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddItemToSalesOrderRequest, userID string) (*UpdateItemResponse, error) {
+func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddItemToSalesOrderRequest) (*UpdateItemResponse, error) {
 	var response UpdateItemResponse
 	var status string
 
@@ -887,7 +872,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddItemToSalesOrderRequest
             SET total_amount = (
                 SELECT COALESCE(SUM(quantity * unit_price), 0) 
                 FROM sales_order_detail 
-                WHERE sales_order_id = $1 AND deleted_at IS NULL
+                WHERE sales_order_id = $1 AND cancelled_at IS NULL
             ),
             updated_at = NOW()
             WHERE id = $1`,
@@ -918,7 +903,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddItemToSalesOrderRequest
 }
 
 // DeleteSalesOrderItem deletes an item from a sales order and restores inventory
-func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteItemRequest, userID string) error {
+func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteItemRequest) error {
 	var status string
 	var productName, batchSKU string
 	var quantity float64

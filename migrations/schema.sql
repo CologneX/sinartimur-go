@@ -212,7 +212,6 @@ CREATE TABLE Sales_Order (
                              Id UUID PRIMARY KEY DEFAULT UUID_GENERATE_V4(),
                              Serial_Id VARCHAR(20) UNIQUE,
                              Customer_Id UUID REFERENCES Customer (Id) ON DELETE SET NULL,
-                             Customer_Name VARCHAR(255) NOT NULL,
                              Order_Date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
                              Status VARCHAR(50) NOT NULL, -- order, invoice, delivery, partially_return, return, cancel
                              Payment_Method VARCHAR(50) NOT NULL, -- cash, paylater

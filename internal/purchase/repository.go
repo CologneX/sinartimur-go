@@ -1041,7 +1041,7 @@ func (r *PurchaseOrderRepositoryImpl) CreateReturn(returnRequest CreatePurchaseO
 		if totalReceived == totalReturned {
 			_, updateOrderErr := tx.Exec(`
                 Update Purchase_Order 
-                Set Status = 'returned', Fully_Returned_By = $1, Fully_Returned_At = Current_Timestamp
+                Set Status = 'returned', Fully_Returned_By = $1
                 Where Id = $2
             `, userID, returnRequest.PurchaseOrderID)
 
@@ -1409,7 +1409,7 @@ func (r *PurchaseOrderRepositoryImpl) CancelReturn(returnID string, userID strin
 		if (orderStatus == "returned" || orderStatus == "partially_returned") && totalReturned == 0 {
 			_, orderUpdateErr := tx.Exec(`
                 Update Purchase_Order
-                Set Status = 'checked', Return_Cancelled_At = Current_Timestamp, Return_Cancelled_By = $1
+                Set Status = 'checked', Return_Cancelled_By = $1
                 Where Id = $2
             `, userID, purchaseOrderID)
 

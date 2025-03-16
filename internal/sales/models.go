@@ -78,8 +78,6 @@ type GetSalesOrdersResponse struct {
 	CancelledAt    string  `json:"cancelled_at,omitempty"`
 }
 
-// GetSales
-
 // GetSalesOrderDetailResponse defines the response for fetching a sales order's details
 type GetSalesOrderDetailResponse struct {
 	ID                 string                      `json:"id"`
@@ -154,7 +152,6 @@ type UpdateSalesOrderResponse struct {
 	ID             string `json:"id"`
 	SerialID       string `json:"serial_id"`
 	CustomerID     string `json:"customer_id"`
-	CustomerName   string `json:"customer_name"`
 	Status         string `json:"status"`
 	PaymentMethod  string `json:"payment_method"`
 	PaymentDueDate string `json:"payment_due_date,omitempty"`
