@@ -19,7 +19,7 @@ import (
 )
 
 func RegisterAuthRoutes(router *mux.Router, userService *auth.AuthService) {
-	router.HandleFunc("/login", v1.LoginHandler(userService)).Methods("GET")
+	router.HandleFunc("/login", v1.LoginHandler(userService)).Methods("POST")
 	router.HandleFunc("/refresh", v1.RefreshTokenHandler(userService)).Methods("GET")
 }
 

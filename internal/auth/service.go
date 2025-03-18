@@ -27,9 +27,9 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 	user, err := s.repo.GetByUsername(username)
 	if err != nil {
 		return "", "", &dto.APIError{
-			StatusCode: http.StatusUnauthorized,
+			StatusCode: http.StatusNotFound,
 			Details: map[string]string{
-				"general": "Username atau password salah",
+				"general": "User tidak ditemukan",
 			},
 		}, nil
 	}
