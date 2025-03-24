@@ -138,7 +138,7 @@ func (r *userRepositoryImpl) GetAll(req GetAllUserRequest) ([]*GetUserResponse, 
 			roles = append(roles, "inventory")
 		}
 		if isSales {
-			roles = append(roles, "customer")
+			roles = append(roles, "sales")
 		}
 		if isPurchase {
 			roles = append(roles, "purchase")
