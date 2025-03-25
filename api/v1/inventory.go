@@ -203,11 +203,11 @@ func GetAllInventoryLogHandler(storageService *inventory.StorageService) http.Ha
 
 		// Create response with logs and last refresh info
 		response := struct {
-			Data          []inventory.GetInventoryLogResponse `json:"data"`
-			LastRefreshed *time.Time                          `json:"last_refreshed"`
-			Page          int                                 `json:"page"`
+			Page          int                                 `json:"current_page"`
 			TotalItems    int                                 `json:"total_items"`
 			PageSize      int                                 `json:"page_size"`
+			LastRefreshed *time.Time                          `json:"last_refreshed"`
+			Data          []inventory.GetInventoryLogResponse `json:"items"`
 		}{
 			Data:          logs,
 			LastRefreshed: lastRefreshed,
