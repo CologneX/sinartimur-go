@@ -22,11 +22,11 @@ func NewAuthService(repo AuthRepository, redisClient *config.RedisClient) *AuthS
 }
 
 // LoginUser logs in a user
-func (s *AuthService) LoginUser(username, password string) (string, string, *dto.APIError, []*string) {
+func (s *AuthService) LoginUser(username, password string) (string, string, string, *dto.APIError, []*string) {
 	// Fetch user from database
 	user, err := s.repo.GetByUsername(username)
 	if err != nil {
-		return "", "", &dto.APIError{
+		return "", "", "", &dto.APIError{
 			StatusCode: http.StatusNotFound,
 			Details: map[string]string{
 				"general": "User tidak ditemukan",
@@ -36,7 +36,7 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 
 	// Verify password
 	if !utils.ComparePasswords(user.PasswordHash, password) {
-		return "", "", &dto.APIError{
+		return "", "", "", &dto.APIError{
 			StatusCode: http.StatusUnauthorized,
 			Details: map[string]string{
 				"general": "Username atau password salah",
@@ -82,7 +82,7 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 	// Generate tokens
 	accessToken, err := utils.GenerateAccessToken(user.ID.String(), roles)
 	if err != nil {
-		return "", "", &dto.APIError{
+		return "", "", "", &dto.APIError{
 			StatusCode: http.StatusInternalServerError,
 			Details: map[string]string{
 				"general": "Gagal login. Silahkan coba lagi",
@@ -92,7 +92,7 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 
 	refreshToken, err := utils.GenerateRefreshToken(user.ID.String(), roles)
 	if err != nil {
-		return "", "", &dto.APIError{
+		return "", "", "", &dto.APIError{
 			StatusCode: http.StatusInternalServerError,
 			Details: map[string]string{
 				"general": "Gagal login. Silahkan coba lagi",
@@ -103,19 +103,19 @@ func (s *AuthService) LoginUser(username, password string) (string, string, *dto
 	// Store refresh token in Redis
 	err = s.redisClient.Set(user.ID.String(), refreshToken, time.Hour*24*7)
 	if err != nil {
-		return "", "", &dto.APIError{
+		return "", "", "", &dto.APIError{
 			StatusCode: http.StatusInternalServerError,
 			Details: map[string]string{
 				"general": "Gagal login. Silahkan coba lagi",
 			},
 		}, nil
 	}
-	return accessToken, refreshToken, nil, roles
+	return accessToken, refreshToken, user.ID.String(), nil, roles
 }
 
-// RefreshAuth refreshes the access token
+// RefreshAuth refreshes the access tokenÏ
 func (s *AuthService) RefreshAuth(refreshToken string) (string, *dto.APIError) {
-	// Validate refresh token
+	// Validate refresh tokenÏ
 	token, err := utils.ValidateToken(refreshToken)
 	if err != nil {
 		return "", &dto.APIError{

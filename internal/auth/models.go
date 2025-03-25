@@ -23,6 +23,7 @@ type LoginUserRequest struct {
 }
 
 type LoginUserResponse struct {
+	Id       string    `json:"id"`
 	Username string    `json:"username"`
 	Roles    []*string `json:"roles"`
 }

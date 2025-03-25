@@ -22,7 +22,7 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 		username := req.Username
 		password := req.Password
 
-		accessToken, refreshToken, err, roles := userService.LoginUser(username, password)
+		accessToken, refreshToken, userID, err, roles := userService.LoginUser(username, password)
 		if err != nil {
 			utils.ErrorJSON(w, err)
 			return
@@ -51,6 +51,7 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 
 		// Return JSON response with username and roles
 		response := auth.LoginUserResponse{
+			Id:       userID,
 			Username: username,
 			Roles:    roles,
 		}
