@@ -133,7 +133,7 @@ func (s *ProductService) UpdateProduct(request UpdateProductRequest) (*GetProduc
 		return nil, &dto.APIError{
 			StatusCode: 404,
 			Details: map[string]string{
-				"category": "Kategori tidak ditemukan",
+				"category_id": "Kategori tidak ditemukan",
 			},
 		}
 	}
@@ -144,7 +144,7 @@ func (s *ProductService) UpdateProduct(request UpdateProductRequest) (*GetProduc
 		return nil, &dto.APIError{
 			StatusCode: 404,
 			Details: map[string]string{
-				"unit": "Unit tidak ditemukan",
+				"unit_id": "Unit tidak ditemukan",
 			},
 		}
 	}
