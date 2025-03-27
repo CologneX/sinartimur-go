@@ -38,7 +38,7 @@ func (r *ProductRepositoryImpl) GetAll(req GetProductRequest) ([]GetProductRespo
 	var countQueryBuilder strings.Builder
 
 	// Base queries
-	queryBuilder.WriteString("Select P.Id, P.Name, P.Description, C.Name As Category, U.Name As Unit, P.Created_At, P.Updated_At From Product P Join Category C On P.Category_Id = C.Id Join Unit U On P.Unit_Id = U.Id Where P.Deleted_At Is Null")
+	queryBuilder.WriteString("Select P.Id, P.Name, P.Description, C.Name As Category, Category_Id, U.Name As Unit,Unit_Id, P.Created_At, P.Updated_At From Product P Join Category C On P.Category_Id = C.Id Join Unit U On P.Unit_Id = U.Id Where P.Deleted_At Is Null")
 	countQueryBuilder.WriteString("Select Count(Id) From Product Where Deleted_At Is Null")
 
 	// Apply filters
@@ -107,7 +107,9 @@ func (r *ProductRepositoryImpl) GetAll(req GetProductRequest) ([]GetProductRespo
 			&product.Name,
 			&product.Description,
 			&product.Category,
+			&product.CategoryID,
 			&product.Unit,
+			&product.UnitID,
 			&product.CreatedAt,
 			&product.UpdatedAt,
 		)

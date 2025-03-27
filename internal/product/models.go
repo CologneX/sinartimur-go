@@ -32,7 +32,9 @@ type GetProductResponse struct {
 	Name        string    `json:"name"`
 	Description string    `json:"description,omitempty"`
 	Category    string    `json:"category,omitempty"`
+	CategoryID  uuid.UUID `json:"category_id,omitempty"`
 	Unit        string    `json:"unit,omitempty"`
+	UnitID      uuid.UUID `json:"unit_id,omitempty"`
 	CreatedAt   string    `json:"created_at"`
 	UpdatedAt   string    `json:"updated_at"`
 }
