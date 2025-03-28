@@ -58,8 +58,8 @@ type GetWageDetailResponse struct {
 
 type GetWageRequest struct {
 	EmployeeId string `json:"employee_id" validate:"omitempty,uuid"`
-	Month      int    `json:"month" validate:"omitempty,numeric"`
-	Year       int    `json:"year" validate:"omitempty,numeric,len=4"`
+	Month      int    `json:"month" validate:"omitempty,numeric,min=1,max=12"`
+	Year       int    `json:"year" validate:"omitempty,numeric,min=1000"`
 	Page       int    `json:"page" validate:"omitempty,numeric,min=1"`
 	PageSize   int    `json:"page_size" validate:"omitempty,numeric,min=1"`
 	SortBy     string `json:"sort_by" validate:"omitempty,oneof=id employee_id total_amount month year created_at updated_at"`
