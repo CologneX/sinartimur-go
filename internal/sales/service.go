@@ -24,9 +24,10 @@ func (s *SalesService) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSalesOrde
 
 // GetSalesOrderDetail retrieves detailed information about a sales order including its items
 func (s *SalesService) GetSalesOrderDetail(orderID string) ([]GetSalesOrderDetailResponse, error) {
-	// Validate order ID
-	if orderID == "" {
-		return nil, fmt.Errorf("ID pesanan tidak boleh kosong")
+	// Check if sales order exists
+	_, err := s.repo.GetSalesOrderByID(orderID)
+	if err != nil {
+		return nil, fmt.Errorf("sales order tidak ditemukan: %w", err)
 	}
 
 	return s.repo.GetSalesOrderDetails(orderID)
