@@ -109,7 +109,7 @@ func (s *WageService) CreateWage(request CreateWageRequest) *dto.APIError {
 		return &dto.APIError{
 			StatusCode: 409,
 			Details: map[string]string{
-				"date": "Karyawan sudah memiliki gaji untuk bulan dan tahun ini",
+				"general": "Karyawan sudah memiliki gaji untuk bulan dan tahun ini",
 			},
 		}
 	}
