@@ -74,7 +74,7 @@ func (s *StorageService) CreateStorage(req CreateStorageRequest) (*GetStorageRes
 // UpdateStorage updates an existing storage location
 func (s *StorageService) UpdateStorage(req UpdateStorageRequest) (*GetStorageResponse, *dto.APIError) {
 	// Check if storage exists
-	_, err := s.repo.GetStorageByID(req.ID.String())
+	_, err := s.repo.GetStorageByID(req.ID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, dto.NewAPIError(404, map[string]string{
@@ -94,7 +94,7 @@ func (s *StorageService) UpdateStorage(req UpdateStorageRequest) (*GetStorageRes
 		})
 	}
 
-	if existing != nil && existing.ID != req.ID.String() {
+	if existing != nil && existing.ID != req.ID {
 		return nil, dto.NewAPIError(400, map[string]string{
 			"name": "Nama gudang sudah digunakan",
 		})

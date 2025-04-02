@@ -133,7 +133,7 @@ func (r *StorageRepositoryImpl) CreateStorage(req CreateStorageRequest) (*GetSto
 func (r *StorageRepositoryImpl) UpdateStorage(req UpdateStorageRequest) (*GetStorageResponse, error) {
 	var storage GetStorageResponse
 	err := r.db.QueryRow("Update Storage Set Name = $1, Location = $2, Updated_At = Now() Where Id = $3 And Deleted_At Is Null Returning Id, Name, Location, Created_At, Updated_At",
-		req.Name, req.Location, req.ID.String()).
+		req.Name, req.Location, req.ID).
 		Scan(&storage.ID, &storage.Name, &storage.Location, &storage.CreatedAt, &storage.UpdatedAt)
 	if err != nil {
 		return nil, err

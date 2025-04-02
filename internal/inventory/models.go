@@ -41,9 +41,9 @@ type CreateStorageRequest struct {
 
 // UpdateStorageRequest holds data needed to update an existing storage
 type UpdateStorageRequest struct {
-	ID       uuid.UUID `json:"id" validate:"required,uuid"`
-	Name     string    `json:"name" validate:"required,min=2,max=255"`
-	Location string    `json:"location" validate:"required"`
+	ID       string `json:"id" validate:"required,uuid"`
+	Name     string `json:"name" validate:"required,min=2,max=255"`
+	Location string `json:"location" validate:"required"`
 }
 
 // DeleteStorageRequest holds data needed to delete a storage

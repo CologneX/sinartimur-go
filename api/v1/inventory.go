@@ -2,7 +2,6 @@ package v1
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/inventory"
@@ -91,19 +90,11 @@ func UpdateStorageHandler(storageService *inventory.StorageService) http.Handler
 		id := params["id"]
 
 		var req inventory.UpdateStorageRequest
+		req.ID = id
 		if err := utils.DecodeAndValidate(r, &req); err != nil {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, err))
 			return
 		}
-
-		// Ensure ID from URL matches body or set it if not provided
-		idUUID, err := uuid.Parse(id)
-		if err != nil {
-			http.Error(w, "ID tidak valid", http.StatusBadRequest)
-			return
-		}
-		req.ID = idUUID
-
 		_, apiErr := storageService.UpdateStorage(req)
 		if apiErr != nil {
 			utils.ErrorJSON(w, apiErr)
