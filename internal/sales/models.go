@@ -2,47 +2,46 @@ package sales
 
 import (
 	"sinartimur-go/utils"
-	"time"
 )
 
 // SalesOrder represents a sales order entity from the database
 type SalesOrder struct {
-	ID             string     `json:"id"`
-	SerialID       string     `json:"serial_id"`
-	CustomerID     string     `json:"customer_id"`
-	CustomerName   string     `json:"customer_name"`
-	OrderDate      time.Time  `json:"order_date"`
-	Status         string     `json:"status"`
-	PaymentMethod  string     `json:"payment_method"`
-	PaymentDueDate *time.Time `json:"payment_due_date,omitempty"`
-	TotalAmount    float64    `json:"total_amount"`
-	CreatedBy      string     `json:"created_by"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	CancelledAt    *time.Time `json:"cancelled_at,omitempty"`
+	ID             string  `json:"id"`
+	SerialID       string  `json:"serial_id"`
+	CustomerID     string  `json:"customer_id"`
+	CustomerName   string  `json:"customer_name"`
+	OrderDate      string  `json:"order_date"`
+	Status         string  `json:"status"`
+	PaymentMethod  string  `json:"payment_method"`
+	PaymentDueDate *string `json:"payment_due_date,omitempty"`
+	TotalAmount    float64 `json:"total_amount"`
+	CreatedBy      string  `json:"created_by"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
+	CancelledAt    *string `json:"cancelled_at,omitempty"`
 }
 
 // SalesOrderDetail represents a sales order detail entity
 type SalesOrderDetail struct {
-	ID           string    `json:"id"`
-	SalesOrderID string    `json:"sales_order_id"`
-	BatchID      string    `json:"batch_id"`
-	ProductID    string    `json:"product_id"`
-	Quantity     float64   `json:"quantity"`
-	UnitPrice    float64   `json:"unit_price"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
+	ID           string  `json:"id"`
+	SalesOrderID string  `json:"sales_order_id"`
+	BatchID      string  `json:"batch_id"`
+	ProductID    string  `json:"product_id"`
+	Quantity     float64 `json:"quantity"`
+	UnitPrice    float64 `json:"unit_price"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
 }
 
 // SalesOrderStorage represents storage allocation for a sales order detail
 type SalesOrderStorage struct {
-	ID                 string    `json:"id"`
-	SalesOrderDetailID string    `json:"sales_order_detail_id"`
-	StorageID          string    `json:"storage_id"`
-	BatchID            string    `json:"batch_id"`
-	Quantity           float64   `json:"quantity"`
-	CreatedAt          time.Time `json:"created_at"`
-	UpdatedAt          time.Time `json:"updated_at"`
+	ID                 string  `json:"id"`
+	SalesOrderDetailID string  `json:"sales_order_detail_id"`
+	StorageID          string  `json:"storage_id"`
+	BatchID            string  `json:"batch_id"`
+	Quantity           float64 `json:"quantity"`
+	CreatedAt          string  `json:"created_at"`
+	UpdatedAt          string  `json:"updated_at"`
 }
 
 // GetSalesOrdersRequest defines the parameters for fetching sales orders
@@ -78,8 +77,8 @@ type GetSalesOrdersResponse struct {
 	CancelledAt    string  `json:"cancelled_at,omitempty"`
 }
 
-// GetSalesOrderDetailResponse defines the response for fetching a sales order's details
-type GetSalesOrderDetailResponse struct {
+// GetSalesOrderDetail defines the response for fetching a sales order's details
+type GetSalesOrderDetail struct {
 	ID                 string                      `json:"id"`
 	SalesOrderID       string                      `json:"sales_order_id"`
 	ProductID          string                      `json:"product_id"`
@@ -90,6 +89,27 @@ type GetSalesOrderDetailResponse struct {
 	UnitPrice          float64                     `json:"unit_price"`
 	TotalPrice         float64                     `json:"total_price"`
 	StorageAllocations []SalesOrderStorageResponse `json:"storage_allocations"`
+}
+
+type GetSalesOrderDetailResponse struct {
+	// Order header information
+	ID             string  `json:"id"`
+	SerialID       string  `json:"serial_id"`
+	CustomerID     string  `json:"customer_id"`
+	CustomerName   string  `json:"customer_name"`
+	OrderDate      string  `json:"order_date"`
+	Status         string  `json:"status"`
+	TotalAmount    float64 `json:"total_amount"`
+	PaymentMethod  string  `json:"payment_method"`
+	PaymentDueDate *string `json:"payment_due_date,omitempty"`
+	Description    string  `json:"description,omitempty"`
+	CreatedBy      string  `json:"created_by"`
+	CreatedAt      string  `json:"created_at"`
+	CancelledAt    *string `json:"cancelled_at,omitempty"`
+	UpdatedAt      string  `json:"updated_at,omitempty"`
+
+	// Order items/details
+	Items []GetSalesOrderDetail `json:"items"`
 }
 
 // SalesOrderStorageResponse defines the storage allocation response
@@ -202,16 +222,16 @@ type UpdateItemResponse struct {
 
 // SalesInvoice represents a sales invoice entity from the database
 type SalesInvoice struct {
-	ID           string     `json:"id"`
-	SalesOrderID string     `json:"sales_order_id"`
-	SerialID     string     `json:"serial_id"`
-	InvoiceDate  time.Time  `json:"invoice_date"`
-	TotalAmount  float64    `json:"total_amount"`
-	CreatedBy    string     `json:"created_by"`
-	CreatedAt    time.Time  `json:"created_at"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-	CancelledAt  *time.Time `json:"cancelled_at,omitempty"`
-	CancelledBy  *string    `json:"cancelled_by,omitempty"`
+	ID           string  `json:"id"`
+	SalesOrderID string  `json:"sales_order_id"`
+	SerialID     string  `json:"serial_id"`
+	InvoiceDate  string  `json:"invoice_date"`
+	TotalAmount  float64 `json:"total_amount"`
+	CreatedBy    string  `json:"created_by"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
+	CancelledAt  *string `json:"cancelled_at,omitempty"`
+	CancelledBy  *string `json:"cancelled_by,omitempty"`
 }
 
 // GetSalesInvoicesRequest defines parameters for fetching sales invoices
@@ -325,28 +345,28 @@ type CancelInvoiceReturnRequest struct {
 
 // SalesOrderReturn represents a sales order return entity
 type SalesOrderReturn struct {
-	ID                string     `json:"id"`
-	ReturnSource      string     `json:"return_source"`
-	DeliveryNoteID    *string    `json:"delivery_note_id,omitempty"`
-	SalesOrderID      string     `json:"sales_order_id"`
-	SalesDetailID     string     `json:"sales_detail_id"`
-	ReturnQuantity    float64    `json:"return_quantity"`
-	RemainingQuantity float64    `json:"remaining_quantity"`
-	ReturnReason      *string    `json:"return_reason,omitempty"`
-	ReturnStatus      string     `json:"return_status"`
-	ReturnedBy        *string    `json:"returned_by,omitempty"`
-	CancelledBy       *string    `json:"cancelled_by,omitempty"`
-	ReturnedAt        time.Time  `json:"returned_at"`
-	CancelledAt       *time.Time `json:"cancelled_at,omitempty"`
+	ID                string  `json:"id"`
+	ReturnSource      string  `json:"return_source"`
+	DeliveryNoteID    *string `json:"delivery_note_id,omitempty"`
+	SalesOrderID      string  `json:"sales_order_id"`
+	SalesDetailID     string  `json:"sales_detail_id"`
+	ReturnQuantity    float64 `json:"return_quantity"`
+	RemainingQuantity float64 `json:"remaining_quantity"`
+	ReturnReason      *string `json:"return_reason,omitempty"`
+	ReturnStatus      string  `json:"return_status"`
+	ReturnedBy        *string `json:"returned_by,omitempty"`
+	CancelledBy       *string `json:"cancelled_by,omitempty"`
+	ReturnedAt        string  `json:"returned_at"`
+	CancelledAt       *string `json:"cancelled_at,omitempty"`
 }
 
 // SalesOrderReturnBatch represents a batch record for a sales return
 type SalesOrderReturnBatch struct {
-	ID             string    `json:"id"`
-	SalesReturnID  string    `json:"sales_return_id"`
-	BatchID        *string   `json:"batch_id,omitempty"`
-	ReturnQuantity float64   `json:"return_quantity"`
-	CreatedAt      time.Time `json:"created_at"`
+	ID             string  `json:"id"`
+	SalesReturnID  string  `json:"sales_return_id"`
+	BatchID        *string `json:"batch_id,omitempty"`
+	ReturnQuantity float64 `json:"return_quantity"`
+	CreatedAt      string  `json:"created_at"`
 }
 
 // GetSalesReturnsResponse defines the response for fetching sales returns
@@ -384,18 +404,18 @@ type SalesReturnItemResponse struct {
 
 // DeliveryNote represents a delivery note entity from the database
 type DeliveryNote struct {
-	ID             string     `json:"id"`
-	SerialID       string     `json:"serial_id"`
-	SalesOrderID   string     `json:"sales_order_id"`
-	SalesInvoiceID string     `json:"sales_invoice_id"`
-	DeliveryDate   time.Time  `json:"delivery_date"`
-	DriverName     string     `json:"driver_name"`
-	RecipientName  string     `json:"recipient_name"`
-	CreatedBy      string     `json:"created_by"`
-	CreatedAt      time.Time  `json:"created_at"`
-	UpdatedAt      time.Time  `json:"updated_at"`
-	CancelledAt    *time.Time `json:"cancelled_at,omitempty"`
-	CancelledBy    *string    `json:"cancelled_by,omitempty"`
+	ID             string  `json:"id"`
+	SerialID       string  `json:"serial_id"`
+	SalesOrderID   string  `json:"sales_order_id"`
+	SalesInvoiceID string  `json:"sales_invoice_id"`
+	DeliveryDate   string  `json:"delivery_date"`
+	DriverName     string  `json:"driver_name"`
+	RecipientName  string  `json:"recipient_name"`
+	CreatedBy      string  `json:"created_by"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
+	CancelledAt    *string `json:"cancelled_at,omitempty"`
+	CancelledBy    *string `json:"cancelled_by,omitempty"`
 }
 
 // CreateDeliveryNoteRequest defines the request for creating a delivery note
@@ -456,13 +476,8 @@ type GetDeliveryNotesResponse struct {
 
 // DeliveryNotePaginatedResponse defines a paginated response for delivery notes
 type DeliveryNotePaginatedResponse struct {
-	TotalItems  int                        `json:"total_items"`
-	TotalPages  int                        `json:"total_pages"`
-	CurrentPage int                        `json:"current_page"`
-	PageSize    int                        `json:"page_size"`
-	HasNext     bool                       `json:"has_next"`
-	HasPrevious bool                       `json:"has_previous"`
-	Items       []GetDeliveryNotesResponse `json:"items"`
+	utils.PaginationResponse
+	Items []GetDeliveryNotesResponse `json:"items"`
 }
 
 // ReturnDeliveryItemsRequest defines the request for returning items from a delivery note

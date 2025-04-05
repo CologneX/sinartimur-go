@@ -23,14 +23,37 @@ func (s *SalesService) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSalesOrde
 }
 
 // GetSalesOrderDetail retrieves detailed information about a sales order including its items
-func (s *SalesService) GetSalesOrderDetail(orderID string) ([]GetSalesOrderDetailResponse, error) {
-	// Check if sales order exists
-	_, err := s.repo.GetSalesOrderByID(orderID)
+func (s *SalesService) GetSalesOrderDetail(orderID string) (*GetSalesOrderDetailResponse, error) {
+	// Get the sales order header information
+	orderHeader, err := s.repo.GetSalesOrderByID(orderID)
 	if err != nil {
 		return nil, fmt.Errorf("sales order tidak ditemukan: %w", err)
 	}
 
-	return s.repo.GetSalesOrderDetails(orderID)
+	// Get the sales order details/items
+	orderItems, err := s.repo.GetSalesOrderDetails(orderID)
+	if err != nil {
+		return nil, fmt.Errorf("gagal mengambil detail pesanan: %w", err)
+	}
+
+	// Combine the results
+	result := &GetSalesOrderDetailResponse{
+		ID:             orderHeader.ID,
+		SerialID:       orderHeader.SerialID,
+		CustomerID:     orderHeader.CustomerID,
+		CustomerName:   orderHeader.CustomerName,
+		OrderDate:      orderHeader.OrderDate,
+		Status:         orderHeader.Status,
+		TotalAmount:    orderHeader.TotalAmount,
+		PaymentMethod:  orderHeader.PaymentMethod,
+		PaymentDueDate: orderHeader.PaymentDueDate,
+		CreatedBy:      orderHeader.CreatedBy,
+		CreatedAt:      orderHeader.CreatedAt,
+		UpdatedAt:      orderHeader.UpdatedAt,
+		Items:          orderItems,
+	}
+
+	return result, nil
 }
 
 // CreateSalesOrder creates a new sales order with items and optional invoice creation
@@ -118,7 +141,7 @@ func (s *SalesService) CancelSalesOrder(req CancelSalesOrderRequest, userID stri
 }
 
 // AddItemToSalesOrder adds a new item to an existing sales order
-func (s *SalesService) AddItemToSalesOrder(req AddItemToSalesOrderRequest, userID string) (*UpdateItemResponse, error) {
+func (s *SalesService) AddItemToSalesOrder(req AddItemToSalesOrderRequest) (*UpdateItemResponse, error) {
 	// Validate basic parameters
 	if req.SalesOrderID == "" {
 		return nil, fmt.Errorf("ID pesanan tidak boleh kosong")
@@ -162,7 +185,7 @@ func (s *SalesService) AddItemToSalesOrder(req AddItemToSalesOrderRequest, userI
 }
 
 // UpdateSalesOrderItem updates an existing item in a sales order
-func (s *SalesService) UpdateSalesOrderItem(req UpdateItemRequest, userID string) (*UpdateItemResponse, error) {
+func (s *SalesService) UpdateSalesOrderItem(req UpdateItemRequest) (*UpdateItemResponse, error) {
 	// Validate basic parameters
 	if req.SalesOrderID == "" || req.DetailID == "" {
 		return nil, fmt.Errorf("ID pesanan dan ID detail harus diisi")
@@ -196,11 +219,11 @@ func (s *SalesService) UpdateSalesOrderItem(req UpdateItemRequest, userID string
 		return nil, fmt.Errorf("harga satuan tidak boleh negatif")
 	}
 
-	return s.repo.UpdateSalesOrderItem(req, userID)
+	return s.repo.UpdateSalesOrderItem(req)
 }
 
 // DeleteSalesOrderItem removes an item from a sales order and restores inventory
-func (s *SalesService) DeleteSalesOrderItem(req DeleteItemRequest, userID string) error {
+func (s *SalesService) DeleteSalesOrderItem(req DeleteItemRequest) error {
 	// Validate parameters
 	if req.SalesOrderID == "" || req.DetailID == "" {
 		return fmt.Errorf("ID pesanan dan ID detail harus diisi")

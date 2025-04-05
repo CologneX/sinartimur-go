@@ -15,14 +15,14 @@ type SalesRepository interface {
 	// Sales Order operations
 	GetSalesOrders(req GetSalesOrdersRequest) ([]GetSalesOrdersResponse, int, error)
 	GetSalesOrderByID(id string) (*SalesOrder, error)
-	GetSalesOrderDetails(salesOrderID string) ([]GetSalesOrderDetailResponse, error)
+	GetSalesOrderDetails(salesOrderID string) ([]GetSalesOrderDetail, error)
 	CreateSalesOrder(req CreateSalesOrderRequest, userID string) (*CreateSalesOrderResponse, error)
 	UpdateSalesOrder(req UpdateSalesOrderRequest) (*UpdateSalesOrderResponse, error)
 	CancelSalesOrder(req CancelSalesOrderRequest, userID string) error
 
 	// Sales Order Item operations
 	AddItemToSalesOrder(req AddItemToSalesOrderRequest) (*UpdateItemResponse, error)
-	UpdateSalesOrderItem(req UpdateItemRequest, userID string) (*UpdateItemResponse, error)
+	UpdateSalesOrderItem(req UpdateItemRequest) (*UpdateItemResponse, error)
 	DeleteSalesOrderItem(req DeleteItemRequest) error
 
 	// Invoice operations
@@ -227,19 +227,11 @@ func (r *SalesRepositoryImpl) GetSalesOrderByID(id string) (*SalesOrder, error) 
 		return nil, fmt.Errorf("error fetching sales order: %w", err)
 	}
 
-	if paymentDueDate.Valid {
-		order.PaymentDueDate = &paymentDueDate.Time
-	}
-
-	if cancelledAt.Valid {
-		order.CancelledAt = &cancelledAt.Time
-	}
-
 	return &order, nil
 }
 
 // GetSalesOrderDetails retrieves the details (items) for a specific sales order
-func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSalesOrderDetailResponse, error) {
+func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSalesOrderDetail, error) {
 	query := `
         SELECT sod.id, sod.sales_order_id, sod.product_id, p.name AS product_name, 
                sod.batch_id, pb.sku AS batch_sku, sod.quantity, sod.unit_price,
@@ -255,9 +247,9 @@ func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSa
 	}
 	defer rows.Close()
 
-	var details []GetSalesOrderDetailResponse
+	var details []GetSalesOrderDetail
 	for rows.Next() {
-		var detail GetSalesOrderDetailResponse
+		var detail GetSalesOrderDetail
 		errScan := rows.Scan(
 			&detail.ID,
 			&detail.SalesOrderID,
@@ -1013,7 +1005,7 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteItemRequest) error 
 }
 
 // UpdateSalesOrderItem updates an item in a sales order with new quantity or price
-func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateItemRequest, userID string) (*UpdateItemResponse, error) {
+func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateItemRequest) (*UpdateItemResponse, error) {
 	var response UpdateItemResponse
 	var status string
 	var currentQty, currentPrice float64
