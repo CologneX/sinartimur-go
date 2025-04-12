@@ -1,9 +1,7 @@
 package purchase_order
 
 import (
-	"database/sql"
 	"sinartimur-go/utils"
-	"time"
 )
 
 // Request types
@@ -78,54 +76,54 @@ type PurchaseOrderDetailResponse struct {
 	SerialID       string              `json:"serial_id"`
 	SupplierID     string              `json:"supplier_id"`
 	SupplierName   string              `json:"supplier_name"`
-	OrderDate      time.Time           `json:"order_date"`
+	OrderDate      string              `json:"order_date"`
 	Status         string              `json:"status"`
 	TotalAmount    float64             `json:"total_amount"`
 	PaymentMethod  string              `json:"payment_method"`
-	PaymentDueDate sql.NullTime        `json:"payment_due_date"`
+	PaymentDueDate *string             `json:"payment_due_date,omitempty"`
 	CreatedBy      string              `json:"created_by"`
 	CreatedByName  string              `json:"created_by_name"`
-	CheckedBy      sql.NullString      `json:"checked_by"`
-	CheckedByName  sql.NullString      `json:"checked_by_name"`
-	CreatedAt      time.Time           `json:"created_at"`
-	UpdatedAt      time.Time           `json:"updated_at"`
+	CheckedBy      *string             `json:"checked_by,omitempty"`
+	CheckedByName  *string             `json:"checked_by_name,omitempty"`
+	CreatedAt      string              `json:"created_at,omitempty"`
+	UpdatedAt      string              `json:"updated_at,omitempty"`
 	Items          []PurchaseOrderItem `json:"items"`
 }
 
 type PurchaseOrderItem struct {
-	ID          string    `json:"id"`
-	ProductID   string    `json:"product_id"`
-	ProductName string    `json:"product_name"`
-	Quantity    float64   `json:"quantity"`
-	Price       float64   `json:"price"`
-	CreatedAt   time.Time `json:"created_at"`
-	UpdatedAt   time.Time `json:"updated_at"`
+	ID          string  `json:"id"`
+	ProductID   string  `json:"product_id"`
+	ProductName string  `json:"product_name"`
+	Quantity    float64 `json:"quantity"`
+	Price       float64 `json:"price"`
+	CreatedAt   string  `json:"created_at"`
+	UpdatedAt   string  `json:"updated_at"`
 }
 
 type GetPurchaseOrderResponse struct {
-	ID           string    `json:"id"`
-	SerialID     string    `json:"serial_id"`
-	SupplierID   string    `json:"supplier_id"`
-	SupplierName string    `json:"supplier_name"`
-	OrderDate    time.Time `json:"order_date"`
-	Status       string    `json:"status"`
-	TotalAmount  float64   `json:"total_amount"`
-	CreatedBy    string    `json:"created_by"`
-	CreatedAt    time.Time `json:"created_at"`
-	UpdatedAt    time.Time `json:"updated_at"`
-	ItemCount    int       `json:"item_count"`
+	ID           string  `json:"id"`
+	SerialID     string  `json:"serial_id"`
+	SupplierID   string  `json:"supplier_id"`
+	SupplierName string  `json:"supplier_name"`
+	OrderDate    string  `json:"order_date"`
+	Status       string  `json:"status"`
+	TotalAmount  float64 `json:"total_amount"`
+	CreatedBy    string  `json:"created_by"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
+	ItemCount    int     `json:"item_count"`
 }
 
 type GetPurchaseOrderReturnResponse struct {
-	ID              string    `json:"id"`
-	PurchaseOrderID string    `json:"purchase_order_id"`
-	SerialID        string    `json:"serial_id"`
-	ProductID       string    `json:"product_id"`
-	ProductName     string    `json:"product_name"`
-	ReturnQuantity  float64   `json:"return_quantity"`
-	Reason          string    `json:"reason"`
-	Status          string    `json:"status"`
-	ReturnedBy      string    `json:"returned_by"`
-	ReturnedByName  string    `json:"returned_by_name"`
-	ReturnedAt      time.Time `json:"returned_at"`
+	ID              string  `json:"id"`
+	PurchaseOrderID string  `json:"purchase_order_id"`
+	SerialID        string  `json:"serial_id"`
+	ProductID       string  `json:"product_id"`
+	ProductName     string  `json:"product_name"`
+	ReturnQuantity  float64 `json:"return_quantity"`
+	Reason          string  `json:"reason"`
+	Status          string  `json:"status"`
+	ReturnedBy      string  `json:"returned_by"`
+	ReturnedByName  string  `json:"returned_by_name"`
+	ReturnedAt      string  `json:"returned_at"`
 }
