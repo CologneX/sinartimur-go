@@ -125,3 +125,28 @@ func GenerateNextSerialID(tx *sql.Tx, documentType string) (string, error) {
 		counter,
 	), nil
 }
+
+// Helper function to get first n characters or all if shorter
+func GetAbbreviation(s string, n int) string {
+	s = strings.TrimSpace(s)
+	if len(s) <= n {
+		return s
+	}
+	return s[0:n]
+}
+
+// Helper function to get supplier abbreviation
+func GetSupplierAbbreviation(name string) string {
+	words := strings.Fields(strings.TrimSpace(name))
+
+	if len(words) == 0 {
+		return "SUP"
+	} else if len(words) == 1 {
+		return GetAbbreviation(words[0], 3)
+	} else if len(words) == 2 {
+		return string(words[0][0]) + string(words[1][0])
+	} else {
+		// 3+ words
+		return string(words[0][0]) + string(words[1][0]) + string(words[2][0])
+	}
+}

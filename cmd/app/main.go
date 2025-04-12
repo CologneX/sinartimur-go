@@ -99,8 +99,8 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 	supplierRepo := purchase.NewSupplierRepository(db)
 	supplierService := purchase.NewSupplierService(supplierRepo)
 
-	purchaseOrderRepo := purchase_order.NewPurchaseOrderRepository(db)
-	purchaseOrderService := purchase_order.NewPurchaseOrderService(purchaseOrderRepo)
+	purchaseOrderRepo := purchase_order.NewPurhaseOrderRepository(db)
+	purchaseOrderService := purchase_order.NewPurchaseOrderService(purchaseOrderRepo, db)
 
 	inventoryRepo := inventory.NewStorageRepository(db)
 	inventoryService := inventory.NewStorageService(inventoryRepo)

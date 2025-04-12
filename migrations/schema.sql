@@ -137,7 +137,7 @@ Create Table
         Created_At Timestamptz Default Current_Timestamp,
         Updated_At Timestamptz Default Current_Timestamp,
         Cancelled_By Uuid References Appuser (Id) On Delete Set Null,
-        Cancelled_At Timestamptz Default Null,
+        Cancelled_At Timestamptz Default Null
     );
 
 Create Table
@@ -523,8 +523,6 @@ Create Index Idx_Inventory_Log_Batch_Id On Inventory_Log (Batch_Id);
 
 Create Index Idx_Purchase_Order_Created_By On Purchase_Order (Created_By);
 
-Create Index Idx_Purchase_Order_Received_By On Purchase_Order (Received_By);
-
 Create Index Idx_Purchase_Order_Checked_By On Purchase_Order (Checked_By);
 
 Create Index Idx_Purchase_Order_Cancelled_By On Purchase_Order (Cancelled_By);
@@ -536,8 +534,6 @@ Create Index Idx_Purchase_Order_Return_Detail_Id On Purchase_Order_Return (Produ
 Create Index Idx_Purchase_Order_Return_Batch_Return_Id On Purchase_Order_Return_Batch (Purchase_Return_Id);
 
 Create Index Idx_Purchase_Order_Return_Returned_By On Purchase_Order_Return (Returned_By);
-
-Create Index Idx_Purchase_Order_Fully_Returned_By On Purchase_Order (Fully_Returned_By);
 
 CREATE INDEX idx_inventory_log_view_product_id ON inventory_log_view (product_id);
 
