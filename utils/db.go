@@ -118,7 +118,6 @@ func GenerateNextSerialID(tx *sql.Tx, documentType string) (string, error) {
 
 	// Format the serial number: XX-YYYYMMDD-NNNN
 	// XX = document type, YYYYMMDD = date, NNNN = counter (padded with zeros)
-	fmt.Println("counter", counter)
 	return fmt.Sprintf(
 		"%s-%04d%02d%02d-%04d",
 		documentType,

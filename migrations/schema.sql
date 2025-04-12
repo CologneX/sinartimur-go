@@ -125,22 +125,19 @@ Create Table
 Create Table
     Purchase_Order (
         Id Uuid Primary Key Default Uuid_Generate_V4 (),
+        Serial_Id VARCHAR(20) Unique,
         Supplier_Id Uuid Default Null References Supplier (Id) On Delete Set Null,
         Order_Date Timestamptz Default Current_Timestamp,
-        Status VARCHAR(50) Not Null, -- ordered, received, checked, completed, partially_returned, returned, cancelled
+        Status VARCHAR(50) Not Null, -- ordered, completed, partially_returned, returned, cancelled
         Total_Amount NUMERIC(15, 2) Not Null,
+        Payment_Method VARCHAR(50) Not Null, -- cash, credit
         Payment_Due_Date Timestamptz Default Null,
         Created_By Uuid Not Null References Appuser (Id) On Delete Set Null,
-        Received_By Uuid References Appuser (Id) On Delete Set Null,
         Checked_By Uuid References Appuser (Id) On Delete Set Null,
-        Fully_Returned_By Uuid References Appuser (Id) On Delete Set Null,
-        Return_Cancelled_By Uuid References Appuser (Id) On Delete Set Null,
-        Cancelled_By Uuid References Appuser (Id) On Delete Set Null,
         Created_At Timestamptz Default Current_Timestamp,
         Updated_At Timestamptz Default Current_Timestamp,
+        Cancelled_By Uuid References Appuser (Id) On Delete Set Null,
         Cancelled_At Timestamptz Default Null,
-        Received_At Timestamptz Default Null,
-        Checked_At Timestamptz Default Null
     );
 
 Create Table
@@ -149,8 +146,6 @@ Create Table
         Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Cascade,
         Product_Id Uuid References Product (Id) On Delete Cascade,
         Requested_Quantity NUMERIC(15, 2) Not Null,
-        Total_Returned_Quantity NUMERIC(15, 2) Default 0,
-        Received_Quantity NUMERIC(15, 2) Default 0,
         Unit_Price NUMERIC(15, 2) Not Null,
         Created_At Timestamptz Default Current_Timestamp,
         Updated_At Timestamptz Default Current_Timestamp
@@ -188,9 +183,8 @@ Create Table
         Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Cascade,
         Product_Detail_Id Uuid References Purchase_Order_Detail (Id) On Delete Cascade,
         Return_Quantity NUMERIC(15, 2) Not Null,
-        Remaining_Quantity NUMERIC(15, 2) Not Null,
-        Return_Reason TEXT Default Null,
-        Return_Status VARCHAR(50) Not Null, -- pending, completed, cancelled
+        Reason TEXT Default Null,
+        Status VARCHAR(50) Not Null, -- returned, cancelled
         Returned_By Uuid References Appuser (Id) On Delete Set Null,
         Cancelled_By Uuid References Appuser (Id) On Delete Set Null,
         Returned_At Timestamptz Not Null Default Current_Timestamp,
@@ -202,7 +196,7 @@ Create Table
         Id Uuid Primary Key Default Uuid_Generate_V4 (),
         Purchase_Return_Id Uuid References Purchase_Order_Return (Id) On Delete Cascade,
         Batch_Id Uuid References Product_Batch (Id) On Delete Set Null,
-        Return_Quantity NUMERIC(15, 2) Not Null,
+        Quantity NUMERIC(15, 2) Not Null,
         Created_At Timestamptz Default Current_Timestamp
     );
 
