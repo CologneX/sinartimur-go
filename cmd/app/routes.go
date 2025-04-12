@@ -10,6 +10,7 @@ import (
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
+	purchase_order "sinartimur-go/internal/purchase/purchase-order"
 	"sinartimur-go/internal/sales"
 	"sinartimur-go/internal/unit"
 	"sinartimur-go/internal/user"
@@ -39,7 +40,7 @@ func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
 //	router.HandleFunc("/role/unassign", v1.UnassignRoleFromUserHandler(roleService)).Methods("POST")
 //}
 
-func RegisterPurchaseOrderRoutes(router *mux.Router, purchaseOrderService *purchase.PurchaseOrderService) {
+func RegisterPurchaseOrderRoutes(router *mux.Router, purchaseOrderService *purchase_order.PurchaseOrderService) {
 	// Purchase Orders
 	router.HandleFunc("/orders", v1.GetAllPurchaseOrderHandler(purchaseOrderService)).Methods("GET")
 	router.HandleFunc("/order", v1.CreatePurchaseOrderHandler(purchaseOrderService)).Methods("POST")

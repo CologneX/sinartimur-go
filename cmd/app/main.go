@@ -2,8 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"github.com/gorilla/handlers"
-	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"os"
@@ -16,12 +14,16 @@ import (
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
+	purchase_order "sinartimur-go/internal/purchase/purchase-order"
 	"sinartimur-go/internal/sales"
 	"sinartimur-go/internal/unit"
 	"sinartimur-go/internal/user"
 	"sinartimur-go/internal/wage"
 	"sinartimur-go/middleware"
 	"sinartimur-go/utils"
+
+	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 )
 
 func main() {
@@ -62,7 +64,7 @@ type Services struct {
 	CategoryService      *category.CategoryService
 	UnitService          *unit.UnitService
 	SupplierService      *purchase.SupplierService
-	PurchaseOrderService *purchase.PurchaseOrderService
+	PurchaseOrderService *purchase_order.PurchaseOrderService
 	InventoryService     *inventory.StorageService
 	CustomerService      *customer.CustomerService
 	FinanceService       *finance.FinanceService
@@ -97,8 +99,8 @@ func BuildServices(db *sql.DB, redis *config.RedisClient) *Services {
 	supplierRepo := purchase.NewSupplierRepository(db)
 	supplierService := purchase.NewSupplierService(supplierRepo)
 
-	purchaseOrderRepo := purchase.NewPurchaseOrderRepository(db)
-	purchaseOrderService := purchase.NewPurchaseOrderService(purchaseOrderRepo)
+	purchaseOrderRepo := purchase_order.NewPurchaseOrderRepository(db)
+	purchaseOrderService := purchase_order.NewPurchaseOrderService(purchaseOrderRepo)
 
 	inventoryRepo := inventory.NewStorageRepository(db)
 	inventoryService := inventory.NewStorageService(inventoryRepo)
