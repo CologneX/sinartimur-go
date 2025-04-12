@@ -1,4 +1,4 @@
-package purchase
+package purchase_order
 
 import (
 	"database/sql"
@@ -1501,7 +1501,7 @@ func (r *RepositoryImpl) GetAllProducts(req product.GetProductRequest) ([]produc
 
 	// Build main query
 	queryBuilder := utils.NewQueryBuilder(`
-		Select P.Id, P.Name, P.description, P.category_id, C.Name As CategoryName, P.unit_id, U.Name As UnitName, P.Updated_At, P.Created_At
+		Select P.Id, P.Name, P.Description, P.Category_Id, C.Name As Categoryname, P.Unit_Id, U.Name As Unitname, P.Updated_At, P.Created_At
 		From Product P
 		Left Join Category C On P.Category_Id = C.Id
 		Left Join Unit U On P.Unit_Id = U.Id

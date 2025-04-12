@@ -1,4 +1,4 @@
-package purchase
+package purchase_order
 
 import (
 	"sinartimur-go/pkg/dto"

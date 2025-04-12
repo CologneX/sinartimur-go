@@ -5,14 +5,15 @@ import (
 	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/purchase"
+	"sinartimur-go/internal/purchase/purchase-order"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 )
 
 // CreatePurchaseOrderHandler creates a new purchase purchase-order
-func CreatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func CreatePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req purchase.CreatePurchaseOrderRequest
+		var req purchase_order.CreatePurchaseOrderRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 
@@ -34,7 +35,7 @@ func CreatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 }
 
 // GetPurchaseOrderDetailHandler fetches the details of a purchase purchase-order by ID
-func GetPurchaseOrderDetailHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func GetPurchaseOrderDetailHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		id := params["id"]
@@ -58,9 +59,9 @@ func GetPurchaseOrderDetailHandler(purchaseOrderService *purchase.PurchaseOrderS
 }
 
 // UpdatePurchaseOrderHandler updates a purchase purchase-order
-func UpdatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func UpdatePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req purchase.UpdatePurchaseOrderRequest
+		var req purchase_order.UpdatePurchaseOrderRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 
@@ -80,7 +81,7 @@ func UpdatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 }
 
 // DeletePurchaseOrderHandler deletes a purchase purchase-order
-func DeletePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func DeletePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		id := params["id"]
@@ -96,9 +97,9 @@ func DeletePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 }
 
 // ReceivePurchaseOrderHandler receives a purchase purchase-order
-func ReceivePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func ReceivePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req []purchase.ReceivedItemRequest
+		var req []purchase_order.ReceivedItemRequest
 		validationErrors := utils.DecodeAndValidate(r, &req)
 
 		if validationErrors != nil {
@@ -122,7 +123,7 @@ func ReceivePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderSer
 }
 
 // CheckPurchaseOrderHandler checks a purchase purchase-order
-func CheckPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func CheckPurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		id := params["id"]
@@ -140,7 +141,7 @@ func CheckPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServi
 }
 
 // CancelPurchaseOrderHandler cancels a purchase purchase-order
-func CancelPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func CancelPurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		id := params["id"]
@@ -158,9 +159,9 @@ func CancelPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 }
 
 // CreatePurchaseOrderReturnHandler creates a new purchase purchase-order return
-func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req purchase.CreatePurchaseOrderReturnRequest
+		var req purchase_order.CreatePurchaseOrderReturnRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 
@@ -182,9 +183,9 @@ func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrd
 }
 
 // GetAllPurchaseOrderReturnHandler fetches all purchase purchase-order returns
-func GetAllPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func GetAllPurchaseOrderReturnHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
-		req := purchase.GetPurchaseOrderReturnRequest{
+		req := purchase_order.GetPurchaseOrderReturnRequest{
 			FromDate: r.URL.Query().Get("from_date"),
 			ToDate:   r.URL.Query().Get("to_date"),
 			PaginationParameter: utils.PaginationParameter{
@@ -212,7 +213,7 @@ func GetAllPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrd
 }
 
 // CancelPurchaseOrderReturnHandler cancels a purchase purchase-order return
-func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		id := params["id"]
@@ -230,7 +231,7 @@ func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrd
 }
 
 // DeletePurchaseOrderItemHandler deletes a purchase purchase-order item
-func DeletePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func DeletePurchaseOrderItemHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
 		id := params["id"]
@@ -246,9 +247,9 @@ func DeletePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrder
 }
 
 // CreatePurchaseOrderItemHandler creates a new purchase purchase-order item
-func CreatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func CreatePurchaseOrderItemHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req purchase.CreatePurchaseOrderItemRequest
+		var req purchase_order.CreatePurchaseOrderItemRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 		params := mux.Vars(r)
@@ -270,9 +271,9 @@ func CreatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrder
 }
 
 // UpdatePurchaseOrderItemHandler updates a purchase purchase-order item
-func UpdatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func UpdatePurchaseOrderItemHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req purchase.UpdatePurchaseOrderItemRequest
+		var req purchase_order.UpdatePurchaseOrderItemRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 
@@ -292,9 +293,9 @@ func UpdatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrder
 }
 
 // GetAllPurchaseOrderHandler fetch all purchase orders
-func GetAllPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+func GetAllPurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
-		req := purchase.GetPurchaseOrderRequest{
+		req := purchase_order.GetPurchaseOrderRequest{
 			SupplierID: r.URL.Query().Get("supplier_id"),
 			Status:     r.URL.Query().Get("status"),
 			FromDate:   r.URL.Query().Get("from_date"),
