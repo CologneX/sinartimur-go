@@ -4,7 +4,7 @@ import (
 	"sinartimur-go/utils"
 )
 
-// SalesOrder represents a sales order entity from the database
+// SalesOrder represents a sales purchase-order entity from the database
 type SalesOrder struct {
 	ID             string  `json:"id"`
 	SerialID       string  `json:"serial_id"`
@@ -21,19 +21,18 @@ type SalesOrder struct {
 	CancelledAt    *string `json:"cancelled_at,omitempty"`
 }
 
-// SalesOrderDetail represents a sales order detail entity
+// SalesOrderDetail represents a sales purchase-order detail entity
 type SalesOrderDetail struct {
-	ID           string  `json:"id"`
-	SalesOrderID string  `json:"sales_order_id"`
-	BatchID      string  `json:"batch_id"`
-	ProductID    string  `json:"product_id"`
-	Quantity     float64 `json:"quantity"`
-	UnitPrice    float64 `json:"unit_price"`
-	CreatedAt    string  `json:"created_at"`
-	UpdatedAt    string  `json:"updated_at"`
+	ID             string  `json:"id"`
+	SalesOrderID   string  `json:"sales_order_id"`
+	BatchStorageID string  `json:"batch_storage_id"`
+	Quantity       float64 `json:"quantity"`
+	UnitPrice      float64 `json:"unit_price"`
+	CreatedAt      string  `json:"created_at"`
+	UpdatedAt      string  `json:"updated_at"`
 }
 
-// SalesOrderStorage represents storage allocation for a sales order detail
+// SalesOrderStorage represents storage allocation for a sales purchase-order detail
 type SalesOrderStorage struct {
 	ID                 string  `json:"id"`
 	SalesOrderDetailID string  `json:"sales_order_detail_id"`
@@ -47,7 +46,7 @@ type SalesOrderStorage struct {
 // GetSalesOrdersRequest defines the parameters for fetching sales orders
 type GetSalesOrdersRequest struct {
 	CustomerID    string `json:"customer_id,omitempty" validate:"omitempty,uuid"`
-	Status        string `json:"status,omitempty" validate:"omitempty,oneof=order invoice delivery partial_return return cancel"`
+	Status        string `json:"status,omitempty" validate:"omitempty,oneof=purchase-order invoice delivery partial_return return cancel"`
 	PaymentMethod string `json:"payment_method,omitempty" validate:"omitempty,oneof=cash paylater"`
 	StartDate     string `json:"start_date,omitempty" validate:"omitempty,rfc3339"`
 	EndDate       string `json:"end_date,omitempty" validate:"omitempty,rfc3339"`
@@ -77,7 +76,7 @@ type GetSalesOrdersResponse struct {
 	CancelledAt    string  `json:"cancelled_at,omitempty"`
 }
 
-// GetSalesOrderDetail defines the response for fetching a sales order's details
+// GetSalesOrderDetail defines the response for fetching a sales purchase-order's details
 type GetSalesOrderDetail struct {
 	ID                 string                      `json:"id"`
 	SalesOrderID       string                      `json:"sales_order_id"`
@@ -85,6 +84,7 @@ type GetSalesOrderDetail struct {
 	ProductName        string                      `json:"product_name"`
 	BatchID            string                      `json:"batch_id"`
 	BatchSKU           string                      `json:"batch_sku"`
+	BatchStorageID     string                      `json:"batch_storage_id"`
 	Quantity           float64                     `json:"quantity"`
 	UnitPrice          float64                     `json:"unit_price"`
 	TotalPrice         float64                     `json:"total_price"`
@@ -117,10 +117,11 @@ type SalesOrderStorageResponse struct {
 	ID          string  `json:"id"`
 	StorageID   string  `json:"storage_id"`
 	StorageName string  `json:"storage_name"`
+	MaxQuantity float64 `json:"max_quantity"`
 	Quantity    float64 `json:"quantity"`
 }
 
-// CreateSalesOrderRequest defines the request for creating a sales order
+// CreateSalesOrderRequest defines the request for creating a sales purchase-order
 type CreateSalesOrderRequest struct {
 	CustomerID     string                  `json:"customer_id" validate:"required,uuid"`
 	PaymentMethod  string                  `json:"payment_method" validate:"required,oneof=cash paylater"`
@@ -129,22 +130,14 @@ type CreateSalesOrderRequest struct {
 	CreateInvoice  bool                    `json:"create_invoice" validate:"omitempty"`
 }
 
-// SalesOrderItemRequest defines an item in a create sales order request
+// SalesOrderItemRequest defines an item in a create sales purchase-order request
 type SalesOrderItemRequest struct {
-	ProductID          string                     `json:"product_id" validate:"required,uuid"`
-	BatchID            string                     `json:"batch_id" validate:"required,uuid"`
-	Quantity           float64                    `json:"quantity" validate:"required,gt=0"`
-	UnitPrice          float64                    `json:"unit_price" validate:"required,gt=0"`
-	StorageAllocations []StorageAllocationRequest `json:"storage_allocations" validate:"required,min=1,dive"`
+	BatchStorageID string  `json:"batch_storage_id" validate:"required,uuid"`
+	Quantity       float64 `json:"quantity" validate:"required,gt=0"`
+	UnitPrice      float64 `json:"unit_price" validate:"required,gt=0"`
 }
 
-// StorageAllocationRequest defines a storage allocation for an item
-type StorageAllocationRequest struct {
-	StorageID string  `json:"storage_id" validate:"required,uuid"`
-	Quantity  float64 `json:"quantity" validate:"required,gt=0"`
-}
-
-// CreateSalesOrderResponse defines the response for creating a sales order
+// CreateSalesOrderResponse defines the response for creating a sales purchase-order
 type CreateSalesOrderResponse struct {
 	ID              string  `json:"id"`
 	SerialID        string  `json:"serial_id"`
@@ -159,7 +152,7 @@ type CreateSalesOrderResponse struct {
 	InvoiceSerialID string  `json:"invoice_serial_id,omitempty"`
 }
 
-// UpdateSalesOrderRequest defines the request for updating a sales order
+// UpdateSalesOrderRequest defines the request for updating a sales purchase-order
 type UpdateSalesOrderRequest struct {
 	ID             string `json:"id" validate:"required,uuid"`
 	CustomerID     string `json:"customer_id,omitempty" validate:"omitempty,uuid"`
@@ -167,7 +160,7 @@ type UpdateSalesOrderRequest struct {
 	PaymentDueDate string `json:"payment_due_date,omitempty" validate:"omitempty,rfc3339"`
 }
 
-// UpdateSalesOrderResponse defines the response for updating a sales order
+// UpdateSalesOrderResponse defines the response for updating a sales purchase-order
 type UpdateSalesOrderResponse struct {
 	ID             string `json:"id"`
 	SerialID       string `json:"serial_id"`
@@ -178,46 +171,45 @@ type UpdateSalesOrderResponse struct {
 	UpdatedAt      string `json:"updated_at"`
 }
 
-// AddItemToSalesOrderRequest defines the request for adding an item to an existing sales order
-type AddItemToSalesOrderRequest struct {
-	SalesOrderID       string                     `json:"sales_order_id" validate:"required,uuid"`
-	ProductID          string                     `json:"product_id" validate:"required,uuid"`
-	BatchID            string                     `json:"batch_id" validate:"required,uuid"`
-	Quantity           float64                    `json:"quantity" validate:"required,gt=0"`
-	UnitPrice          float64                    `json:"unit_price" validate:"required,gt=0"`
-	StorageAllocations []StorageAllocationRequest `json:"storage_allocations" validate:"required,min=1,dive"`
+// AddSalesOrderItemRequest defines the request for adding an item to an existing sales purchase-order
+type AddSalesOrderItemRequest struct {
+	SalesOrderID   string  `json:"sales_order_id" validate:"required,uuid"`
+	BatchStorageID string  `json:"batch_storage_id" validate:"required,uuid"` // Primary reference
+	Quantity       float64 `json:"quantity" validate:"required,gt=0"`
+	UnitPrice      float64 `json:"unit_price" validate:"required,gt=0"`
 }
 
-// UpdateItemRequest defines the request for updating an item in a sales order
-type UpdateItemRequest struct {
-	SalesOrderID       string                     `json:"sales_order_id" validate:"required,uuid"`
-	DetailID           string                     `json:"detail_id" validate:"required,uuid"`
-	Quantity           float64                    `json:"quantity" validate:"omitempty,gt=0"`
-	UnitPrice          float64                    `json:"unit_price" validate:"omitempty,gt=0"`
-	StorageAllocations []StorageAllocationRequest `json:"storage_allocations" validate:"omitempty,dive"`
+// UpdateSalesOrderItemRequest defines the request for updating an item in a sales purchase-order
+type UpdateSalesOrderItemRequest struct {
+	SalesOrderID   string  `json:"sales_order_id" validate:"required,uuid"`
+	DetailID       string  `json:"detail_id" validate:"required,uuid"`
+	BatchStorageID string  `json:"batch_storage_id" validate:"omitempty,uuid"`
+	Quantity       float64 `json:"quantity" validate:"omitempty,gt=0"`
+	UnitPrice      float64 `json:"unit_price" validate:"omitempty,gt=0"`
 }
 
-// DeleteItemRequest defines the request for deleting an item from a sales order
-type DeleteItemRequest struct {
+// DeleteSalesOrderItemRequest defines the request for deleting an item from a sales purchase-order
+type DeleteSalesOrderItemRequest struct {
 	SalesOrderID string `json:"sales_order_id" validate:"required,uuid"`
 	DetailID     string `json:"detail_id" validate:"required,uuid"`
 }
 
-// CancelSalesOrderRequest defines the request for cancelling a sales order
+// CancelSalesOrderRequest defines the request for cancelling a sales purchase-order
 type CancelSalesOrderRequest struct {
 	SalesOrderID string `json:"sales_order_id" validate:"required,uuid"`
 }
 
-// UpdateItemResponse defines the response for updating or adding an item
-type UpdateItemResponse struct {
-	DetailID    string  `json:"detail_id"`
-	ProductID   string  `json:"product_id"`
-	ProductName string  `json:"product_name"`
-	BatchID     string  `json:"batch_id"`
-	BatchSKU    string  `json:"batch_sku"`
-	Quantity    float64 `json:"quantity"`
-	UnitPrice   float64 `json:"unit_price"`
-	TotalPrice  float64 `json:"total_price"`
+// UpdateAndCreateItemResponse defines the response for updating or adding an item
+type UpdateAndCreateItemResponse struct {
+	DetailID       string  `json:"detail_id"`
+	ProductID      string  `json:"product_id"`
+	ProductName    string  `json:"product_name"`
+	BatchID        string  `json:"batch_id"`
+	BatchSKU       string  `json:"batch_sku"`
+	BatchStorageID string  `json:"batch_storage_id"`
+	Quantity       float64 `json:"quantity"`
+	UnitPrice      float64 `json:"unit_price"`
+	TotalPrice     float64 `json:"total_price"`
 }
 
 // SalesInvoice represents a sales invoice entity from the database
@@ -275,6 +267,7 @@ type SalesInvoiceItemResponse struct {
 	ProductName    string                      `json:"product_name"`
 	BatchID        string                      `json:"batch_id"`
 	BatchSKU       string                      `json:"batch_sku"`
+	BatchStorageID string                      `json:"batch_storage_id"`
 	Quantity       float64                     `json:"quantity"`
 	ReturnedQty    float64                     `json:"returned_qty"`
 	UnitPrice      float64                     `json:"unit_price"`
@@ -343,7 +336,7 @@ type CancelInvoiceReturnRequest struct {
 	ReturnID string `json:"return_id" validate:"required,uuid"`
 }
 
-// SalesOrderReturn represents a sales order return entity
+// SalesOrderReturn represents a sales purchase-order return entity
 type SalesOrderReturn struct {
 	ID                string  `json:"id"`
 	ReturnSource      string  `json:"return_source"`
@@ -538,4 +531,29 @@ type DeliveryReturnItemResponse struct {
 	Quantity    float64 `json:"quantity"`
 	UnitPrice   float64 `json:"unit_price"`
 	TotalPrice  float64 `json:"total_price"`
+}
+
+// GetAllBatchesRequest holds query parameters for batch search
+type GetAllBatchesRequest struct {
+	Search string `json:"search" validate:"omitempty"`
+	utils.PaginationParameter
+}
+
+type GetAllBatchesStorageItem struct {
+	BatchStorageID string  `json:"batch_storage_id"`
+	BatchID        string  `json:"batch_id"`
+	BatchSKU       string  `json:"batch_sku"`
+	Quantity       float64 `json:"quantity"`
+	Price          float64 `json:"price"`
+	ProductID      string  `json:"product_id"`
+	ProductName    string  `json:"product_name"`
+	CreatedAt      string  `json:"created_at"`
+}
+
+// GetAllBatchesResponse is used when returning batch data to clients
+type GetAllBatchesResponse struct {
+	StorageID                 string                     `json:"storage_id"`
+	StorageName               string                     `json:"storage_name"`
+	StorageLocation           string                     `json:"storage_location,omitempty"`
+	GetAllBatchesStorageItems []GetAllBatchesStorageItem `json:"items"`
 }

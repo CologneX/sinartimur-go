@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-// SalesService is the service for the Product domain.
+// SalesService is the service for the Sales domain.
 type SalesService struct {
 	repo SalesRepository
 }
@@ -22,15 +22,20 @@ func (s *SalesService) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSalesOrde
 	return s.repo.GetSalesOrders(req)
 }
 
-// GetSalesOrderDetail retrieves detailed information about a sales order including its items
+// GetAllBatches retrieves all batches
+func (s *SalesService) GetAllBatches(req GetAllBatchesRequest) ([]GetAllBatchesResponse, int, error) {
+	return s.repo.GetAllBatches(req)
+}
+
+// GetSalesOrderDetail retrieves detailed information about a sales purchase-order including its items
 func (s *SalesService) GetSalesOrderDetail(orderID string) (*GetSalesOrderDetailResponse, error) {
-	// Get the sales order header information
+	// Get the sales purchase-order header information
 	orderHeader, err := s.repo.GetSalesOrderByID(orderID)
 	if err != nil {
-		return nil, fmt.Errorf("sales order tidak ditemukan: %w", err)
+		return nil, fmt.Errorf("sales purchase-order tidak ditemukan: %w", err)
 	}
 
-	// Get the sales order details/items
+	// Get the sales purchase-order details/items
 	orderItems, err := s.repo.GetSalesOrderDetails(orderID)
 	if err != nil {
 		return nil, fmt.Errorf("gagal mengambil detail pesanan: %w", err)
@@ -56,7 +61,7 @@ func (s *SalesService) GetSalesOrderDetail(orderID string) (*GetSalesOrderDetail
 	return result, nil
 }
 
-// CreateSalesOrder creates a new sales order with items and optional invoice creation
+// CreateSalesOrder creates a new sales purchase-order with items and optional invoice creation
 func (s *SalesService) CreateSalesOrder(req CreateSalesOrderRequest, userID string) (*CreateSalesOrderResponse, error) {
 	// Validate payment information
 	if req.PaymentMethod == "paylater" && req.PaymentDueDate == "" {
@@ -80,37 +85,12 @@ func (s *SalesService) CreateSalesOrder(req CreateSalesOrderRequest, userID stri
 		return nil, fmt.Errorf("pesanan harus memiliki minimal satu item")
 	}
 
-	for i, item := range req.Items {
-		if item.Quantity <= 0 {
-			return nil, fmt.Errorf("kuantitas item #%d harus lebih dari 0", i+1)
-		}
-		if item.UnitPrice < 0 {
-			return nil, fmt.Errorf("harga satuan item #%d tidak boleh negatif", i+1)
-		}
-
-		// Check storage allocations
-		var totalAllocated float64
-		for _, alloc := range item.StorageAllocations {
-			if alloc.Quantity <= 0 {
-				return nil, fmt.Errorf("kuantitas alokasi penyimpanan harus lebih dari 0")
-			}
-			totalAllocated += alloc.Quantity
-		}
-
-		// Ensure total allocation matches requested quantity
-		if totalAllocated != item.Quantity {
-			return nil, fmt.Errorf(
-				"total alokasi penyimpanan (%.2f) tidak sama dengan kuantitas yang diminta (%.2f) untuk item #%d",
-				totalAllocated, item.Quantity, i+1)
-		}
-	}
-
 	return s.repo.CreateSalesOrder(req, userID)
 }
 
-// UpdateSalesOrder updates basic information of a sales order
+// UpdateSalesOrder updates basic information of a sales purchase-order
 func (s *SalesService) UpdateSalesOrder(req UpdateSalesOrderRequest) (*UpdateSalesOrderResponse, error) {
-	// Validate order ID
+	// Validate purchase-order ID
 	if req.ID == "" {
 		return nil, fmt.Errorf("ID pesanan tidak boleh kosong")
 	}
@@ -130,9 +110,9 @@ func (s *SalesService) UpdateSalesOrder(req UpdateSalesOrderRequest) (*UpdateSal
 	return s.repo.UpdateSalesOrder(req)
 }
 
-// CancelSalesOrder cancels a sales order and restores inventory
+// CancelSalesOrder cancels a sales purchase-order and restores inventory
 func (s *SalesService) CancelSalesOrder(req CancelSalesOrderRequest, userID string) error {
-	// Validate order ID
+	// Validate purchase-order ID
 	if req.SalesOrderID == "" {
 		return fmt.Errorf("ID pesanan tidak boleh kosong")
 	}
@@ -140,15 +120,15 @@ func (s *SalesService) CancelSalesOrder(req CancelSalesOrderRequest, userID stri
 	return s.repo.CancelSalesOrder(req, userID)
 }
 
-// AddItemToSalesOrder adds a new item to an existing sales order
-func (s *SalesService) AddItemToSalesOrder(req AddItemToSalesOrderRequest) (*UpdateItemResponse, error) {
+// AddSalesOrderItem adds a new item to an existing sales purchase-order
+func (s *SalesService) AddSalesOrderItem(req AddSalesOrderItemRequest) (*UpdateAndCreateItemResponse, error) {
 	// Validate basic parameters
 	if req.SalesOrderID == "" {
 		return nil, fmt.Errorf("ID pesanan tidak boleh kosong")
 	}
 
-	if req.ProductID == "" || req.BatchID == "" {
-		return nil, fmt.Errorf("ID produk dan batch harus diisi")
+	if req.BatchStorageID == "" {
+		return nil, fmt.Errorf("ID batch storage harus diisi")
 	}
 
 	// Validate quantity
@@ -161,52 +141,14 @@ func (s *SalesService) AddItemToSalesOrder(req AddItemToSalesOrderRequest) (*Upd
 		return nil, fmt.Errorf("harga satuan tidak boleh negatif")
 	}
 
-	// Check storage allocations
-	if len(req.StorageAllocations) == 0 {
-		return nil, fmt.Errorf("minimal satu lokasi penyimpanan harus dipilih")
-	}
-
-	var totalAllocated float64
-	for _, alloc := range req.StorageAllocations {
-		if alloc.Quantity <= 0 {
-			return nil, fmt.Errorf("kuantitas alokasi penyimpanan harus lebih dari 0")
-		}
-		totalAllocated += alloc.Quantity
-	}
-
-	// Ensure total allocation matches requested quantity
-	if totalAllocated != req.Quantity {
-		return nil, fmt.Errorf(
-			"total alokasi penyimpanan (%.2f) tidak sama dengan kuantitas yang diminta (%.2f)",
-			totalAllocated, req.Quantity)
-	}
-
 	return s.repo.AddItemToSalesOrder(req)
 }
 
-// UpdateSalesOrderItem updates an existing item in a sales order
-func (s *SalesService) UpdateSalesOrderItem(req UpdateItemRequest) (*UpdateItemResponse, error) {
+// UpdateSalesOrderItem updates an existing item in a sales purchase-order
+func (s *SalesService) UpdateSalesOrderItem(req UpdateSalesOrderItemRequest) (*UpdateAndCreateItemResponse, error) {
 	// Validate basic parameters
 	if req.SalesOrderID == "" || req.DetailID == "" {
 		return nil, fmt.Errorf("ID pesanan dan ID detail harus diisi")
-	}
-
-	// If storage allocations are provided, validate them
-	if len(req.StorageAllocations) > 0 {
-		var totalAllocated float64
-		for _, alloc := range req.StorageAllocations {
-			if alloc.Quantity <= 0 {
-				return nil, fmt.Errorf("kuantitas alokasi penyimpanan harus lebih dari 0")
-			}
-			totalAllocated += alloc.Quantity
-		}
-
-		// If quantity is provided, ensure it matches storage allocations
-		if req.Quantity > 0 && totalAllocated != req.Quantity {
-			return nil, fmt.Errorf(
-				"total alokasi penyimpanan (%.2f) tidak sama dengan kuantitas yang diminta (%.2f)",
-				totalAllocated, req.Quantity)
-		}
 	}
 
 	// Validate quantity if provided
@@ -222,13 +164,8 @@ func (s *SalesService) UpdateSalesOrderItem(req UpdateItemRequest) (*UpdateItemR
 	return s.repo.UpdateSalesOrderItem(req)
 }
 
-// DeleteSalesOrderItem removes an item from a sales order and restores inventory
-func (s *SalesService) DeleteSalesOrderItem(req DeleteItemRequest) error {
-	// Validate parameters
-	if req.SalesOrderID == "" || req.DetailID == "" {
-		return fmt.Errorf("ID pesanan dan ID detail harus diisi")
-	}
-
+// DeleteSalesOrderItem removes an item from a sales purchase-order and restores inventory
+func (s *SalesService) DeleteSalesOrderItem(req DeleteSalesOrderItemRequest) error {
 	return s.repo.DeleteSalesOrderItem(req)
 }
 
@@ -243,17 +180,12 @@ func (s *SalesService) GetSalesInvoices(req GetSalesInvoicesRequest) ([]GetSales
 	return invoices, totalItems, nil
 }
 
-// CreateSalesInvoice creates a new invoice for a sales order
+// CreateSalesInvoice creates a new invoice for a sales purchase-order
 func (s *SalesService) CreateSalesInvoice(req CreateSalesInvoiceRequest, userID string) (*CreateSalesInvoiceResponse, error) {
-	// Validate request
-	if req.SalesOrderID == "" {
-		return nil, errors.New("ID pesanan penjualan wajib diisi")
-	}
 
-	// Call repository to create invoice
-	response, err := s.repo.CreateSalesInvoice(req, userID)
+	response, err := s.repo.CreateSalesInvoice(req, userID, nil)
 	if err != nil {
-		return nil, fmt.Errorf("gagal membuat faktur penjualan: %w", err)
+		return nil, err
 	}
 
 	return response, nil

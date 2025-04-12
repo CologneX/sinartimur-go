@@ -5,7 +5,6 @@ import (
 	"errors"
 	"sinartimur-go/pkg/dto"
 	"strings"
-	"time"
 )
 
 // StorageService is the service for the Storage domain
@@ -214,7 +213,7 @@ func (s *StorageService) RefreshInventoryLogView() *dto.APIError {
 }
 
 // GetInventoryLogLastRefreshed fetches the last time the inventory log was refreshed
-func (s *StorageService) GetInventoryLogLastRefreshed() (*time.Time, *dto.APIError) {
+func (s *StorageService) GetInventoryLogLastRefreshed() (*string, *dto.APIError) {
 	lastRefreshed, err := s.repo.GetInventoryLogLastRefreshed()
 	if err != nil {
 		return nil, dto.NewAPIError(500, map[string]string{
@@ -222,4 +221,15 @@ func (s *StorageService) GetInventoryLogLastRefreshed() (*time.Time, *dto.APIErr
 		})
 	}
 	return lastRefreshed, nil
+}
+
+// GetAllBatches fetches all batches with filtering and pagination
+func (s *StorageService) GetAllBatches(req GetAllBatchesRequest) ([]GetAllBatchResponse, int, *dto.APIError) {
+	batches, totalItems, err := s.repo.GetAllBatches(req)
+	if err != nil {
+		return nil, 0, dto.NewAPIError(500, map[string]string{
+			"general": "Gagal mengambil data batch",
+		})
+	}
+	return batches, totalItems, nil
 }

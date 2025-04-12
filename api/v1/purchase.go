@@ -9,7 +9,7 @@ import (
 	"sinartimur-go/utils"
 )
 
-// CreatePurchaseOrderHandler creates a new purchase order
+// CreatePurchaseOrderHandler creates a new purchase purchase-order
 func CreatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req purchase.CreatePurchaseOrderRequest
@@ -33,7 +33,31 @@ func CreatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 	}
 }
 
-// UpdatePurchaseOrderHandler updates a purchase order
+// GetPurchaseOrderDetailHandler fetches the details of a purchase purchase-order by ID
+func GetPurchaseOrderDetailHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		params := mux.Vars(r)
+		id := params["id"]
+
+		// Validate ID
+		if _, err := uuid.Parse(id); err != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, map[string]string{
+				"general": "ID tidak valid",
+			}))
+			return
+		}
+
+		purchaseOrder, apiError := purchaseOrderService.GetPurchaseOrderDetail(id)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, purchaseOrder)
+	}
+}
+
+// UpdatePurchaseOrderHandler updates a purchase purchase-order
 func UpdatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req purchase.UpdatePurchaseOrderRequest
@@ -55,7 +79,7 @@ func UpdatePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 	}
 }
 
-// DeletePurchaseOrderHandler deletes a purchase order
+// DeletePurchaseOrderHandler deletes a purchase purchase-order
 func DeletePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
@@ -71,7 +95,7 @@ func DeletePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 	}
 }
 
-// ReceivePurchaseOrderHandler receives a purchase order
+// ReceivePurchaseOrderHandler receives a purchase purchase-order
 func ReceivePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req []purchase.ReceivedItemRequest
@@ -97,7 +121,7 @@ func ReceivePurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderSer
 	}
 }
 
-// CheckPurchaseOrderHandler checks a purchase order
+// CheckPurchaseOrderHandler checks a purchase purchase-order
 func CheckPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
@@ -115,7 +139,7 @@ func CheckPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServi
 	}
 }
 
-// CancelPurchaseOrderHandler cancels a purchase order
+// CancelPurchaseOrderHandler cancels a purchase purchase-order
 func CancelPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
@@ -133,7 +157,7 @@ func CancelPurchaseOrderHandler(purchaseOrderService *purchase.PurchaseOrderServ
 	}
 }
 
-// CreatePurchaseOrderReturnHandler creates a new purchase order return
+// CreatePurchaseOrderReturnHandler creates a new purchase purchase-order return
 func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req purchase.CreatePurchaseOrderReturnRequest
@@ -157,7 +181,7 @@ func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrd
 	}
 }
 
-// GetAllPurchaseOrderReturnHandler fetches all purchase order returns
+// GetAllPurchaseOrderReturnHandler fetches all purchase purchase-order returns
 func GetAllPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
 		req := purchase.GetPurchaseOrderReturnRequest{
@@ -187,7 +211,7 @@ func GetAllPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrd
 	})
 }
 
-// CancelPurchaseOrderReturnHandler cancels a purchase order return
+// CancelPurchaseOrderReturnHandler cancels a purchase purchase-order return
 func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
@@ -205,7 +229,7 @@ func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase.PurchaseOrd
 	}
 }
 
-// DeletePurchaseOrderItemHandler deletes a purchase order item
+// DeletePurchaseOrderItemHandler deletes a purchase purchase-order item
 func DeletePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		params := mux.Vars(r)
@@ -221,7 +245,7 @@ func DeletePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrder
 	}
 }
 
-// CreatePurchaseOrderItemHandler creates a new purchase order item
+// CreatePurchaseOrderItemHandler creates a new purchase purchase-order item
 func CreatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req purchase.CreatePurchaseOrderItemRequest
@@ -245,7 +269,7 @@ func CreatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrder
 	}
 }
 
-// UpdatePurchaseOrderItemHandler updates a purchase order item
+// UpdatePurchaseOrderItemHandler updates a purchase purchase-order item
 func UpdatePurchaseOrderItemHandler(purchaseOrderService *purchase.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req purchase.UpdatePurchaseOrderItemRequest

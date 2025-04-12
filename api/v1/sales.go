@@ -1,13 +1,14 @@
 package v1
 
 import (
-	"github.com/golang-jwt/jwt/v5"
-	"github.com/gorilla/mux"
+	"fmt"
 	"net/http"
 	"sinartimur-go/internal/sales"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 	"strconv"
+
+	"github.com/gorilla/mux"
 )
 
 // GetSalesOrdersHandler retrieves a list of sales orders with pagination and filtering
@@ -44,7 +45,7 @@ func GetSalesOrdersHandler(salesService *sales.SalesService) http.HandlerFunc {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusInternalServerError,
 				Details: map[string]string{
-					"general": "Gagal mengambil daftar pesanan: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -55,12 +56,50 @@ func GetSalesOrdersHandler(salesService *sales.SalesService) http.HandlerFunc {
 	})
 }
 
-// CreateSalesOrderHandler handles creation of a new sales order
+// GetSalesOrderBatchesHandler retrieves a list of sales purchase-order batches with pagination and filtering
+func GetSalesOrderBatchesHandler(salesService *sales.SalesService) http.HandlerFunc {
+	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+		// Extract filter parameters
+		req := sales.GetAllBatchesRequest{
+			Search: r.URL.Query().Get("search"),
+			PaginationParameter: utils.PaginationParameter{
+				Page:      page,
+				PageSize:  pageSize,
+				SortBy:    sortBy,
+				SortOrder: sortOrder,
+			},
+		}
+
+		// Validate filter parameters if provided
+		if errors := utils.ValidateStruct(req); errors != nil {
+			utils.ErrorJSON(w, &dto.APIError{
+				StatusCode: http.StatusBadRequest,
+				Details:    errors,
+			})
+			return
+		}
+
+		// Call service to get data
+		batches, totalCount, err := salesService.GetAllBatches(req)
+		if err != nil {
+			utils.ErrorJSON(w, &dto.APIError{
+				StatusCode: http.StatusInternalServerError,
+				Details: map[string]string{
+					"general": err.Error(),
+				},
+			})
+			return
+		}
+		// Return paginated response
+		utils.WritePaginationJSON(w, http.StatusOK, page, totalCount, pageSize, batches)
+	})
+}
+
+// CreateSalesOrderHandler handles creation of a new sales purchase-order
 func CreateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
 		var req sales.CreateSalesOrderRequest
@@ -73,13 +112,13 @@ func CreateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc 
 			return
 		}
 
-		// Call service to create order
+		// Call service to create purchase-order
 		response, err := salesService.CreateSalesOrder(req, userID)
 		if err != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal membuat pesanan: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -90,12 +129,12 @@ func CreateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc 
 	}
 }
 
-// UpdateSalesOrderHandler handles updating basic sales order information
+// UpdateSalesOrderHandler handles updating basic sales purchase-order information
 func UpdateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req sales.UpdateSalesOrderRequest
 
-		// Get order ID from URL path parameters
+		// Get purchase-order ID from URL path parameters
 		vars := mux.Vars(r)
 		orderID := vars["id"]
 		req.ID = orderID
@@ -110,13 +149,13 @@ func UpdateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc 
 			return
 		}
 
-		// Call service to update order
+		// Call service to update purchase-order
 		response, err := salesService.UpdateSalesOrder(req)
 		if err != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal memperbarui pesanan: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -127,15 +166,19 @@ func UpdateSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc 
 	}
 }
 
-// AddItemToSalesOrderHandler handles adding a new item to an existing sales order
+// AddItemToSalesOrderHandler handles adding a new item to an existing sales purchase-order
 func AddItemToSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		//userID := r.Context().Value("user_id").(string)
+		//
 
+		// Extract purchase-order ID from URL path parameters
+		vars := mux.Vars(r)
+		salesOrderID := vars["id"]
 		// Parse and validate request body
-		var req sales.AddItemToSalesOrderRequest
+		var req sales.AddSalesOrderItemRequest
+		req.SalesOrderID = salesOrderID
 		errors := utils.DecodeAndValidate(r, &req)
 		if errors != nil {
 			utils.ErrorJSON(w, &dto.APIError{
@@ -146,12 +189,12 @@ func AddItemToSalesOrderHandler(salesService *sales.SalesService) http.HandlerFu
 		}
 
 		// Call service to add item
-		response, err := salesService.AddItemToSalesOrder(req, userID)
+		response, err := salesService.AddSalesOrderItem(req)
 		if err != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal menambahkan item: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -162,15 +205,20 @@ func AddItemToSalesOrderHandler(salesService *sales.SalesService) http.HandlerFu
 	}
 }
 
-// UpdateSalesOrderItemHandler handles updating an existing item in a sales order
+// UpdateSalesOrderItemHandler handles updating an existing item in a sales purchase-order
 func UpdateSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		//userID := r.Context().Value("user_id").(string)
+		//
+		// Extract purchase-order ID and detail ID from URL path parameters
+		vars := mux.Vars(r)
+		salesOrderID := vars["id"]
 
 		// Parse and validate request body
-		var req sales.UpdateItemRequest
+		var req sales.UpdateSalesOrderItemRequest
+		req.SalesOrderID = salesOrderID
+
 		errors := utils.DecodeAndValidate(r, &req)
 		if errors != nil {
 			utils.ErrorJSON(w, &dto.APIError{
@@ -180,13 +228,15 @@ func UpdateSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerF
 			return
 		}
 
+		fmt.Println("req", req)
+
 		// Call service to update item
-		response, err := salesService.UpdateSalesOrderItem(req, userID)
+		response, err := salesService.UpdateSalesOrderItem(req)
 		if err != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal memperbarui item: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -197,14 +247,14 @@ func UpdateSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerF
 	}
 }
 
-// DeleteSalesOrderItemHandler handles removing an item from a sales order
+// DeleteSalesOrderItemHandler handles removing an item from a sales purchase-order
 func DeleteSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		//userID := r.Context().Value("user_id").(string)
+		//
 
-		// Extract order ID and detail ID from URL path parameters
+		// Extract purchase-order ID and detail ID from URL path parameters
 		vars := mux.Vars(r)
 		salesOrderID := vars["order_id"]
 		detailID := vars["detail_id"]
@@ -219,18 +269,18 @@ func DeleteSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerF
 			return
 		}
 
-		req := sales.DeleteItemRequest{
+		req := sales.DeleteSalesOrderItemRequest{
 			SalesOrderID: salesOrderID,
 			DetailID:     detailID,
 		}
 
 		// Call service to delete item
-		err := salesService.DeleteSalesOrderItem(req, userID)
+		err := salesService.DeleteSalesOrderItem(req)
 		if err != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal menghapus item: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -243,10 +293,10 @@ func DeleteSalesOrderItemHandler(salesService *sales.SalesService) http.HandlerF
 	}
 }
 
-// GetSalesOrderDetailsHandler retrieves detailed information about a specific sales order
+// GetSalesOrderDetailsHandler retrieves detailed information about a specific sales purchase-order
 func GetSalesOrderDetailsHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Extract order ID from URL path parameters
+		// Extract purchase-order ID from URL path parameters
 		vars := mux.Vars(r)
 		orderID := vars["id"]
 
@@ -260,13 +310,13 @@ func GetSalesOrderDetailsHandler(salesService *sales.SalesService) http.HandlerF
 			return
 		}
 
-		// Call service to get order details
+		// Call service to get purchase-order details
 		details, err := salesService.GetSalesOrderDetail(orderID)
 		if err != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal mengambil detail pesanan: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -277,16 +327,18 @@ func GetSalesOrderDetailsHandler(salesService *sales.SalesService) http.HandlerF
 	}
 }
 
-// CancelSalesOrderHandler handles cancelling a sales order
+// CancelSalesOrderHandler handles cancelling a sales purchase-order
 func CancelSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
 		var req sales.CancelSalesOrderRequest
-		errors := utils.DecodeAndValidate(r, &req)
+		// Extract purchase-order ID from URL path parameters
+		vars := mux.Vars(r)
+		req.SalesOrderID = vars["id"]
+		errors := utils.ValidateStruct(&req)
 		if errors != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
@@ -295,14 +347,14 @@ func CancelSalesOrderHandler(salesService *sales.SalesService) http.HandlerFunc 
 			return
 		}
 
-		// Call service to cancel order
+		// Call service to cancel purchase-order
 		err := salesService.CancelSalesOrder(req, userID)
 		if err != nil {
 
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal membatalkan pesanan: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -362,7 +414,7 @@ func GetSalesInvoicesHandler(salesService *sales.SalesService) http.HandlerFunc 
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal mengambil daftar faktur: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -373,12 +425,11 @@ func GetSalesInvoicesHandler(salesService *sales.SalesService) http.HandlerFunc 
 	}
 }
 
-// CreateSalesInvoiceHandler handles creation of a new sales invoice from an order
+// CreateSalesInvoiceHandler handles creation of a new sales invoice from an purchase-order
 func CreateSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
 		var req sales.CreateSalesInvoiceRequest
@@ -397,7 +448,7 @@ func CreateSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFun
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal membuat faktur: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -412,8 +463,7 @@ func CreateSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFun
 func CancelSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
 		var req sales.CancelSalesInvoiceRequest
@@ -432,7 +482,7 @@ func CancelSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFun
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal membatalkan faktur: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -449,8 +499,7 @@ func CancelSalesInvoiceHandler(salesService *sales.SalesService) http.HandlerFun
 func ReturnInvoiceItemsHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
 		var req sales.ReturnInvoiceItemsRequest
@@ -469,7 +518,7 @@ func ReturnInvoiceItemsHandler(salesService *sales.SalesService) http.HandlerFun
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal memproses pengembalian: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -484,8 +533,7 @@ func ReturnInvoiceItemsHandler(salesService *sales.SalesService) http.HandlerFun
 func CancelInvoiceReturnHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Extract return ID from URL path parameters
 		vars := mux.Vars(r)
@@ -511,7 +559,7 @@ func CancelInvoiceReturnHandler(salesService *sales.SalesService) http.HandlerFu
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal membatalkan pengembalian: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -528,8 +576,7 @@ func CancelInvoiceReturnHandler(salesService *sales.SalesService) http.HandlerFu
 func CreateDeliveryNoteHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
 		var req sales.CreateDeliveryNoteRequest
@@ -548,7 +595,7 @@ func CreateDeliveryNoteHandler(salesService *sales.SalesService) http.HandlerFun
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal membuat surat jalan: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return
@@ -563,8 +610,7 @@ func CreateDeliveryNoteHandler(salesService *sales.SalesService) http.HandlerFun
 func CancelDeliveryNoteHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		claims := r.Context().Value("claims").(jwt.MapClaims)
-		userID := claims["user_id"].(string)
+		userID := r.Context().Value("user_id").(string)
 
 		// Extract delivery note ID from URL path parameters
 		vars := mux.Vars(r)
@@ -590,7 +636,7 @@ func CancelDeliveryNoteHandler(salesService *sales.SalesService) http.HandlerFun
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,
 				Details: map[string]string{
-					"general": "Gagal membatalkan surat jalan: " + err.Error(),
+					"general": err.Error(),
 				},
 			})
 			return

@@ -12,13 +12,13 @@ import (
 type QueryBuilder struct {
 	Query  strings.Builder
 	Params []interface{}
-	count  int
+	Count  int
 }
 
 // NewQueryBuilder creates a new query builder
 func NewQueryBuilder(baseQuery string) *QueryBuilder {
 	qb := &QueryBuilder{
-		count: 1,
+		Count: 1,
 	}
 	qb.Query.WriteString(baseQuery)
 	return qb
@@ -27,18 +27,28 @@ func NewQueryBuilder(baseQuery string) *QueryBuilder {
 // AddFilter adds a filter condition with parameter
 func (qb *QueryBuilder) AddFilter(condition string, value interface{}) *QueryBuilder {
 	if value != nil && value != "" {
-		qb.Query.WriteString(fmt.Sprintf(" AND %s $%d", condition, qb.count))
+		qb.Query.WriteString(fmt.Sprintf(" AND %s $%d", condition, qb.Count))
 		qb.Params = append(qb.Params, value)
-		qb.count++
+		qb.Count++
+	}
+	return qb
+}
+
+// AddOrFilter adds an OR filter condition with parameter
+func (qb *QueryBuilder) AddOrFilter(condition string, value interface{}) *QueryBuilder {
+	if value != nil && value != "" {
+		qb.Query.WriteString(fmt.Sprintf(" OR %s $%d", condition, qb.Count))
+		qb.Params = append(qb.Params, value)
+		qb.Count++
 	}
 	return qb
 }
 
 // AddPagination adds pagination parameters
 func (qb *QueryBuilder) AddPagination(pageSize, page int) *QueryBuilder {
-	qb.Query.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", qb.count, qb.count+1))
+	qb.Query.WriteString(fmt.Sprintf(" LIMIT $%d OFFSET $%d", qb.Count, qb.Count+1))
 	qb.Params = append(qb.Params, pageSize, (page-1)*pageSize)
-	qb.count += 2
+	qb.Count += 2
 	return qb
 }
 
@@ -108,6 +118,7 @@ func GenerateNextSerialID(tx *sql.Tx, documentType string) (string, error) {
 
 	// Format the serial number: XX-YYYYMMDD-NNNN
 	// XX = document type, YYYYMMDD = date, NNNN = counter (padded with zeros)
+	fmt.Println("counter", counter)
 	return fmt.Sprintf(
 		"%s-%04d%02d%02d-%04d",
 		documentType,

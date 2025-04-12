@@ -7,7 +7,6 @@ import (
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
-	"time"
 )
 
 // GetAllStoragesHandler returns all storage locations with pagination
@@ -197,7 +196,7 @@ func GetAllInventoryLogHandler(storageService *inventory.StorageService) http.Ha
 			Page          int                                 `json:"current_page"`
 			TotalItems    int                                 `json:"total_items"`
 			PageSize      int                                 `json:"page_size"`
-			LastRefreshed *time.Time                          `json:"last_refreshed"`
+			LastRefreshed *string                             `json:"last_refreshed"`
 			Data          []inventory.GetInventoryLogResponse `json:"items"`
 		}{
 			Data:          logs,
@@ -219,4 +218,35 @@ func RefreshInventoryLogViewHandler(storageService *inventory.StorageService) ht
 			return
 		}
 	}
+}
+
+// GetAllBatchHandler returns all batches with pagination
+func GetAllBatchHandler(storageService *inventory.StorageService) http.HandlerFunc {
+	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+		var req inventory.GetAllBatchesRequest
+
+		// Extract query parameters for filtering
+		req.ProductID = r.URL.Query().Get("product_id")
+		req.SKU = r.URL.Query().Get("sku")
+
+		// Set pagination parameters
+		req.Page = page
+		req.PageSize = pageSize
+		req.SortBy = sortBy
+		req.SortOrder = sortOrder
+
+		// Validate
+		if err := utils.ValidateStruct(req); err != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, err))
+			return
+		}
+
+		batches, totalItems, apiErr := storageService.GetAllBatches(req)
+		if apiErr != nil {
+			utils.ErrorJSON(w, apiErr)
+			return
+		}
+
+		utils.WritePaginationJSON(w, http.StatusOK, page, totalItems, pageSize, batches)
+	})
 }

@@ -1,12 +1,13 @@
 package v1
 
 import (
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/employee"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 // CreateEmployeeHandler creates a new employee

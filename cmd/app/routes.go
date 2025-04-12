@@ -1,7 +1,6 @@
 package main
 
 import (
-	"github.com/gorilla/mux"
 	v1 "sinartimur-go/api/v1"
 	"sinartimur-go/internal/auth"
 	"sinartimur-go/internal/category"
@@ -16,6 +15,8 @@ import (
 	"sinartimur-go/internal/user"
 	"sinartimur-go/internal/wage"
 	"sinartimur-go/middleware"
+
+	"github.com/gorilla/mux"
 )
 
 func RegisterAuthRoutes(router *mux.Router, userService *auth.AuthService) {
@@ -43,6 +44,7 @@ func RegisterPurchaseOrderRoutes(router *mux.Router, purchaseOrderService *purch
 	router.HandleFunc("/orders", v1.GetAllPurchaseOrderHandler(purchaseOrderService)).Methods("GET")
 	router.HandleFunc("/order", v1.CreatePurchaseOrderHandler(purchaseOrderService)).Methods("POST")
 	router.HandleFunc("/order/{id}", v1.UpdatePurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/order/{id}", v1.GetPurchaseOrderDetailHandler(purchaseOrderService)).Methods("GET")
 	router.HandleFunc("/order/{id}", v1.DeletePurchaseOrderHandler(purchaseOrderService)).Methods("DELETE")
 	router.HandleFunc("/order/{id}/receive", v1.ReceivePurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
 	router.HandleFunc("/order/{id}/cancel", v1.CancelPurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
@@ -107,6 +109,7 @@ func RegisterInventoryRoutes(router *mux.Router, storageService *inventory.Stora
 	router.HandleFunc("/storage/{id}", v1.UpdateStorageHandler(storageService)).Methods("PUT")
 	router.HandleFunc("/storage/{id}", v1.DeleteStorageHandler(storageService)).Methods("DELETE")
 	router.HandleFunc("/storages", v1.GetAllStoragesHandler(storageService)).Methods("GET")
+	router.HandleFunc("/batches", v1.GetAllBatchHandler(storageService)).Methods("GET")
 	router.HandleFunc("/move-batch", v1.MoveBatchHandler(storageService)).Methods("POST")
 	router.HandleFunc("/logs", v1.GetAllInventoryLogHandler(storageService)).Methods("GET")
 	router.HandleFunc("/logs/refresh", v1.RefreshInventoryLogViewHandler(storageService)).Methods("POST")
@@ -135,8 +138,8 @@ func RegisterSalesRoutes(router *mux.Router, salesService *sales.SalesService) {
 	router.HandleFunc("/order/{id}/cancel", v1.CancelSalesOrderHandler(salesService)).Methods("POST")
 
 	// Sales Order Item endpoints
-	router.HandleFunc("/order/item", v1.AddItemToSalesOrderHandler(salesService)).Methods("POST")
-	router.HandleFunc("/order/item", v1.UpdateSalesOrderItemHandler(salesService)).Methods("PUT")
+	router.HandleFunc("/order/item/{id}", v1.AddItemToSalesOrderHandler(salesService)).Methods("POST")
+	router.HandleFunc("/order/item/{id}", v1.UpdateSalesOrderItemHandler(salesService)).Methods("PUT")
 	router.HandleFunc("/order/{order_id}/item/{detail_id}", v1.DeleteSalesOrderItemHandler(salesService)).Methods("DELETE")
 
 	// Sales Invoice endpoints
@@ -151,6 +154,10 @@ func RegisterSalesRoutes(router *mux.Router, salesService *sales.SalesService) {
 	// Delivery Note endpoints
 	router.HandleFunc("/delivery-note", v1.CreateDeliveryNoteHandler(salesService)).Methods("POST")
 	router.HandleFunc("/delivery-note/{delivery_note_id}/cancel", v1.CancelDeliveryNoteHandler(salesService)).Methods("POST")
+
+	// Get products and batches
+	router.HandleFunc("/batches", v1.GetSalesOrderBatchesHandler(salesService)).Methods("GET")
+	//router.HandleFunc("/product/{id}/batches", v1.GetProductBatchHandler(salesService)).Methods("GET")
 }
 
 // SetupRoutes registers all API routes

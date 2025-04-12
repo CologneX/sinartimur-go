@@ -25,11 +25,12 @@ type StorageRepository interface {
 	UpdateBatchInStorage(batchStorage BatchStorage) error
 	CreateBatchInStorage(batchStorage BatchStorage) error
 	LogInventoryMovement(log InventoryLog) error
+	GetAllBatches(req GetAllBatchesRequest) ([]GetAllBatchResponse, int, error)
 
 	// StorageRepository interface
 	GetInventoryLogs(req GetInventoryLogsRequest) ([]GetInventoryLogResponse, int, error)
 	RefreshInventoryLogView() error
-	GetInventoryLogLastRefreshed() (*time.Time, error)
+	GetInventoryLogLastRefreshed() (*string, error)
 }
 
 // StorageRepositoryImpl implements the StorageRepository interface
@@ -139,6 +140,88 @@ func (r *StorageRepositoryImpl) UpdateStorage(req UpdateStorageRequest) (*GetSto
 		return nil, err
 	}
 	return &storage, nil
+}
+
+// GetAllBatches fetches all batches with pagination and optional filtering
+func (r *StorageRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAllBatchResponse, int, error) {
+	var batches []GetAllBatchResponse
+	var totalItems int
+
+	// Build base query with join to get product name
+	qb := utils.NewQueryBuilder(`
+        SELECT pb.id, pb.sku, pb.product_id, p.name AS product_name, 
+               pb.purchase_order_id, pb.initial_quantity, pb.current_quantity, 
+               pb.unit_price, pb.created_at, pb.updated_at
+        FROM product_batch pb
+        JOIN product p ON pb.product_id = p.id
+        WHERE 1=1
+    `)
+
+	// Add filters
+	if req.ProductID != "" {
+		qb.AddFilter("pb.product_id =", req.ProductID)
+	}
+	if req.SKU != "" {
+		qb.AddFilter("pb.sku ILIKE", "%"+req.SKU+"%")
+	}
+
+	// Get count first
+	countQuery := "SELECT COUNT(*) FROM (" + qb.Query.String() + ") AS filtered_batches"
+	err := r.db.QueryRow(countQuery, qb.Params...).Scan(&totalItems)
+	if err != nil {
+		return nil, 0, fmt.Errorf("gagal menghitung total batch: %w", err)
+	}
+
+	// Add sorting
+	if req.SortBy != "" && req.SortOrder != "" {
+		qb.Query.WriteString(fmt.Sprintf(" ORDER BY pb.%s %s", req.SortBy, req.SortOrder))
+	} else {
+		qb.Query.WriteString(" ORDER BY pb.created_at DESC")
+	}
+
+	// Add pagination
+	qb.AddPagination(req.PageSize, req.Page)
+
+	// Execute final query
+	query, params := qb.Build()
+	rows, err := r.db.Query(query, params...)
+	if err != nil {
+		return nil, 0, fmt.Errorf("gagal mengambil produk: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var batch GetAllBatchResponse
+		var purchaseOrderID sql.NullString
+
+		errScan := rows.Scan(
+			&batch.ID,
+			&batch.SKU,
+			&batch.ProductID,
+			&batch.ProductName,
+			&purchaseOrderID,
+			&batch.InitialQuantity,
+			&batch.CurrentQuantity,
+			&batch.UnitPrice,
+			&batch.CreatedAt,
+			&batch.UpdatedAt,
+		)
+		if errScan != nil {
+			return nil, 0, fmt.Errorf("gagal scan batch produk: %w", errScan)
+		}
+
+		if purchaseOrderID.Valid {
+			batch.PurchaseOrderID = &purchaseOrderID.String
+		}
+
+		batches = append(batches, batch)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("gagal mengambil data: %w", err)
+	}
+
+	return batches, totalItems, nil
 }
 
 // DeleteStorage performs a soft delete on a storage location
@@ -260,8 +343,8 @@ func (r *StorageRepositoryImpl) RefreshInventoryLogView() error {
 	return tx.Commit()
 }
 
-func (r *StorageRepositoryImpl) GetInventoryLogLastRefreshed() (*time.Time, error) {
-	var lastRefreshed time.Time
+func (r *StorageRepositoryImpl) GetInventoryLogLastRefreshed() (*string, error) {
+	var lastRefreshed string
 	err := r.db.QueryRow("SELECT last_refreshed FROM materialized_view_refresh WHERE view_name = 'inventory_log_view'").Scan(&lastRefreshed)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
