@@ -54,7 +54,7 @@ func NewSalesRepository(db *sql.DB) SalesRepository {
 }
 
 // GetAllBatches retrieves all product batches with pagination and filtering
-// grouped by storage location for sales purchase-order creation
+// grouped by storage location for sales order creation
 func (r *SalesRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAllBatchesResponse, int, error) {
 	// Map to hold grouped results by storage
 	storageMap := make(map[string]*GetAllBatchesResponse)
@@ -341,7 +341,7 @@ func (r *SalesRepositoryImpl) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSa
 			&cancelledAt,
 		)
 		if errScan != nil {
-			return nil, 0, fmt.Errorf("error scanning sales purchase-order row: %w", errScan)
+			return nil, 0, fmt.Errorf("error scanning sales order row: %w", errScan)
 		}
 
 		// Format dates for response
@@ -360,13 +360,13 @@ func (r *SalesRepositoryImpl) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSa
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("error iterating sales purchase-order rows: %w", err)
+		return nil, 0, fmt.Errorf("error iterating sales order rows: %w", err)
 	}
 
 	return orders, totalItems, nil
 }
 
-// GetSalesOrderByID retrieves a single sales purchase-order by its ID
+// GetSalesOrderByID retrieves a single sales order by its ID
 func (r *SalesRepositoryImpl) GetSalesOrderByID(id string) (*SalesOrder, error) {
 	query := `
         SELECT so.id, so.serial_id, so.customer_id, c.name AS customer_name, 
@@ -395,15 +395,15 @@ func (r *SalesRepositoryImpl) GetSalesOrderByID(id string) (*SalesOrder, error) 
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("sales purchase-order not found: %s", id)
+			return nil, fmt.Errorf("sales order not found: %s", id)
 		}
-		return nil, fmt.Errorf("error fetching sales purchase-order: %w", err)
+		return nil, fmt.Errorf("error fetching sales order: %w", err)
 	}
 
 	return &order, nil
 }
 
-// GetSalesOrderDetails retrieves the details (items) for a specific sales purchase-order
+// GetSalesOrderDetails retrieves the details (items) for a specific sales order
 func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSalesOrderDetail, error) {
 	query := `
         SELECT sod.id, sod.sales_order_id, 
@@ -423,7 +423,7 @@ func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSa
 
 	rows, err := r.db.Query(query, salesOrderID)
 	if err != nil {
-		return nil, fmt.Errorf("error fetching sales purchase-order details: %w", err)
+		return nil, fmt.Errorf("error fetching sales order details: %w", err)
 	}
 	defer rows.Close()
 
@@ -448,7 +448,7 @@ func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSa
 			&maxQuantity,
 		)
 		if errScan != nil {
-			return nil, fmt.Errorf("error scanning sales purchase-order detail row: %w", errScan)
+			return nil, fmt.Errorf("error scanning sales order detail row: %w", errScan)
 		}
 
 		// Create a complete storage allocation with all fields populated
@@ -466,22 +466,23 @@ func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSa
 	}
 
 	if err = rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating sales purchase-order detail rows: %w", err)
+		return nil, fmt.Errorf("error iterating sales order detail rows: %w", err)
 	}
 	return details, nil
 }
 
-// CreateSalesOrder creates a new sales purchase-order with its details
+// CreateSalesOrder creates a new sales order with its details
 func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, userID string) (*CreateSalesOrderResponse, error) {
 	var response CreateSalesOrderResponse
 
 	err := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
-		// Insert sales purchase-order
+		// Insert sales order
 		var orderID string
 		var orderDate time.Time
 		var paymentDueDate sql.NullTime
+		var status string
 
-		// Calculate total amount for the purchase-order
+		// Calculate total amount for the order
 		var totalAmount float64
 		for _, item := range req.Items {
 			totalAmount += item.Quantity * item.UnitPrice
@@ -501,11 +502,11 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 			return fmt.Errorf("gagal membuat serial ID: %w", errSerial)
 		}
 
-		// Insert sales purchase-order
+		// Insert sales order
 		orderQuery := `
-			INSERT INTO sales_order (customer_id, serial_id, payment_method, payment_due_date, created_by, status, total_amount)
-			VALUES ($1, $2, $3, $4, $5, 'purchase-order', $6)
-			RETURNING id, serial_id, order_date, created_at`
+		INSERT INTO sales_order (customer_id, serial_id, payment_method, payment_due_date, created_by, status, total_amount)
+		VALUES ($1, $2, $3, $4, $5, 'order', $6)
+		RETURNING id, serial_id, order_date, created_at, status`
 
 		errOrder := tx.QueryRow(
 			orderQuery,
@@ -515,7 +516,7 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 			paymentDueDate,
 			userID,
 			totalAmount,
-		).Scan(&orderID, &serialID, &orderDate, &response.CreatedAt)
+		).Scan(&orderID, &serialID, &orderDate, &response.CreatedAt, &status)
 
 		if errOrder != nil {
 			return fmt.Errorf("gagal membuat pesanan: %w", errOrder)
@@ -556,7 +557,7 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 				return fmt.Errorf("stok tidak cukup untuk %s: tersedia %g, diminta %g", productName, availableQty, item.Quantity)
 			}
 
-			// Insert purchase-order detail with batch_storage_id
+			// Insert order detail with batch_storage_id
 			var detailID string
 			errDetail := tx.QueryRow(`
 				INSERT INTO sales_order_detail 
@@ -610,7 +611,7 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 		response.SerialID = serialID
 		response.CustomerID = req.CustomerID
 		response.CustomerName = customerName
-		response.Status = "purchase-order"
+		response.Status = status
 		response.PaymentMethod = req.PaymentMethod
 		if paymentDueDate.Valid {
 			response.PaymentDueDate = paymentDueDate.Time.Format(time.RFC3339)
@@ -626,11 +627,11 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 	return &response, nil
 }
 
-// UpdateSalesOrder updates an existing sales purchase-order
+// UpdateSalesOrder updates an existing sales order
 func (r *SalesRepositoryImpl) UpdateSalesOrder(req UpdateSalesOrderRequest) (*UpdateSalesOrderResponse, error) {
 	var response UpdateSalesOrderResponse
 
-	// Check if purchase-order exists
+	// Check if order exists
 	var status string
 	errCheck := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.ID).Scan(&status)
 	if errCheck != nil {
@@ -640,9 +641,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrder(req UpdateSalesOrderRequest) (*Up
 		return nil, fmt.Errorf("gagal memeriksa pesanan: %w", errCheck)
 	}
 
-	// Validate purchase-order can be updated based on status
-	if status != "purchase-order" {
-		return nil, fmt.Errorf("hanya pesanan dengan status 'purchase-order' yang dapat diperbarui")
+	// Validate order can be updated based on status
+	if status != "order" {
+		return nil, fmt.Errorf("hanya pesanan dengan status 'order' yang dapat diperbarui")
 	}
 
 	// Build dynamic SQL query
@@ -682,9 +683,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrder(req UpdateSalesOrderRequest) (*Up
 	return &response, nil
 }
 
-// CancelSalesOrder cancels a sales purchase-order if it's in a cancellable state
+// CancelSalesOrder cancels a sales order if it's in a cancellable state
 func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, userID string) error {
-	// First check if the purchase-order exists and its status
+	// First check if the order exists and its status
 	var status string
 	errCheck := r.db.QueryRow(
 		"SELECT status FROM sales_order WHERE id = $1",
@@ -698,13 +699,13 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 		return fmt.Errorf("gagal memeriksa status pesanan: %w", errCheck)
 	}
 
-	// Only allow cancellation for orders in 'purchase-order' status
-	if status != "purchase-order" {
-		return fmt.Errorf("hanya pesanan dengan status 'purchase-order' yang dapat dibatalkan")
+	// Only allow cancellation for orders in 'order' status
+	if status != "order" {
+		return fmt.Errorf("hanya pesanan dengan status 'order' yang dapat dibatalkan")
 	}
 
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
-		// Mark the sales purchase-order as cancelled
+		// Mark the sales order as cancelled
 		_, errCancel := tx.Exec(
 			"UPDATE sales_order SET status = 'cancel', cancelled_at = NOW(), cancelled_by = $1 WHERE id = $2",
 			userID, req.SalesOrderID,
@@ -713,7 +714,7 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 			return fmt.Errorf("gagal membatalkan pesanan: %w", errCancel)
 		}
 
-		// Get all purchase-order details to restore inventory
+		// Get all order details to restore inventory
 		rows, errDetails := tx.Query(`
             SELECT sod.id, sod.batch_id, sod.batch_storage_id, sod.quantity 
             FROM sales_order_detail sod
@@ -772,12 +773,12 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 	})
 }
 
-// AddItemToSalesOrder adds a new item to an existing sales purchase-order
+// AddItemToSalesOrder adds a new item to an existing sales order
 func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) (*UpdateAndCreateItemResponse, error) {
 	var response UpdateAndCreateItemResponse
 	var status string
 
-	// Check if item already exists in the purchase-order
+	// Check if item already exists in the order
 	var existingItemID string
 	errCheckItem := r.db.QueryRow("SELECT id FROM sales_order_detail WHERE sales_order_id = $1 AND batch_storage_id = $2", req.SalesOrderID, req.BatchStorageID).Scan(&existingItemID)
 	if errCheckItem != nil && !errors.Is(errCheckItem, sql.ErrNoRows) {
@@ -787,7 +788,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 		return nil, fmt.Errorf("item ini sudah ada dalam pesanan")
 	}
 
-	// Check if sales purchase-order exists and if it can be modified
+	// Check if sales order exists and if it can be modified
 	errCheck := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.SalesOrderID).Scan(&status)
 	if errCheck != nil {
 		if errors.Is(errCheck, sql.ErrNoRows) {
@@ -796,9 +797,9 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 		return nil, fmt.Errorf("gagal memeriksa status pesanan: %w", errCheck)
 	}
 
-	// Only allow items to be added to orders with status 'purchase-order'
-	if status != "purchase-order" {
-		return nil, fmt.Errorf("hanya pesanan dengan status 'purchase-order' yang dapat diubah")
+	// Only allow items to be added to orders with status 'order'
+	if status != "order" {
+		return nil, fmt.Errorf("hanya pesanan dengan status 'order' yang dapat diubah")
 	}
 
 	// Get batch_storage information including product and batch details
@@ -842,7 +843,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 
 	// Execute transaction
 	err := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
-		// Create a new sales purchase-order detail entry with batch_storage_id
+		// Create a new sales order detail entry with batch_storage_id
 		var detailID string
 		errDetail := tx.QueryRow(`
             INSERT INTO sales_order_detail 
@@ -873,7 +874,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 			return fmt.Errorf("gagal memperbarui stok di lokasi penyimpanan: %w", errBatchStorageUpdate)
 		}
 
-		// Update the purchase-order's total_amount
+		// Update the order's total_amount
 		_, errTotal := tx.Exec(`
             UPDATE sales_order 
             SET total_amount = (
@@ -910,9 +911,9 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 	return &response, nil
 }
 
-// DeleteSalesOrderItem deletes an item from a sales purchase-order and restores inventory
+// DeleteSalesOrderItem deletes an item from a sales order and restores inventory
 func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemRequest) error {
-	// Check if sales purchase-order exists and is in editable state
+	// Check if sales order exists and is in editable state
 	var status string
 	err := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.SalesOrderID).Scan(&status)
 	if err != nil {
@@ -922,9 +923,9 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 		return fmt.Errorf("gagal memeriksa pesanan: %w", err)
 	}
 
-	// Only allow deletion if purchase-order is in initial state
-	if status != "purchase-order" {
-		return fmt.Errorf("item hanya dapat dihapus pada pesanan dengan status 'purchase-order'")
+	// Only allow deletion if order is in initial state
+	if status != "order" {
+		return fmt.Errorf("item hanya dapat dihapus pada pesanan dengan status 'order'")
 	}
 
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
@@ -967,7 +968,7 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 			return fmt.Errorf("gagal memulihkan kuantitas batch: %w", updateErr)
 		}
 
-		// Delete the purchase-order detail
+		// Delete the order detail
 		_, deleteDetailErr := tx.Exec(`
             DELETE FROM sales_order_detail
             WHERE id = $1
@@ -976,7 +977,7 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 			return fmt.Errorf("gagal menghapus item pesanan: %w", deleteDetailErr)
 		}
 
-		// Update total purchase-order amount
+		// Update total order amount
 		_, updateOrderErr := tx.Exec(`
             UPDATE sales_order
             SET total_amount = total_amount - $1,
@@ -991,14 +992,14 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 	})
 }
 
-// UpdateSalesOrderItem updates an item in a sales purchase-order with new quantity or price
+// UpdateSalesOrderItem updates an item in a sales order with new quantity or price
 func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemRequest) (*UpdateAndCreateItemResponse, error) {
 	var response UpdateAndCreateItemResponse
 	var status string
 	var currentQty, currentPrice float64
 	var batchStorageID string
 
-	// Check if sales purchase-order exists and if it's in a modifiable state
+	// Check if sales order exists and if it's in a modifiable state
 	errCheck := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.SalesOrderID).Scan(&status)
 	if errCheck != nil {
 		if errors.Is(errCheck, sql.ErrNoRows) {
@@ -1007,9 +1008,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 		return nil, fmt.Errorf("gagal memeriksa status pesanan: %w", errCheck)
 	}
 
-	// Only allow items to be updated if purchase-order's status is 'purchase-order'
-	if status != "purchase-order" {
-		return nil, fmt.Errorf("hanya pesanan dengan status 'purchase-order' yang dapat diubah")
+	// Only allow items to be updated if order's status is 'order'
+	if status != "order" {
+		return nil, fmt.Errorf("hanya pesanan dengan status 'order' yang dapat diubah")
 	}
 
 	// Get current detail information including batch_storage_id
@@ -1093,7 +1094,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 	// If quantity is unchanged and only price is updated, and no storage change, simple update
 	if newQty == currentQty && !isChangingStorage {
 		err := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
-			// Update the sales purchase-order detail with new price
+			// Update the sales order detail with new price
 			_, errUpdate := tx.Exec(`
 				UPDATE sales_order_detail 
 				SET unit_price = $1, updated_at = NOW()
@@ -1103,7 +1104,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 				return fmt.Errorf("gagal memperbarui harga item: %w", errUpdate)
 			}
 
-			// Update the purchase-order's total_amount
+			// Update the order's total_amount
 			_, errTotal := tx.Exec(`
 				UPDATE sales_order SET total_amount = (
 					SELECT COALESCE(SUM(quantity * unit_price), 0)
@@ -1181,7 +1182,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 					return fmt.Errorf("gagal mengurangi stok di lokasi penyimpanan baru: %w", errDeductStorage)
 				}
 
-				// Update sales purchase-order detail with new batch storage
+				// Update sales order detail with new batch storage
 				_, errUpdateDetail := tx.Exec(`
 					UPDATE sales_order_detail 
 					SET batch_storage_id = $1, quantity = $2, unit_price = $3, updated_at = NOW()
@@ -1236,7 +1237,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 					}
 				}
 
-				// Update sales purchase-order detail with new quantity/price
+				// Update sales order detail with new quantity/price
 				_, err := tx.Exec(`
 					UPDATE sales_order_detail 
 					SET quantity = $1, unit_price = $2, updated_at = NOW()
@@ -1247,7 +1248,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 				}
 			}
 
-			// Update the purchase-order's total_amount
+			// Update the order's total_amount
 			_, err := tx.Exec(`
 				UPDATE sales_order SET total_amount = (
 					SELECT COALESCE(SUM(quantity * unit_price), 0)
@@ -1463,13 +1464,13 @@ func (r *SalesRepositoryImpl) GetSalesInvoices(req GetSalesInvoicesRequest) ([]G
 	return invoices, totalItems, nil
 }
 
-// CreateSalesInvoice creates a new invoice from a sales purchase-order
+// CreateSalesInvoice creates a new invoice from a order
 func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, userID string, tx *sql.Tx) (*CreateSalesInvoiceResponse, error) {
 	var response CreateSalesInvoiceResponse
 
 	// Function to execute the invoice creation logic
 	createInvoiceFunc := func(tx *sql.Tx) error {
-		// Check if sales purchase-order exists and is in 'purchase-order' status
+		// Check if order exists and is in 'order' status
 		var orderStatus, orderSerial string
 		var customerId string
 		var customerName string
@@ -1489,12 +1490,12 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 			return fmt.Errorf("gagal memeriksa pesanan: %w", err)
 		}
 
-		// Validate purchase-order status
-		if orderStatus != "purchase-order" {
-			return fmt.Errorf("tidak dapat membuat faktur: pesanan dalam status %s", orderStatus)
+		// Validate order status
+		if orderStatus != "order" {
+			return fmt.Errorf("pesanan dalam status %s", orderStatus)
 		}
 
-		// Check if invoice already exists for this purchase-order
+		// Check if invoice already exists for this order
 		var existingInvoice string
 		err = tx.QueryRow(`
             SELECT id FROM sales_invoice 
@@ -1530,7 +1531,7 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 			return fmt.Errorf("gagal membuat faktur: %w", err)
 		}
 
-		// Update sales purchase-order status to 'invoice'
+		// Update order status to 'invoice'
 		_, err = tx.Exec(`
             UPDATE sales_order 
             SET status = 'invoice', updated_at = NOW() 
@@ -1541,7 +1542,7 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 			return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
 		}
 
-		// Get all sales purchase-order details for logging - collect items first to avoid connection issues
+		// Get all order details for logging - collect items first to avoid connection issues
 		type detailItem struct {
 			detailID       string
 			batchStorageID string
@@ -1756,10 +1757,10 @@ func (r *SalesRepositoryImpl) CancelSalesInvoice(req CancelSalesInvoiceRequest, 
 			return fmt.Errorf("gagal membatalkan faktur: %w", err)
 		}
 
-		// Revert sales purchase-order to 'purchase-order' status
+		// Revert sales order to 'order' status
 		_, err = tx.Exec(`
             UPDATE sales_order 
-            SET status = 'purchase-order', updated_at = NOW() 
+            SET status = 'order', updated_at = NOW() 
             WHERE id = $1
         `, salesOrderID)
 
@@ -1778,7 +1779,7 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 	var totalReturnQuantity float64
 	var isInvoiceCancelled bool
 
-	// Check if invoice exists and get sales purchase-order ID
+	// Check if invoice exists and get sales order ID
 	err := r.db.QueryRow(`
         SELECT i.sales_order_id, i.cancelled_at IS NOT NULL
         FROM sales_invoice i
@@ -1814,7 +1815,7 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 		return nil, errors.New("faktur telah memiliki surat jalan, pengembalian harus dilakukan melalui surat jalan")
 	}
 
-	// Verify all detail IDs exist and belong to this sales purchase-order
+	// Verify all detail IDs exist and belong to this sales order
 	for _, item := range req.ReturnItems {
 		var detailExists bool
 		var currentQuantity float64
@@ -1989,7 +1990,7 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 
 		response.IsFullReturn = isFullReturn
 
-		// Update sales purchase-order status if all items are fully returned
+		// Update sales order status if all items are fully returned
 		if isFullReturn {
 			if _, err := tx.Exec(`
                 UPDATE sales_order
@@ -2122,7 +2123,7 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 				return fmt.Errorf("gagal memperbarui jumlah batch: %w", err)
 			}
 
-			// Update sales purchase-order detail to remove returned quantity
+			// Update sales order detail to remove returned quantity
 			if _, err := tx.Exec(`
                 UPDATE sales_order_detail
                 SET quantity = quantity + $1,
@@ -2170,7 +2171,7 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 			return fmt.Errorf("gagal memeriksa status pengembalian: %w", err)
 		}
 
-		// Update sales purchase-order status based on remaining returns
+		// Update sales order status based on remaining returns
 		var newStatus string
 		if hasActiveReturns {
 			newStatus = "partially_return"
@@ -2267,7 +2268,7 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
 			return fmt.Errorf("gagal membuat surat jalan: %w", err)
 		}
 
-		// Update sales purchase-order status to 'delivery'
+		// Update sales order status to 'delivery'
 		if _, err = tx.Exec(`
             UPDATE sales_order 
             SET status = 'delivery', updated_at = NOW() 
@@ -2349,7 +2350,7 @@ func (r *SalesRepositoryImpl) CancelDeliveryNote(req CancelDeliveryNoteRequest, 
 			return fmt.Errorf("gagal membatalkan surat jalan: %w", err)
 		}
 
-		// Update sales purchase-order status back to 'invoice'
+		// Update sales order status back to 'invoice'
 		if _, err := tx.Exec(`
             UPDATE sales_order
             SET status = 'invoice',
