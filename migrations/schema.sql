@@ -128,7 +128,15 @@ Create Table
         Serial_Id VARCHAR(20) Unique,
         Supplier_Id Uuid Default Null References Supplier (Id) On Delete Set Null,
         Order_Date Timestamptz Default Current_Timestamp,
-        Status VARCHAR(50) Not Null, -- ordered, completed, partially_returned, returned, cancelled
+        Status VARCHAR(50) Not Null CHECK (
+            Status IN (
+                'ordered',
+                'completed',
+                'partially_returned',
+                'returned',
+                'cancelled'
+            )
+        ), -- ordered, completed, partially_returned, returned, cancelled
         Total_Amount NUMERIC(15, 2) Not Null,
         Payment_Method VARCHAR(50) Not Null, -- cash, credit
         Payment_Due_Date Timestamptz Default Null,
@@ -184,7 +192,7 @@ Create Table
         Product_Detail_Id Uuid References Purchase_Order_Detail (Id) On Delete Cascade,
         Return_Quantity NUMERIC(15, 2) Not Null,
         Reason TEXT Default Null,
-        Status VARCHAR(50) Not Null, -- returned, cancelled
+        Status VARCHAR(50) Not Null CHECK (Status IN ('returned', 'cancelled')), -- returned, cancelled
         Returned_By Uuid References Appuser (Id) On Delete Set Null,
         Cancelled_By Uuid References Appuser (Id) On Delete Set Null,
         Returned_At Timestamptz Not Null Default Current_Timestamp,
@@ -207,7 +215,15 @@ CREATE TABLE
         Serial_Id VARCHAR(20) UNIQUE,
         Customer_Id UUID REFERENCES Customer (Id) ON DELETE SET NULL,
         Order_Date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
-        Status VARCHAR(50) NOT NULL, -- purchase-order, invoice, delivery, partially_return, return, cancel
+        Status VARCHAR(50) NOT NULL CHECK (
+            Status IN (
+                'ordered',
+                'completed',
+                'partially_returned',
+                'returned',
+                'cancelled'
+            )
+        ), -- ordered, completed, partially_returned, returned, cancelled
         Payment_Method VARCHAR(50) NOT NULL, -- cash, paylater
         Payment_Due_Date TIMESTAMPTZ DEFAULT NULL,
         Total_Amount NUMERIC(15, 2) NOT NULL,
@@ -281,7 +297,9 @@ CREATE TABLE
         Return_Quantity NUMERIC(15, 2) NOT NULL,
         Remaining_Quantity NUMERIC(15, 2) NOT NULL,
         Return_Reason TEXT DEFAULT NULL,
-        Return_Status VARCHAR(50) NOT NULL, -- pending, completed, cancelled
+        Return_Status VARCHAR(50) NOT NULL CHECK (
+            Return_Status IN ('pending', 'completed', 'cancelled')
+        ), -- pending, completed, cancelled
         Returned_By UUID REFERENCES Appuser (Id) ON DELETE SET NULL,
         Cancelled_By UUID REFERENCES Appuser (Id) ON DELETE SET NULL,
         Returned_At TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -306,7 +324,7 @@ Create Table
         Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Set Null,
         Sales_Order_Id Uuid References Sales_Order (Id) On Delete Set Null,
         Target_Storage_Id Uuid REFERENCES Storage (Id) ON DELETE SET NULL,
-        Action VARCHAR(50) Not Null, -- e.g., "add", "remove", "transfer", "return"
+        Action VARCHAR(50) Not Null CHECK (Action IN ('add', 'remove', 'transfer', 'return')), -- e.g., "add", "remove", "transfer", "return"
         Quantity NUMERIC(15, 2) Not Null,
         Log_Date Timestamptz Default Current_Timestamp,
         Description TEXT,
@@ -333,7 +351,7 @@ Create Table
 
 CREATE TABLE
     Document_Counter (
-        Document_Type VARCHAR(10), -- 'SO', 'SI', 'DN'
+        Document_Type VARCHAR(10) CHECK (Document_Type IN ('SO', 'SI', 'DN')), -- 'SO', 'SI', 'DN'
         Year INT NOT NULL,
         Month INT NOT NULL,
         Day INT NOT NULL,
