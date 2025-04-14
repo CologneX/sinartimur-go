@@ -1317,9 +1317,10 @@ func (r *RepositoryImpl) GetAll(req GetPurchaseOrderRequest) ([]GetPurchaseOrder
         SELECT 
             po.Id, po.Serial_Id, po.Supplier_Id, s.Name AS SupplierName,
             po.Order_Date, po.Status, po.Total_Amount,
-            po.Created_By, po.Created_At, po.Updated_At,
+            u.username, po.Created_At, po.Updated_At,
             (SELECT COUNT(*) FROM Purchase_Order_Detail pod WHERE pod.Purchase_Order_Id = po.Id) AS ItemCount
         FROM Purchase_Order po
+		LEFT JOIN AppUser u ON po.Created_By = u.Id
         LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
         WHERE 1=1
     `
