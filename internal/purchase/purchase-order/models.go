@@ -4,6 +4,15 @@ import (
 	"sinartimur-go/utils"
 )
 
+// PurchaseOrderStatusEnums defines the possible statuses for a purchase order
+const (
+	PurchaseOrderStatusOrder             string = "order"
+	PurchaseOrderStatusCompleted         string = "completed"
+	PurchaseOrderStatusPartiallyReturned string = "partially_returned"
+	PurchaseOrderStatusReturned          string = "returned"
+	PurchaseOrderStatusCancelled         string = "cancelled"
+)
+
 // Request types
 type CreatePurchaseOrderRequest struct {
 	SupplierID     string                           `json:"supplier_id" validate:"required,uuid"`
@@ -77,23 +86,31 @@ type GetPurchaseOrderReturnRequest struct {
 }
 
 // Response types
-type PurchaseOrderDetailResponse struct {
-	ID             string              `json:"id"`
-	SerialID       string              `json:"serial_id"`
-	SupplierID     string              `json:"supplier_id"`
-	SupplierName   string              `json:"supplier_name"`
-	OrderDate      string              `json:"order_date"`
-	Status         string              `json:"status"`
-	TotalAmount    float64             `json:"total_amount"`
-	PaymentMethod  string              `json:"payment_method"`
-	PaymentDueDate *string             `json:"payment_due_date,omitempty"`
-	CreatedBy      string              `json:"created_by"`
-	CreatedByName  string              `json:"created_by_name"`
-	CheckedBy      *string             `json:"checked_by,omitempty"`
-	CheckedByName  *string             `json:"checked_by_name,omitempty"`
-	CreatedAt      string              `json:"created_at,omitempty"`
-	UpdatedAt      string              `json:"updated_at,omitempty"`
-	Items          []PurchaseOrderItem `json:"items"`
+type GetPurchaseOrderDetailResponse struct {
+	ID              string              `json:"id"`
+	SerialID        string              `json:"serial_id"`
+	SupplierID      string              `json:"supplier_id"`
+	SupplierName    string              `json:"supplier_name"`
+	SupplierAddress *string             `json:"supplier_address,omitempty"`
+	SupplierPhone   *string             `json:"supplier_phone,omitempty"`
+	OrderDate       string              `json:"order_date"`
+	Status          string              `json:"status"`
+	TotalAmount     float64             `json:"total_amount"`
+	PaymentMethod   string              `json:"payment_method"`
+	PaymentDueDate  *string             `json:"payment_due_date,omitempty"`
+	CreatedBy       string              `json:"created_by"`
+	CreatedByName   string              `json:"created_by_name"`
+	CheckedBy       *string             `json:"checked_by,omitempty"`
+	CheckedByName   *string             `json:"checked_by_name,omitempty"`
+	CreatedAt       string              `json:"created_at,omitempty"`
+	UpdatedAt       string              `json:"updated_at,omitempty"`
+	CancelledAt     *string             `json:"cancelled_at,omitempty"`
+	CancelledBy     *string             `json:"cancelled_by,omitempty"`
+	CancelledByName *string             `json:"cancelled_by_name,omitempty"`
+	StorageID       *string             `json:"storage_id,omitempty"`
+	StorageName     *string             `json:"storage_name,omitempty"`
+	StorageAddress  *string             `json:"storage_address,omitempty"`
+	Items           []PurchaseOrderItem `json:"items"`
 }
 
 type PurchaseOrderItem struct {

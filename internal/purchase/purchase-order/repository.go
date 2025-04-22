@@ -13,7 +13,7 @@ import (
 type Repository interface {
 	// Basic CRUD operations
 	GetAll(req GetPurchaseOrderRequest) ([]GetPurchaseOrderResponse, int, error)
-	GetByID(id string) (*PurchaseOrderDetailResponse, error)
+	GetByID(id string) (*GetPurchaseOrderDetailResponse, error)
 
 	// Core purchase order operations with transaction support
 	Create(req CreatePurchaseOrderRequest, userID string, tx *sql.Tx) (string, error)
@@ -128,14 +128,14 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 	// Insert purchase order
 	var orderID string
 	err = executor.QueryRow(`
-        INSERT INTO Purchase_Order (
+        Insert Into Purchase_Order (
             Serial_Id, Supplier_Id, Order_Date, Status, 
             Total_Amount, Payment_Method, Payment_Due_Date, 
             Created_By
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-        RETURNING Id
-    `, serialID, req.SupplierID, orderDate, "ordered",
+        Values ($1, $2, $3, $4, $5, $6, $7, $8)
+        Returning Id
+    `, serialID, req.SupplierID, orderDate, "order",
 		totalAmount, req.PaymentMethod, paymentDueDate, userID).Scan(&orderID)
 
 	if err != nil {
@@ -145,11 +145,11 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 	// Insert order items
 	for _, item := range req.Items {
 		_, err = executor.Exec(`
-            INSERT INTO Purchase_Order_Detail (
+            Insert Into Purchase_Order_Detail (
                 Purchase_Order_Id, Product_Id, 
                 Requested_Quantity, Unit_Price
             )
-            VALUES ($1, $2, $3, $4)
+            Values ($1, $2, $3, $4)
         `, orderID, item.ProductID, item.Quantity, item.Price)
 
 		if err != nil {
@@ -161,28 +161,33 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 }
 
 // GetByID retrieves a purchase order with its details
-func (r *RepositoryImpl) GetByID(id string) (*PurchaseOrderDetailResponse, error) {
-	var po PurchaseOrderDetailResponse
+func (r *RepositoryImpl) GetByID(id string) (*GetPurchaseOrderDetailResponse, error) {
+	var po GetPurchaseOrderDetailResponse
 
 	// Get purchase order
 	err := r.DB.QueryRow(`
-        SELECT 
-            po.Id, po.Serial_Id, po.Supplier_Id, s.Name AS SupplierName,
-            po.Order_Date, po.Status, po.Total_Amount, po.Payment_Method,
-            po.Payment_Due_Date, po.Created_By, u.Username AS CreatedByName,
-            po.Checked_By, u2.Username AS CheckedByName,
-            po.Created_At, po.Updated_At
-        FROM Purchase_Order po
-        LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
-        LEFT JOIN Appuser u ON po.Created_By = u.Id
-        LEFT JOIN Appuser u2 ON po.Checked_By = u2.Id
-        WHERE po.Id = $1
+        Select 
+            Po.Id, Po.Serial_Id, Po.Supplier_Id, S.Name As Suppliername,
+            Po.Order_Date, Po.Status, Po.Total_Amount, Po.Payment_Method,
+            Po.Payment_Due_Date, Po.Created_By, U.Username As Createdbyname,
+            Po.Checked_By, U2.Username As Checkedbyname,
+            Po.Created_At, Po.Updated_At,
+			S.Address As Supplieraddress, S.Telephone As Supplierphone,
+			Po.Cancelled_At, Po.Cancelled_By, U3.Username As Cancelledbyname
+        From Purchase_Order Po
+        Left Join Supplier S On Po.Supplier_Id = S.Id
+        Left Join Appuser U On Po.Created_By = U.Id
+        Left Join Appuser U2 On Po.Checked_By = U2.Id
+		Left Join Appuser U3 On Po.Cancelled_By = U3.Id
+        Where Po.Id = $1
     `, id).Scan(
 		&po.ID, &po.SerialID, &po.SupplierID, &po.SupplierName,
 		&po.OrderDate, &po.Status, &po.TotalAmount, &po.PaymentMethod,
 		&po.PaymentDueDate, &po.CreatedBy, &po.CreatedByName,
 		&po.CheckedBy, &po.CheckedByName,
 		&po.CreatedAt, &po.UpdatedAt,
+		&po.SupplierAddress, &po.SupplierPhone,
+		&po.CancelledAt, &po.CancelledBy, &po.CancelledByName,
 	)
 
 	if err != nil {
@@ -194,35 +199,35 @@ func (r *RepositoryImpl) GetByID(id string) (*PurchaseOrderDetailResponse, error
 
 	// Get order items with return and received information
 	rows, err := r.DB.Query(`
-        SELECT 
-            pod.Id, pod.Product_Id, p.Name AS ProductName,
-            pod.Requested_Quantity, pod.Unit_Price,
-            COALESCE(
-                (SELECT SUM(por.Return_Quantity) 
-                 FROM Purchase_Order_Return por 
-                 WHERE por.Product_Detail_Id = pod.Id AND por.Status = 'returned'),
+        Select 
+            Pod.Id, Pod.Product_Id, P.Name As Productname,
+            Pod.Requested_Quantity, Pod.Unit_Price,
+            Coalesce(
+                (Select Sum(Por.Return_Quantity) 
+                 From Purchase_Order_Return Por 
+                 Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'),
                 0
-            ) as ReturnedQuantity,
-            COALESCE(
-                (SELECT SUM(pb.Initial_Quantity)
-                 FROM Product_Batch pb
-                 WHERE pb.Purchase_Order_Id = pod.Purchase_Order_Id AND pb.Product_Id = pod.Product_Id),
+            ) As Returnedquantity,
+            Coalesce(
+                (Select Sum(Pb.Initial_Quantity)
+                 From Product_Batch Pb
+                 Where Pb.Purchase_Order_Id = Pod.Purchase_Order_Id And Pb.Product_Id = Pod.Product_Id),
                 0
-            ) as ReceivedQuantity,
-            CASE WHEN 
-                (SELECT COUNT(*) FROM Purchase_Order_Return por 
-                 WHERE por.Product_Detail_Id = pod.Id AND por.Status = 'returned') > 0 
-                THEN true ELSE false 
-            END as IsReturned,
-            (SELECT por.Reason 
-             FROM Purchase_Order_Return por 
-             WHERE por.Product_Detail_Id = pod.Id AND por.Status = 'returned'
-             ORDER BY por.Returned_At DESC
-             LIMIT 1) as ReturnReason,
-            pod.Created_At, pod.Updated_At
-        FROM Purchase_Order_Detail pod
-        JOIN Product p ON pod.Product_Id = p.Id
-        WHERE pod.Purchase_Order_Id = $1
+            ) As Receivedquantity,
+            Case When 
+                (Select Count(*) From Purchase_Order_Return Por 
+                 Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned') > 0 
+                Then True Else False 
+            End As Isreturned,
+            (Select Por.Reason 
+             From Purchase_Order_Return Por 
+             Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'
+             Order By Por.Returned_At Desc
+             Limit 1) As Returnreason,
+            Pod.Created_At, Pod.Updated_At
+        From Purchase_Order_Detail Pod
+        Join Product P On Pod.Product_Id = P.Id
+        Where Pod.Purchase_Order_Id = $1
     `, id)
 
 	if err != nil {
@@ -369,12 +374,12 @@ func (r *RepositoryImpl) CreateProductBatch(productID, orderID, sku string, quan
 
 	var batchID string
 	err := executor.QueryRow(`
-        INSERT INTO Product_Batch (
+        Insert Into Product_Batch (
             Sku, Product_Id, Purchase_Order_Id,
             Initial_Quantity, Current_Quantity, Unit_Price
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
-		RETURNING Id
+        Values ($1, $2, $3, $4, $5, $6)
+		Returning Id
     `, sku, productID, orderID, quantity, quantity, unitPrice).Scan(&batchID)
 
 	if err != nil {
@@ -400,10 +405,10 @@ func (r *RepositoryImpl) AssignBatchToStorage(batchID, storageID string, quantit
 	}
 
 	_, err := executor.Exec(`
-        INSERT INTO Batch_Storage (Batch_Id, Storage_Id, Quantity)
-        VALUES ($1, $2, $3)
-        ON CONFLICT (Batch_Id, Storage_Id) 
-        DO UPDATE SET Quantity = Batch_Storage.Quantity + $3
+        Insert Into Batch_Storage (Batch_Id, Storage_Id, Quantity)
+        Values ($1, $2, $3)
+        On Conflict (Batch_Id, Storage_Id) 
+        Do Update Set Quantity = Batch_Storage.Quantity + $3
     `, batchID, storageID, quantity)
 
 	if err != nil {
@@ -426,11 +431,11 @@ func (r *RepositoryImpl) LogInventoryChange(batchID, storageID, userID, orderID 
 	}
 
 	_, err := executor.Exec(`
-        INSERT INTO Inventory_Log (
+        Insert Into Inventory_Log (
             Batch_Id, Storage_Id, User_Id, Purchase_Order_Id,
             Action, Quantity, Description, Log_Date
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
+        Values ($1, $2, $3, $4, $5, $6, $7, Now())
     `, batchID, storageID, userID, orderID, action, quantity, description)
 
 	if err != nil {
@@ -453,11 +458,11 @@ func (r *RepositoryImpl) LogFinancialTransaction(userID string, amount float64, 
 	}
 
 	_, err := executor.Exec(`
-        INSERT INTO Financial_Transaction_Log (
+        Insert Into Financial_Transaction_Log (
             User_Id, Amount, Type, Purchase_Order_Id,
             Description, Transaction_Date
         )
-        VALUES ($1, $2, $3, $4, $5, NOW())
+        Values ($1, $2, $3, $4, $5, Now())
     `, userID, amount, transactionType, orderID, description)
 
 	if err != nil {
@@ -483,12 +488,12 @@ func (r *RepositoryImpl) CreateReturn(req CreatePurchaseOrderReturnRequest, user
 	// Insert return record
 	var returnID string
 	err := executor.QueryRow(`
-        INSERT INTO Purchase_Order_Return (
+        Insert Into Purchase_Order_Return (
             Purchase_Order_Id, Product_Detail_Id, Return_Quantity,
             Reason, Status, Returned_By
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING Id
+        Values ($1, $2, $3, $4, $5, $6)
+        Returning Id
     `, req.PurchaseOrderID, req.ProductDetailID, req.ReturnQuantity,
 		req.Reason, "returned", userID).Scan(&returnID)
 
@@ -499,10 +504,10 @@ func (r *RepositoryImpl) CreateReturn(req CreatePurchaseOrderReturnRequest, user
 	// Process batch returns
 	for _, batch := range req.Batches {
 		_, err = executor.Exec(`
-            INSERT INTO Purchase_Order_Return_Batch (
+            Insert Into Purchase_Order_Return_Batch (
                 Purchase_Return_Id, Batch_Id, Quantity
             )
-            VALUES ($1, $2, $3)
+            Values ($1, $2, $3)
         `, returnID, batch.BatchID, batch.Quantity)
 
 		if err != nil {
@@ -511,9 +516,9 @@ func (r *RepositoryImpl) CreateReturn(req CreatePurchaseOrderReturnRequest, user
 
 		// Update batch current quantity
 		_, err = executor.Exec(`
-            UPDATE Product_Batch
-            SET Current_Quantity = Current_Quantity - $1, Updated_At = NOW()
-            WHERE Id = $2
+            Update Product_Batch
+            Set Current_Quantity = Current_Quantity - $1, Updated_At = Now()
+            Where Id = $2
         `, batch.Quantity, batch.BatchID)
 
 		if err != nil {
@@ -522,9 +527,9 @@ func (r *RepositoryImpl) CreateReturn(req CreatePurchaseOrderReturnRequest, user
 
 		// Update batch storage quantity
 		_, err = executor.Exec(`
-            UPDATE Batch_Storage
-            SET Quantity = Quantity - $1, Updated_At = NOW()
-            WHERE Batch_Id = $2 AND Storage_Id = $3
+            Update Batch_Storage
+            Set Quantity = Quantity - $1, Updated_At = Now()
+            Where Batch_Id = $2 And Storage_Id = $3
         `, batch.Quantity, batch.BatchID, batch.StorageID)
 
 		if err != nil {
@@ -547,9 +552,9 @@ func (r *RepositoryImpl) CreateReturn(req CreatePurchaseOrderReturnRequest, user
 
 	// Update purchase order status
 	_, err = executor.Exec(`
-        UPDATE Purchase_Order
-        SET Status = $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Status = $1, Updated_At = Now()
+        Where Id = $2
     `, status, req.PurchaseOrderID)
 
 	if err != nil {
@@ -560,13 +565,13 @@ func (r *RepositoryImpl) CreateReturn(req CreatePurchaseOrderReturnRequest, user
 	var serialID string
 	var totalAmount float64
 	err = executor.QueryRow(`
-        SELECT Serial_Id, Total_Amount * ($1 / (
-            SELECT SUM(Requested_Quantity) 
-            FROM Purchase_Order_Detail 
-            WHERE Purchase_Order_Id = $2
+        Select Serial_Id, Total_Amount * ($1 / (
+            Select Sum(Requested_Quantity) 
+            From Purchase_Order_Detail 
+            Where Purchase_Order_Id = $2
         ))
-        FROM Purchase_Order
-        WHERE Id = $2
+        From Purchase_Order
+        Where Id = $2
     `, req.ReturnQuantity, req.PurchaseOrderID).Scan(&serialID, &totalAmount)
 
 	if err != nil {
@@ -612,9 +617,9 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 	var orderID string
 	var returnQuantity float64
 	err := executor.QueryRow(`
-        SELECT Purchase_Order_Id, Return_Quantity
-        FROM Purchase_Order_Return
-        WHERE Id = $1 AND Status = 'returned'
+        Select Purchase_Order_Id, Return_Quantity
+        From Purchase_Order_Return
+        Where Id = $1 And Status = 'returned'
     `, id).Scan(&orderID, &returnQuantity)
 
 	if err != nil {
@@ -626,9 +631,9 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 
 	// Update return status
 	_, err = executor.Exec(`
-        UPDATE Purchase_Order_Return
-        SET Status = 'cancelled', Cancelled_By = $1, Cancelled_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order_Return
+        Set Status = 'cancelled', Cancelled_By = $1, Cancelled_At = Now()
+        Where Id = $2
     `, userID, id)
 
 	if err != nil {
@@ -637,10 +642,10 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 
 	// Get batch info for inventory restoration
 	rows, err := executor.Query(`
-        SELECT prb.Batch_Id, prb.Quantity, bs.Storage_Id
-        FROM Purchase_Order_Return_Batch prb
-        JOIN Batch_Storage bs ON prb.Batch_Id = bs.Batch_Id
-        WHERE prb.Purchase_Return_Id = $1
+        Select Prb.Batch_Id, Prb.Quantity, Bs.Storage_Id
+        From Purchase_Order_Return_Batch Prb
+        Join Batch_Storage Bs On Prb.Batch_Id = Bs.Batch_Id
+        Where Prb.Purchase_Return_Id = $1
     `, id)
 
 	if err != nil {
@@ -660,9 +665,9 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 
 		// Update batch current quantity
 		_, err = executor.Exec(`
-            UPDATE Product_Batch
-            SET Current_Quantity = Current_Quantity + $1, Updated_At = NOW()
-            WHERE Id = $2
+            Update Product_Batch
+            Set Current_Quantity = Current_Quantity + $1, Updated_At = Now()
+            Where Id = $2
         `, quantity, batchID)
 
 		if err != nil {
@@ -671,9 +676,9 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 
 		// Update batch storage quantity
 		_, err = executor.Exec(`
-            UPDATE Batch_Storage
-            SET Quantity = Quantity + $1, Updated_At = NOW()
-            WHERE Batch_Id = $2 AND Storage_Id = $3
+            Update Batch_Storage
+            Set Quantity = Quantity + $1, Updated_At = Now()
+            Where Batch_Id = $2 And Storage_Id = $3
         `, quantity, batchID, storageID)
 
 		if err != nil {
@@ -684,9 +689,9 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 	// Check for any active returns and update PO status
 	var activeReturns int
 	err = executor.QueryRow(`
-        SELECT COUNT(*)
-        FROM Purchase_Order_Return
-        WHERE Purchase_Order_Id = $1 AND Status = 'returned'
+        Select Count(*)
+        From Purchase_Order_Return
+        Where Purchase_Order_Id = $1 And Status = 'returned'
     `, orderID).Scan(&activeReturns)
 
 	if err != nil {
@@ -702,9 +707,9 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 
 	// Update purchase order status
 	_, err = executor.Exec(`
-        UPDATE Purchase_Order
-        SET Status = $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Status = $1, Updated_At = Now()
+        Where Id = $2
     `, newStatus, orderID)
 
 	if err != nil {
@@ -715,13 +720,13 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 	var serialID string
 	var totalAmount float64
 	err = executor.QueryRow(`
-        SELECT Serial_Id, Total_Amount * ($1 / (
-            SELECT SUM(Requested_Quantity) 
-            FROM Purchase_Order_Detail 
-            WHERE Purchase_Order_Id = $2
+        Select Serial_Id, Total_Amount * ($1 / (
+            Select Sum(Requested_Quantity) 
+            From Purchase_Order_Detail 
+            Where Purchase_Order_Id = $2
         ))
-        FROM Purchase_Order
-        WHERE Id = $2
+        From Purchase_Order
+        Where Id = $2
     `, returnQuantity, orderID).Scan(&serialID, &totalAmount)
 
 	if err != nil {
@@ -737,10 +742,10 @@ func (r *RepositoryImpl) CancelReturn(id string, userID string, tx *sql.Tx) erro
 
 	// Log inventory changes for each batch
 	rows, err = executor.Query(`
-        SELECT prb.Batch_Id, prb.Quantity, bs.Storage_Id
-        FROM Purchase_Order_Return_Batch prb
-        JOIN Batch_Storage bs ON prb.Batch_Id = bs.Batch_Id
-        WHERE prb.Purchase_Return_Id = $1
+        Select Prb.Batch_Id, Prb.Quantity, Bs.Storage_Id
+        From Purchase_Order_Return_Batch Prb
+        Join Batch_Storage Bs On Prb.Batch_Id = Bs.Batch_Id
+        Where Prb.Purchase_Return_Id = $1
     `, id)
 
 	if err != nil {
@@ -785,9 +790,9 @@ func (r *RepositoryImpl) CheckAllItemsReturned(orderID string, tx *sql.Tx) (bool
 
 	// Get total ordered quantity
 	err := executor.QueryRow(`
-        SELECT COALESCE(SUM(Requested_Quantity), 0)
-        FROM Purchase_Order_Detail
-        WHERE Purchase_Order_Id = $1
+        Select Coalesce(Sum(Requested_Quantity), 0)
+        From Purchase_Order_Detail
+        Where Purchase_Order_Id = $1
     `, orderID).Scan(&totalOrdered)
 
 	if err != nil {
@@ -796,9 +801,9 @@ func (r *RepositoryImpl) CheckAllItemsReturned(orderID string, tx *sql.Tx) (bool
 
 	// Get total returned quantity (only for active returns)
 	err = executor.QueryRow(`
-        SELECT COALESCE(SUM(Return_Quantity), 0)
-        FROM Purchase_Order_Return
-        WHERE Purchase_Order_Id = $1 AND Status = 'returned'
+        Select Coalesce(Sum(Return_Quantity), 0)
+        From Purchase_Order_Return
+        Where Purchase_Order_Id = $1 And Status = 'returned'
     `, orderID).Scan(&totalReturned)
 
 	if err != nil {
@@ -823,7 +828,7 @@ func (r *RepositoryImpl) Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) (str
 	}
 
 	// Build update query
-	query := `UPDATE Purchase_Order SET Updated_At = NOW()`
+	query := `Update Purchase_Order Set Updated_At = Now()`
 	params := []interface{}{}
 	paramCount := 1
 
@@ -900,7 +905,7 @@ func (r *RepositoryImpl) UpdateStatus(id, status, userID string, tx *sql.Tx) err
 
 	// Validate status
 	validStatuses := map[string]bool{
-		"ordered":            true,
+		"order":              true,
 		"completed":          true,
 		"partially_returned": true,
 		"returned":           true,
@@ -913,18 +918,18 @@ func (r *RepositoryImpl) UpdateStatus(id, status, userID string, tx *sql.Tx) err
 
 	// Update query
 	updateQuery := `
-        UPDATE Purchase_Order
-        SET Status = $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Status = $1, Updated_At = Now()
+        Where Id = $2
     `
 
 	// For cancelled status, also update cancelled_by and cancelled_at
 	if status == "cancelled" {
 		updateQuery = `
-            UPDATE Purchase_Order
-            SET Status = $1, Updated_At = NOW(), 
-                Cancelled_By = $3, Cancelled_At = NOW()
-            WHERE Id = $2
+            Update Purchase_Order
+            Set Status = $1, Updated_At = Now(), 
+                Cancelled_By = $3, Cancelled_At = Now()
+            Where Id = $2
         `
 	}
 
@@ -962,7 +967,7 @@ func (r *RepositoryImpl) CheckPurchaseOrder(id string, userID string, tx *sql.Tx
 	// Check if purchase order exists
 	var status string
 	err := executor.QueryRow(`
-        SELECT Status FROM Purchase_Order WHERE Id = $1
+        Select Status From Purchase_Order Where Id = $1
     `, id).Scan(&status)
 
 	if err != nil {
@@ -972,16 +977,16 @@ func (r *RepositoryImpl) CheckPurchaseOrder(id string, userID string, tx *sql.Tx
 		return fmt.Errorf("failed to check purchase order: %w", err)
 	}
 
-	// Only allow checking of orders in 'ordered' status
-	if status != "ordered" {
-		return fmt.Errorf("only purchase orders with status 'ordered' can be checked")
+	// Only allow checking of orders in 'order' status
+	if status != "order" {
+		return fmt.Errorf("only purchase orders with status 'order' can be checked")
 	}
 
 	// Update purchase order
 	result, err := executor.Exec(`
-        UPDATE Purchase_Order
-        SET Checked_By = $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Checked_By = $1, Updated_At = Now()
+        Where Id = $2
     `, userID, id)
 
 	if err != nil {
@@ -1018,7 +1023,7 @@ func (r *RepositoryImpl) CancelPurchaseOrder(id string, userID string, tx *sql.T
 	var status string
 	var serialID string
 	err := executor.QueryRow(`
-        SELECT Status, Serial_Id FROM Purchase_Order WHERE Id = $1
+        Select Status, Serial_Id From Purchase_Order Where Id = $1
     `, id).Scan(&status, &serialID)
 
 	if err != nil {
@@ -1028,17 +1033,17 @@ func (r *RepositoryImpl) CancelPurchaseOrder(id string, userID string, tx *sql.T
 		return fmt.Errorf("failed to check purchase order: %w", err)
 	}
 
-	// Only allow cancellation of orders in 'ordered' status
-	if status != "ordered" {
-		return fmt.Errorf("only purchase orders with status 'ordered' can be cancelled")
+	// Only allow cancellation of orders in 'order' status
+	if status != "order" {
+		return fmt.Errorf("only purchase orders with status 'order' can be cancelled")
 	}
 
 	// Update purchase order
 	result, err := executor.Exec(`
-        UPDATE Purchase_Order
-        SET Status = 'cancelled', Cancelled_By = $1, 
-            Cancelled_At = NOW(), Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Status = 'cancelled', Cancelled_By = $1, 
+            Cancelled_At = Now(), Updated_At = Now()
+        Where Id = $2
     `, userID, id)
 
 	if err != nil {
@@ -1081,7 +1086,7 @@ func (r *RepositoryImpl) AddPurchaseOrderItem(orderID string, req CreatePurchase
 	// Check if purchase order exists and its status
 	var status string
 	err := executor.QueryRow(`
-        SELECT Status FROM Purchase_Order WHERE Id = $1
+        Select Status From Purchase_Order Where Id = $1
     `, orderID).Scan(&status)
 
 	if err != nil {
@@ -1091,18 +1096,18 @@ func (r *RepositoryImpl) AddPurchaseOrderItem(orderID string, req CreatePurchase
 		return fmt.Errorf("failed to check purchase order status: %w", err)
 	}
 
-	// Only allow adding items to orders in 'ordered' status
-	if status != "ordered" {
-		return fmt.Errorf("can only add items to purchase orders with status 'ordered'")
+	// Only allow adding items to orders in 'order' status
+	if status != "order" {
+		return fmt.Errorf("can only add items to purchase orders with status 'order'")
 	}
 
 	// Add the item
 	_, err = executor.Exec(`
-        INSERT INTO Purchase_Order_Detail (
+        Insert Into Purchase_Order_Detail (
             Purchase_Order_Id, Product_Id, 
             Requested_Quantity, Unit_Price
         )
-        VALUES ($1, $2, $3, $4)
+        Values ($1, $2, $3, $4)
     `, orderID, req.ProductID, req.Quantity, req.Price)
 
 	if err != nil {
@@ -1111,9 +1116,9 @@ func (r *RepositoryImpl) AddPurchaseOrderItem(orderID string, req CreatePurchase
 
 	// Update total amount
 	_, err = executor.Exec(`
-        UPDATE Purchase_Order
-        SET Total_Amount = Total_Amount + $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Total_Amount = Total_Amount + $1, Updated_At = Now()
+        Where Id = $2
     `, req.Quantity*req.Price, orderID)
 
 	if err != nil {
@@ -1140,9 +1145,9 @@ func (r *RepositoryImpl) UpdatePurchaseOrderItem(req UpdatePurchaseOrderItemRequ
 	var orderID string
 	var oldQuantity, oldPrice float64
 	err := executor.QueryRow(`
-        SELECT Purchase_Order_Id, Requested_Quantity, Unit_Price
-        FROM Purchase_Order_Detail
-        WHERE Id = $1
+        Select Purchase_Order_Id, Requested_Quantity, Unit_Price
+        From Purchase_Order_Detail
+        Where Id = $1
     `, req.ID).Scan(&orderID, &oldQuantity, &oldPrice)
 
 	if err != nil {
@@ -1155,23 +1160,23 @@ func (r *RepositoryImpl) UpdatePurchaseOrderItem(req UpdatePurchaseOrderItemRequ
 	// Check order status
 	var status string
 	err = executor.QueryRow(`
-        SELECT Status FROM Purchase_Order WHERE Id = $1
+        Select Status From Purchase_Order Where Id = $1
     `, orderID).Scan(&status)
 
 	if err != nil {
 		return fmt.Errorf("failed to check purchase order status: %w", err)
 	}
 
-	// Only allow updating items for orders in 'ordered' status
-	if status != "ordered" {
-		return fmt.Errorf("can only update items for purchase orders with status 'ordered'")
+	// Only allow updating items for orders in 'order' status
+	if status != "order" {
+		return fmt.Errorf("can only update items for purchase orders with status 'order'")
 	}
 
 	// Update the item
 	result, err := executor.Exec(`
-        UPDATE Purchase_Order_Detail
-        SET Requested_Quantity = $1, Unit_Price = $2, Updated_At = NOW()
-        WHERE Id = $3
+        Update Purchase_Order_Detail
+        Set Requested_Quantity = $1, Unit_Price = $2, Updated_At = Now()
+        Where Id = $3
     `, req.Quantity, req.Price, req.ID)
 
 	if err != nil {
@@ -1194,9 +1199,9 @@ func (r *RepositoryImpl) UpdatePurchaseOrderItem(req UpdatePurchaseOrderItemRequ
 
 	// Update the order's total amount
 	_, err = executor.Exec(`
-        UPDATE Purchase_Order
-        SET Total_Amount = Total_Amount + $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Total_Amount = Total_Amount + $1, Updated_At = Now()
+        Where Id = $2
     `, amountDiff, orderID)
 
 	if err != nil {
@@ -1223,9 +1228,9 @@ func (r *RepositoryImpl) RemovePurchaseOrderItem(id string, tx *sql.Tx) error {
 	var orderID string
 	var quantity, price float64
 	err := executor.QueryRow(`
-        SELECT Purchase_Order_Id, Requested_Quantity, Unit_Price
-        FROM Purchase_Order_Detail
-        WHERE Id = $1
+        Select Purchase_Order_Id, Requested_Quantity, Unit_Price
+        From Purchase_Order_Detail
+        Where Id = $1
     `, id).Scan(&orderID, &quantity, &price)
 
 	if err != nil {
@@ -1238,22 +1243,22 @@ func (r *RepositoryImpl) RemovePurchaseOrderItem(id string, tx *sql.Tx) error {
 	// Check order status
 	var status string
 	err = executor.QueryRow(`
-        SELECT Status FROM Purchase_Order WHERE Id = $1
+        Select Status From Purchase_Order Where Id = $1
     `, orderID).Scan(&status)
 
 	if err != nil {
 		return fmt.Errorf("failed to check purchase order status: %w", err)
 	}
 
-	// Only allow removing items from orders in 'ordered' status
-	if status != "ordered" {
-		return fmt.Errorf("can only remove items from purchase orders with status 'ordered'")
+	// Only allow removing items from orders in 'order' status
+	if status != "order" {
+		return fmt.Errorf("can only remove items from purchase orders with status 'order'")
 	}
 
 	// Remove the item
 	result, err := executor.Exec(`
-        DELETE FROM Purchase_Order_Detail
-        WHERE Id = $1
+        Delete From Purchase_Order_Detail
+        Where Id = $1
     `, id)
 
 	if err != nil {
@@ -1272,9 +1277,9 @@ func (r *RepositoryImpl) RemovePurchaseOrderItem(id string, tx *sql.Tx) error {
 	// Update the order's total amount
 	total := quantity * price
 	_, err = executor.Exec(`
-        UPDATE Purchase_Order
-        SET Total_Amount = Total_Amount - $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Total_Amount = Total_Amount - $1, Updated_At = Now()
+        Where Id = $2
     `, total, orderID)
 
 	if err != nil {
@@ -1288,23 +1293,23 @@ func (r *RepositoryImpl) RemovePurchaseOrderItem(id string, tx *sql.Tx) error {
 func (r *RepositoryImpl) GetAll(req GetPurchaseOrderRequest) ([]GetPurchaseOrderResponse, int, error) {
 	// Base query for counting total items
 	countQuery := `
-        SELECT COUNT(*)
-        FROM Purchase_Order po
-        LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
-        WHERE 1=1
+        Select Count(*)
+        From Purchase_Order Po
+        Left Join Supplier S On Po.Supplier_Id = S.Id
+        Where 1=1
     `
 
 	// Base query for fetching items
 	fetchQuery := `
-        SELECT 
-            po.Id, po.Serial_Id, po.Supplier_Id, s.Name AS SupplierName,
-            po.Order_Date, po.Status, po.Total_Amount,
-            u.username, po.Created_At, po.Updated_At,
-            (SELECT COUNT(*) FROM Purchase_Order_Detail pod WHERE pod.Purchase_Order_Id = po.Id) AS ItemCount
-        FROM Purchase_Order po
-		LEFT JOIN AppUser u ON po.Created_By = u.Id
-        LEFT JOIN Supplier s ON po.Supplier_Id = s.Id
-        WHERE 1=1
+        Select 
+            Po.Id, Po.Serial_Id, Po.Supplier_Id, S.Name As Suppliername,
+            Po.Order_Date, Po.Status, Po.Total_Amount,
+            U.Username, Po.Created_At, Po.Updated_At,
+            (Select Count(*) From Purchase_Order_Detail Pod Where Pod.Purchase_Order_Id = Po.Id) As Itemcount
+        From Purchase_Order Po
+		Left Join Appuser U On Po.Created_By = U.Id
+        Left Join Supplier S On Po.Supplier_Id = S.Id
+        Where 1=1
     `
 
 	// Build query with filters
@@ -1418,29 +1423,29 @@ func (r *RepositoryImpl) GetAll(req GetPurchaseOrderRequest) ([]GetPurchaseOrder
 func (r *RepositoryImpl) GetAllReturns(req GetPurchaseOrderReturnRequest) ([]GetPurchaseOrderReturnResponse, int, error) {
 	// Base query for counting total items
 	countQuery := `
-        SELECT COUNT(*)
-        FROM Purchase_Order_Return por
-        JOIN Purchase_Order po ON por.Purchase_Order_Id = po.Id
-        JOIN Purchase_Order_Detail pod ON por.Product_Detail_Id = pod.Id
-        JOIN Product p ON pod.Product_Id = p.Id
-        JOIN Appuser u ON por.Returned_By = u.Id
-        WHERE 1=1
+        Select Count(*)
+        From Purchase_Order_Return Por
+        Join Purchase_Order Po On Por.Purchase_Order_Id = Po.Id
+        Join Purchase_Order_Detail Pod On Por.Product_Detail_Id = Pod.Id
+        Join Product P On Pod.Product_Id = P.Id
+        Join Appuser U On Por.Returned_By = U.Id
+        Where 1=1
     `
 
 	// Base query for fetching items
 	fetchQuery := `
-        SELECT 
-            por.Id, por.Purchase_Order_Id, po.Serial_Id,
-            pod.Product_Id, p.Name AS ProductName,
-            por.Return_Quantity, por.Reason, por.Status,
-            por.Returned_By, u.Username AS ReturnedByName,
-            por.Returned_At
-        FROM Purchase_Order_Return por
-        JOIN Purchase_Order po ON por.Purchase_Order_Id = po.Id
-        JOIN Purchase_Order_Detail pod ON por.Product_Detail_Id = pod.Id
-        JOIN Product p ON pod.Product_Id = p.Id
-        JOIN Appuser u ON por.Returned_By = u.Id
-        WHERE 1=1
+        Select 
+            Por.Id, Por.Purchase_Order_Id, Po.Serial_Id,
+            Pod.Product_Id, P.Name As Productname,
+            Por.Return_Quantity, Por.Reason, Por.Status,
+            Por.Returned_By, U.Username As Returnedbyname,
+            Por.Returned_At
+        From Purchase_Order_Return Por
+        Join Purchase_Order Po On Por.Purchase_Order_Id = Po.Id
+        Join Purchase_Order_Detail Pod On Por.Product_Detail_Id = Pod.Id
+        Join Product P On Pod.Product_Id = P.Id
+        Join Appuser U On Por.Returned_By = U.Id
+        Where 1=1
     `
 
 	// Build query with filters
@@ -1538,22 +1543,22 @@ func (r *RepositoryImpl) GenerateBatchSKU(productName, supplierName, serialID st
 func (r *RepositoryImpl) GetProducts(req product.GetProductRequest) ([]product.GetProductResponse, int, error) {
 	// Base query for counting total items
 	countQuery := `
-		SELECT COUNT(*)
-		FROM Product p
-		JOIN Supplier s ON p.Supplier_Id = s.Id
-		WHERE 1=1
+		Select Count(*)
+		From Product P
+		Join Supplier S On P.Supplier_Id = S.Id
+		Where 1=1
 	`
 
 	// Base query for fetching items
 	fetchQuery := `
-		SELECT 
-			p.Id, p.Name, p.Category_Id, c.Name AS Category,
-			p.Unit_Id, u.Name AS Unit,
-			p.Created_At, p.Updated_At
-		FROM Product p
-		JOIN Category c ON p.Category_Id = c.Id
-		JOIN Unit u ON p.Unit_Id = u.Id
-		WHERE 1=1
+		Select 
+			P.Id, P.Name, P.Category_Id, C.Name As Category,
+			P.Unit_Id, U.Name As Unit,
+			P.Created_At, P.Updated_At
+		From Product P
+		Join Category C On P.Category_Id = C.Id
+		Join Unit U On P.Unit_Id = U.Id
+		Where 1=1
 	`
 
 	// Build query with filters
@@ -1617,10 +1622,10 @@ func (r *RepositoryImpl) CompleteFullPurchaseOrder(id string, storageID string, 
 	// Get purchase order info (supplier, serial ID)
 	var serialID, supplierID, supplierName string
 	err := executor.QueryRow(`
-        SELECT po.Serial_Id, po.Supplier_Id, s.Name
-        FROM Purchase_Order po
-        JOIN Supplier s ON po.Supplier_Id = s.Id
-        WHERE po.Id = $1
+        Select Po.Serial_Id, Po.Supplier_Id, S.Name
+        From Purchase_Order Po
+        Join Supplier S On Po.Supplier_Id = S.Id
+        Where Po.Id = $1
     `, id).Scan(&serialID, &supplierID, &supplierName)
 
 	if err != nil {
@@ -1629,9 +1634,9 @@ func (r *RepositoryImpl) CompleteFullPurchaseOrder(id string, storageID string, 
 
 	// Update purchase order status
 	_, err = executor.Exec(`
-        UPDATE Purchase_Order
-        SET Status = 'completed', Checked_By = $1, Updated_At = NOW()
-        WHERE Id = $2
+        Update Purchase_Order
+        Set Status = 'completed', Checked_By = $1, Updated_At = Now()
+        Where Id = $2
     `, userID, id)
 
 	if err != nil {
@@ -1642,10 +1647,10 @@ func (r *RepositoryImpl) CompleteFullPurchaseOrder(id string, storageID string, 
 
 	// First, collect all the items we need to process
 	rows, err := executor.Query(`
-        SELECT pod.Id, pod.Product_Id, p.Name, pod.Requested_Quantity, pod.Unit_Price
-        FROM Purchase_Order_Detail pod
-        JOIN Product p ON pod.Product_Id = p.Id
-        WHERE pod.Purchase_Order_Id = $1
+        Select Pod.Id, Pod.Product_Id, P.Name, Pod.Requested_Quantity, Pod.Unit_Price
+        From Purchase_Order_Detail Pod
+        Join Product P On Pod.Product_Id = P.Id
+        Where Pod.Purchase_Order_Id = $1
     `, id)
 
 	if err != nil {
@@ -1713,7 +1718,7 @@ func (r *RepositoryImpl) CompleteFullPurchaseOrder(id string, storageID string, 
 	// Get total amount for financial log
 	var totalAmount float64
 	err = executor.QueryRow(`
-        SELECT Total_Amount FROM Purchase_Order WHERE Id = $1
+        Select Total_Amount From Purchase_Order Where Id = $1
     `, id).Scan(&totalAmount)
 
 	if err != nil {

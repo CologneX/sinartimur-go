@@ -130,13 +130,13 @@ Create Table
         Order_Date Timestamptz Default Current_Timestamp,
         Status VARCHAR(50) Not Null CHECK (
             Status IN (
-                'ordered',
+                'order',
                 'completed',
                 'partially_returned',
                 'returned',
                 'cancelled'
             )
-        ), -- ordered, completed, partially_returned, returned, cancelled
+        ), -- order, completed, partially_returned, returned, cancelled
         Total_Amount NUMERIC(15, 2) Not Null,
         Payment_Method VARCHAR(50) Not Null, -- cash, credit
         Payment_Due_Date Timestamptz Default Null,
@@ -217,7 +217,8 @@ CREATE TABLE
         Order_Date TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
         Status VARCHAR(50) NOT NULL CHECK (
             Status IN (
-                'ordered',
+                'order',
+                'invoice',
                 'completed',
                 'partially_returned',
                 'returned',
@@ -324,7 +325,7 @@ Create Table
         Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Set Null,
         Sales_Order_Id Uuid References Sales_Order (Id) On Delete Set Null,
         Target_Storage_Id Uuid REFERENCES Storage (Id) ON DELETE SET NULL,
-        Action VARCHAR(50) Not Null CHECK (Action IN ('add', 'remove', 'transfer', 'return')), -- e.g., "add", "remove", "transfer", "return"
+        Action VARCHAR(50) Not Null CHECK (Action IN ('add', 'remove', 'transfer', 'return', 'sale', 'purchase')), -- e.g., "add", "remove", "transfer", "return"
         Quantity NUMERIC(15, 2) Not Null,
         Log_Date Timestamptz Default Current_Timestamp,
         Description TEXT,
@@ -351,7 +352,7 @@ Create Table
 
 CREATE TABLE
     Document_Counter (
-        Document_Type VARCHAR(10) CHECK (Document_Type IN ('SO', 'SI', 'DN')), -- 'SO', 'SI', 'DN'
+        Document_Type VARCHAR(10) CHECK (Document_Type IN ('SO', 'SI', 'DN', 'PO')), -- 'SO', 'SI', 'DN', 'PO'
         Year INT NOT NULL,
         Month INT NOT NULL,
         Day INT NOT NULL,

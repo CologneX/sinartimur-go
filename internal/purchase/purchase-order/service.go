@@ -87,7 +87,7 @@ func (s *PurchaseOrderService) Create(req CreatePurchaseOrderRequest, userID str
 }
 
 // GetPurchaseOrderDetail fetches details of a purchase order
-func (s *PurchaseOrderService) GetPurchaseOrderDetail(id string) (*PurchaseOrderDetailResponse, *dto.APIError) {
+func (s *PurchaseOrderService) GetPurchaseOrderDetail(id string) (*GetPurchaseOrderDetailResponse, *dto.APIError) {
 	po, err := s.repo.GetByID(id)
 	if err != nil {
 		return nil, &dto.APIError{
