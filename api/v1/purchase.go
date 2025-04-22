@@ -1,13 +1,16 @@
 package v1
 
 import (
-	"github.com/google/uuid"
-	"github.com/gorilla/mux"
+	"fmt"
 	"net/http"
+	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
-	"sinartimur-go/internal/purchase/purchase-order"
+	purchase_order "sinartimur-go/internal/purchase/purchase-order"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
+
+	"github.com/google/uuid"
+	"github.com/gorilla/mux"
 )
 
 // CreatePurchaseOrderHandler creates a new purchase purchase-order
@@ -24,13 +27,13 @@ func CreatePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrd
 
 		// Get user ID from context
 		userID := r.Context().Value("user_id").(string)
-		apiError := purchaseOrderService.Create(req, userID)
+		res, apiError := purchaseOrderService.Create(req, userID)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusCreated, utils.WriteMessage("Purchase Order berhasil dibuat"))
+		utils.WriteJSON(w, http.StatusCreated, res)
 	}
 }
 
@@ -70,57 +73,41 @@ func UpdatePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrd
 			return
 		}
 
-		apiError := purchaseOrderService.Update(req)
+		res, apiError := purchaseOrderService.Update(req)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil diupdate"))
-	}
-}
-
-// DeletePurchaseOrderHandler deletes a purchase purchase-order
-func DeletePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		params := mux.Vars(r)
-		id := params["id"]
-
-		apiError := purchaseOrderService.Delete(id)
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
-
-		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil dihapus"))
+		utils.WriteJSON(w, http.StatusOK, res)
 	}
 }
 
 // ReceivePurchaseOrderHandler receives a purchase purchase-order
-func ReceivePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
-		var req []purchase_order.ReceivedItemRequest
-		validationErrors := utils.DecodeAndValidate(r, &req)
+// func ReceivePurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
+// 	return func(w http.ResponseWriter, r *http.Request) {
+// 		var req []purchase_order.ReceivedItemRequest
+// 		validationErrors := utils.DecodeAndValidate(r, &req)
 
-		if validationErrors != nil {
-			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
-			return
-		}
+// 		if validationErrors != nil {
+// 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+// 			return
+// 		}
 
-		params := mux.Vars(r)
-		id := params["id"]
+// 		params := mux.Vars(r)
+// 		id := params["id"]
 
-		// Get user ID from context
-		userID := r.Context().Value("user_id").(string)
-		apiError := purchaseOrderService.ReceivePurchaseOrder(id, userID, req)
-		if apiError != nil {
-			utils.ErrorJSON(w, apiError)
-			return
-		}
+// 		// Get user ID from context
+// 		userID := r.Context().Value("user_id").(string)
+// 		apiError := purchaseOrderService.ReceivePurchaseOrder(id, userID, req)
+// 		if apiError != nil {
+// 			utils.ErrorJSON(w, apiError)
+// 			return
+// 		}
 
-		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil diterima"))
-	}
-}
+// 		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil diterima"))
+// 	}
+// }
 
 // CheckPurchaseOrderHandler checks a purchase purchase-order
 func CheckPurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
@@ -148,19 +135,20 @@ func CancelPurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrd
 
 		// Get user ID from context
 		userID := r.Context().Value("user_id").(string)
-		apiError := purchaseOrderService.CancelPurchaseOrder(id, userID)
+		res, apiError := purchaseOrderService.CancelPurchaseOrder(id, userID)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
 		}
 
-		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil dibatalkan"))
+		utils.WriteJSON(w, http.StatusOK, res)
 	}
 }
 
 // CreatePurchaseOrderReturnHandler creates a new purchase purchase-order return
 func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("Masuk")
 		var req purchase_order.CreatePurchaseOrderReturnRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
@@ -251,9 +239,9 @@ func CreatePurchaseOrderItemHandler(purchaseOrderService *purchase_order.Purchas
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req purchase_order.CreatePurchaseOrderItemRequest
 
-		validationErrors := utils.DecodeAndValidate(r, &req)
 		params := mux.Vars(r)
-		orderID := params["order_id"]
+		orderID := params["id"]
+		validationErrors := utils.DecodeAndValidate(r, &req)
 
 		if validationErrors != nil {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
@@ -438,5 +426,67 @@ func DeleteSupplierHandler(supplierService *purchase.SupplierService) http.Handl
 		}
 
 		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Supplier berhasil dihapus"))
+	}
+}
+
+// GetPurchaseOrderProductHandler fetches all products for a purchase purchase-order
+func GetPurchaseOrderProductHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
+	return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+		req := product.GetProductRequest{
+			PaginationParameter: utils.PaginationParameter{
+				Page:      page,
+				PageSize:  pageSize,
+				SortBy:    sortBy,
+				SortOrder: sortOrder,
+			},
+			Name:     r.URL.Query().Get("name"),
+			Category: r.URL.Query().Get("category"),
+			Unit:     r.URL.Query().Get("unit"),
+		}
+
+		// Validate req
+		validationErrors := utils.ValidateStruct(req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		products, itemsCount, apiError := purchaseOrderService.GetAllProducts(req)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WritePaginationJSON(w, http.StatusOK, req.Page, itemsCount, req.PageSize, products)
+	})
+}
+
+// CompleteFullPurchaseOrderHandler handles receiving an entire purchase order
+func CompleteFullPurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req purchase_order.CompletePurchaseOrderRequest
+
+		// Parse purchase order ID from URL path parameters
+		params := mux.Vars(r)
+		req.PurchaseOrderID = params["id"]
+
+		// Decode and validate the rest of the request
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		// Get user ID from context
+		userID := r.Context().Value("user_id").(string)
+
+		// Call service to complete the purchase order
+		apiError := purchaseOrderService.CompleteFullPurchaseOrder(req, userID)
+		if apiError != nil {
+			utils.ErrorJSON(w, apiError)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Purchase Order berhasil diterima dan seluruh barang telah ditambahkan ke inventory"))
 	}
 }

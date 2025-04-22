@@ -2,6 +2,7 @@ package purchase_order
 
 import (
 	"database/sql"
+	"sinartimur-go/internal/product"
 	"sinartimur-go/pkg/dto"
 )
 
@@ -20,50 +21,69 @@ func NewPurchaseOrderService(repo Repository, db *sql.DB) *PurchaseOrderService 
 }
 
 // Create handles creating a purchase order
-func (s *PurchaseOrderService) Create(req CreatePurchaseOrderRequest, userID string) *dto.APIError {
-	// Validation for credit payment method
-	if req.PaymentMethod == "credit" && req.PaymentDueDate == "" {
-		return &dto.APIError{
-			StatusCode: 400,
-			Details: map[string]string{
-				"payment_due_date": "Payment due date is required for credit payments",
-			},
-		}
-	}
-
+func (s *PurchaseOrderService) Create(req CreatePurchaseOrderRequest, userID string) (*CreatePurchaseOrderResponse, *dto.APIError) {
 	// Start transaction
 	tx, err := s.db.Begin()
 	if err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 	defer tx.Rollback()
 
 	// Call repository with transaction
-	if err := s.repo.Create(req, userID, tx); err != nil {
-		return &dto.APIError{
+	purchaseOrderID, err := s.repo.Create(req, userID, tx)
+	if err != nil {
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to create purchase order: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 
-	return nil
+	// Retrieve the created purchase order
+	purchaseOrder, err := s.repo.GetByID(purchaseOrderID)
+	if err != nil {
+		return nil, &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+
+	// Convert to CreatePurchaseOrderResponse
+	response := &CreatePurchaseOrderResponse{
+		GetPurchaseOrderResponse: GetPurchaseOrderResponse{
+			ID:           purchaseOrder.ID,
+			SerialID:     purchaseOrder.SerialID,
+			SupplierID:   purchaseOrder.SupplierID,
+			SupplierName: purchaseOrder.SupplierName,
+			OrderDate:    purchaseOrder.OrderDate,
+			Status:       purchaseOrder.Status,
+			TotalAmount:  purchaseOrder.TotalAmount,
+			CreatedBy:    purchaseOrder.CreatedBy,
+			CreatedAt:    purchaseOrder.CreatedAt,
+			UpdatedAt:    purchaseOrder.UpdatedAt,
+			ItemCount:    len(purchaseOrder.Items),
+		},
+	}
+
+	return response, nil
 }
 
 // GetPurchaseOrderDetail fetches details of a purchase order
@@ -73,7 +93,7 @@ func (s *PurchaseOrderService) GetPurchaseOrderDetail(id string) (*PurchaseOrder
 		return nil, &dto.APIError{
 			StatusCode: 404,
 			Details: map[string]string{
-				"general": "Purchase order not found: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -82,41 +102,41 @@ func (s *PurchaseOrderService) GetPurchaseOrderDetail(id string) (*PurchaseOrder
 }
 
 // ReceivePurchaseOrder handles receiving items for a purchase order
-func (s *PurchaseOrderService) ReceivePurchaseOrder(id string, userID string, req []ReceivedItemRequest) *dto.APIError {
-	// Start transaction
-	tx, err := s.db.Begin()
-	if err != nil {
-		return &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
-			},
-		}
-	}
-	defer tx.Rollback()
+// func (s *PurchaseOrderService) ReceivePurchaseOrder(id string, userID string, req []ReceivedItemRequest) *dto.APIError {
+// 	// Start transaction
+// 	tx, err := s.db.Begin()
+// 	if err != nil {
+// 		return &dto.APIError{
+// 			StatusCode: 500,
+// 			Details: map[string]string{
+// 				"general": err.Error(),
+// 			},
+// 		}
+// 	}
+// 	defer tx.Rollback()
 
-	// Call repository to complete the purchase order
-	if err := s.repo.CompletePurchaseOrder(id, req, userID, tx); err != nil {
-		return &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Failed to receive purchase order: " + err.Error(),
-			},
-		}
-	}
+// 	// Call repository to complete the purchase order
+// 	if err := s.repo.CompletePurchaseOrder(id, req, userID, tx); err != nil {
+// 		return &dto.APIError{
+// 			StatusCode: 500,
+// 			Details: map[string]string{
+// 				"general": err.Error(),
+// 			},
+// 		}
+// 	}
 
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
-			},
-		}
-	}
+// 	// Commit transaction
+// 	if err := tx.Commit(); err != nil {
+// 		return &dto.APIError{
+// 			StatusCode: 500,
+// 			Details: map[string]string{
+// 				"general": err.Error(),
+// 			},
+// 		}
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // CreateReturn handles creating a purchase order return
 func (s *PurchaseOrderService) CreateReturn(req CreatePurchaseOrderReturnRequest, userID string) *dto.APIError {
@@ -126,7 +146,7 @@ func (s *PurchaseOrderService) CreateReturn(req CreatePurchaseOrderReturnRequest
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -137,7 +157,7 @@ func (s *PurchaseOrderService) CreateReturn(req CreatePurchaseOrderReturnRequest
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to create return: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -147,7 +167,7 @@ func (s *PurchaseOrderService) CreateReturn(req CreatePurchaseOrderReturnRequest
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -163,7 +183,7 @@ func (s *PurchaseOrderService) CancelReturn(id string, userID string) *dto.APIEr
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -174,7 +194,7 @@ func (s *PurchaseOrderService) CancelReturn(id string, userID string) *dto.APIEr
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to cancel return: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -184,7 +204,7 @@ func (s *PurchaseOrderService) CancelReturn(id string, userID string) *dto.APIEr
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -193,77 +213,69 @@ func (s *PurchaseOrderService) CancelReturn(id string, userID string) *dto.APIEr
 }
 
 // Update handles updating a purchase order
-func (s *PurchaseOrderService) Update(req UpdatePurchaseOrderRequest) *dto.APIError {
+func (s *PurchaseOrderService) Update(req UpdatePurchaseOrderRequest) (*UpdatePurchaseOrderResponse, *dto.APIError) {
 	// Start transaction
 	tx, err := s.db.Begin()
 	if err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 	defer tx.Rollback()
 
 	// Call repository with transaction
-	if err := s.repo.Update(req, tx); err != nil {
-		return &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Failed to update purchase order: " + err.Error(),
-			},
-		}
-	}
-
-	// Commit transaction
-	if err := tx.Commit(); err != nil {
-		return &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
-			},
-		}
-	}
-
-	return nil
-}
-
-// Delete handles deleting a purchase order
-func (s *PurchaseOrderService) Delete(id string) *dto.APIError {
-	// Start transaction
-	tx, err := s.db.Begin()
+	orderID, err := s.repo.Update(req, tx)
 	if err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
-			},
-		}
-	}
-	defer tx.Rollback()
-
-	// Call repository with transaction
-	if err := s.repo.Delete(id, tx); err != nil {
-		return &dto.APIError{
-			StatusCode: 500,
-			Details: map[string]string{
-				"general": "Failed to delete purchase order: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 
-	return nil
+	// Retrieve the updated purchase order
+	purchaseOrder, err := s.repo.GetByID(orderID)
+	if err != nil {
+		return nil, &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+
+	// Convert to UpdatePurchaseOrderResponse
+	response := &UpdatePurchaseOrderResponse{
+		GetPurchaseOrderResponse: GetPurchaseOrderResponse{
+			ID:           purchaseOrder.ID,
+			SerialID:     purchaseOrder.SerialID,
+			SupplierID:   purchaseOrder.SupplierID,
+			SupplierName: purchaseOrder.SupplierName,
+			OrderDate:    purchaseOrder.OrderDate,
+			Status:       purchaseOrder.Status,
+			TotalAmount:  purchaseOrder.TotalAmount,
+			CreatedBy:    purchaseOrder.CreatedBy,
+			CreatedAt:    purchaseOrder.CreatedAt,
+			UpdatedAt:    purchaseOrder.UpdatedAt,
+			ItemCount:    len(purchaseOrder.Items),
+		},
+	}
+
+	return response, nil
 }
 
 // CheckPurchaseOrder handles checking a purchase order
@@ -274,7 +286,7 @@ func (s *PurchaseOrderService) CheckPurchaseOrder(id string, userID string) *dto
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -285,7 +297,7 @@ func (s *PurchaseOrderService) CheckPurchaseOrder(id string, userID string) *dto
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to check purchase order: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -295,7 +307,7 @@ func (s *PurchaseOrderService) CheckPurchaseOrder(id string, userID string) *dto
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -304,14 +316,25 @@ func (s *PurchaseOrderService) CheckPurchaseOrder(id string, userID string) *dto
 }
 
 // CancelPurchaseOrder handles cancelling a purchase order
-func (s *PurchaseOrderService) CancelPurchaseOrder(id string, userID string) *dto.APIError {
+func (s *PurchaseOrderService) CancelPurchaseOrder(id string, userID string) (*CancelPurchaseOrderResponse, *dto.APIError) {
+	// Get purchase order before cancellation to return its details later
+	purchaseOrder, err := s.repo.GetByID(id)
+	if err != nil {
+		return nil, &dto.APIError{
+			StatusCode: 404,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+
 	// Start transaction
 	tx, err := s.db.Begin()
 	if err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -319,25 +342,41 @@ func (s *PurchaseOrderService) CancelPurchaseOrder(id string, userID string) *dt
 
 	// Call repository with transaction
 	if err := s.repo.CancelPurchaseOrder(id, userID, tx); err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to cancel purchase order: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 
 	// Commit transaction
 	if err := tx.Commit(); err != nil {
-		return &dto.APIError{
+		return nil, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
 
-	return nil
+	response := &CancelPurchaseOrderResponse{
+		GetPurchaseOrderResponse: GetPurchaseOrderResponse{
+			ID:           purchaseOrder.ID,
+			SerialID:     purchaseOrder.SerialID,
+			SupplierID:   purchaseOrder.SupplierID,
+			SupplierName: purchaseOrder.SupplierName,
+			OrderDate:    purchaseOrder.OrderDate,
+			Status:       "cancelled",
+			TotalAmount:  purchaseOrder.TotalAmount,
+			CreatedBy:    purchaseOrder.CreatedBy,
+			CreatedAt:    purchaseOrder.CreatedAt,
+			UpdatedAt:    purchaseOrder.UpdatedAt,
+			ItemCount:    len(purchaseOrder.Items),
+		},
+	}
+
+	return response, nil
 }
 
 // GetAllPurchaseOrder fetches all purchase orders
@@ -347,7 +386,7 @@ func (s *PurchaseOrderService) GetAllPurchaseOrder(req GetPurchaseOrderRequest) 
 		return nil, 0, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to fetch purchase orders: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -362,7 +401,7 @@ func (s *PurchaseOrderService) GetAllReturns(req GetPurchaseOrderReturnRequest) 
 		return nil, 0, &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to fetch purchase order returns: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -378,7 +417,7 @@ func (s *PurchaseOrderService) AddPurchaseOrderItem(orderID string, req CreatePu
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -389,7 +428,7 @@ func (s *PurchaseOrderService) AddPurchaseOrderItem(orderID string, req CreatePu
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to add purchase order item: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -399,7 +438,7 @@ func (s *PurchaseOrderService) AddPurchaseOrderItem(orderID string, req CreatePu
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -415,7 +454,7 @@ func (s *PurchaseOrderService) UpdatePurchaseOrderItem(req UpdatePurchaseOrderIt
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -426,7 +465,7 @@ func (s *PurchaseOrderService) UpdatePurchaseOrderItem(req UpdatePurchaseOrderIt
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to update purchase order item: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -436,7 +475,7 @@ func (s *PurchaseOrderService) UpdatePurchaseOrderItem(req UpdatePurchaseOrderIt
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -452,7 +491,7 @@ func (s *PurchaseOrderService) RemovePurchaseOrderItem(id string) *dto.APIError 
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to start transaction: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -463,7 +502,7 @@ func (s *PurchaseOrderService) RemovePurchaseOrderItem(id string) *dto.APIError 
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to remove purchase order item: " + err.Error(),
+				"general": err.Error(),
 			},
 		}
 	}
@@ -473,7 +512,58 @@ func (s *PurchaseOrderService) RemovePurchaseOrderItem(id string) *dto.APIError 
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
-				"general": "Failed to commit transaction: " + err.Error(),
+				"general": err.Error(),
+			},
+		}
+	}
+
+	return nil
+}
+
+// GetAllProducts fetches all products
+func (s *PurchaseOrderService) GetAllProducts(req product.GetProductRequest) ([]product.GetProductResponse, int, *dto.APIError) {
+	products, totalItems, err := s.repo.GetProducts(req)
+	if err != nil {
+		return nil, 0, &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+	return products, totalItems, nil
+}
+
+// CompleteFullPurchaseOrder handles completing an entire purchase order at once
+func (s *PurchaseOrderService) CompleteFullPurchaseOrder(req CompletePurchaseOrderRequest, userID string) *dto.APIError {
+	// Start transaction
+	tx, err := s.db.Begin()
+	if err != nil {
+		return &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+	defer tx.Rollback()
+
+	// Call repository to complete the purchase order
+	if err := s.repo.CompleteFullPurchaseOrder(req.PurchaseOrderID, req.StorageID, userID, tx); err != nil {
+		return &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+
+	// Commit transaction
+	if err := tx.Commit(); err != nil {
+		return &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
 			},
 		}
 	}

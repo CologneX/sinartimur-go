@@ -5,67 +5,27 @@
 INSERT INTO
     Employee (Id, Name, Position, Phone, Nik, Hired_Date)
 VALUES
-    (
-        '11111111-1111-1111-1111-111111111111',
-        'John Doe',
-        'Developer',
-        '1234567890',
-        'NIK001',
-        CURRENT_TIMESTAMP
-    ),
-    (
-        '22222222-2222-2222-2222-222222222222',
-        'Jane Smith',
-        'Manager',
-        '0987654321',
-        'NIK002',
-        CURRENT_TIMESTAMP
-    );
+    (uuid_generate_v4(), 'John Doe', 'Manager', '+6281234567890', '1234567890123456', '2023-01-01'),
+    (uuid_generate_v4(), 'Jane Smith', 'Salesperson', '+6282345678901', '2345678901234567', '2023-02-01'),
+    (uuid_generate_v4(), 'Robert Johnson', 'Warehouse Staff', '+6283456789012', '3456789012345678', '2023-03-01');
 
 -- Insert Wages for Employees
 INSERT INTO
     Wage (Id, Employee_Id, Total_Amount, Month, Year)
 VALUES
-    (
-        '33333333-3333-3333-3333-333333333333',
-        '11111111-1111-1111-1111-111111111111',
-        5000.00,
-        8,
-        2025
-    ),
-    (
-        '44444444-4444-4444-4444-444444444444',
-        '22222222-2222-2222-2222-222222222222',
-        7000.00,
-        8,
-        2025
-    );
+    (uuid_generate_v4(), (SELECT Id FROM Employee WHERE Name = 'John Doe'), 5000000, 4, 2023),
+    (uuid_generate_v4(), (SELECT Id FROM Employee WHERE Name = 'Jane Smith'), 4000000, 4, 2023),
+    (uuid_generate_v4(), (SELECT Id FROM Employee WHERE Name = 'Robert Johnson'), 3500000, 4, 2023);
 
 -- Insert Wage Details
 INSERT INTO
     Wage_Detail (Id, Wage_Id, Component_Name, Description, Amount)
 VALUES
-    (
-        '55555555-5555-5555-5555-555555555555',
-        '33333333-3333-3333-3333-333333333333',
-        'Base Salary',
-        'Monthly base salary',
-        4000.00
-    ),
-    (
-        '66666666-6666-6666-6666-666666666666',
-        '33333333-3333-3333-3333-333333333333',
-        'Bonus',
-        'Performance bonus',
-        1000.00
-    ),
-    (
-        '77777777-7777-7777-7777-777777777777',
-        '44444444-4444-4444-4444-444444444444',
-        'Base Salary',
-        'Monthly base salary',
-        7000.00
-    );
+    (uuid_generate_v4(), (SELECT Id FROM Wage WHERE Employee_Id = (SELECT Id FROM Employee WHERE Name = 'John Doe')), 'Basic Salary', 'Monthly base pay', 4000000),
+    (uuid_generate_v4(), (SELECT Id FROM Wage WHERE Employee_Id = (SELECT Id FROM Employee WHERE Name = 'John Doe')), 'Bonus', 'Performance bonus', 1000000),
+    (uuid_generate_v4(), (SELECT Id FROM Wage WHERE Employee_Id = (SELECT Id FROM Employee WHERE Name = 'Jane Smith')), 'Basic Salary', 'Monthly base pay', 3500000),
+    (uuid_generate_v4(), (SELECT Id FROM Wage WHERE Employee_Id = (SELECT Id FROM Employee WHERE Name = 'Jane Smith')), 'Bonus', 'Sales target bonus', 500000),
+    (uuid_generate_v4(), (SELECT Id FROM Wage WHERE Employee_Id = (SELECT Id FROM Employee WHERE Name = 'Robert Johnson')), 'Basic Salary', 'Monthly base pay', 3500000);
 
 -- ================================================
 -- Seed Data for Inventory
@@ -74,688 +34,229 @@ VALUES
 INSERT INTO
     Category (Id, Name, Description)
 VALUES
-    (
-        '88888888-8888-8888-8888-888888888888',
-        'Electronics',
-        'Electronic devices'
-    ),
-    (
-        '99999999-9999-9999-9999-999999999999',
-        'Furniture',
-        'Office furniture'
-    );
+    (uuid_generate_v4(), 'Electronics', 'Electronic devices and components'),
+    (uuid_generate_v4(), 'Office Supplies', 'Items used in office settings'),
+    (uuid_generate_v4(), 'Furniture', 'Office and home furniture');
 
 -- Insert Units
 INSERT INTO
     Unit (Id, Name, Description)
 VALUES
-    (
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
-        'Piece',
-        'Single piece'
-    ),
-    (
-        'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-        'Box',
-        'Packaged box'
-    );
+    (uuid_generate_v4(), 'Piece', 'Individual item'),
+    (uuid_generate_v4(), 'Box', 'Box containing multiple items'),
+    (uuid_generate_v4(), 'Kilogram', 'Weight measurement');
 
 -- Insert Products
 INSERT INTO
     Product (Id, Name, Description, Category_Id, Unit_Id)
 VALUES
-    (
-        'c0c0c0c0-c0c0-c0c0-c0c0-c0c0c0c0c0c0',
-        'Laptop',
-        'Gaming laptop',
-        '88888888-8888-8888-8888-888888888888',
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-    ),
-    (
-        'd0d0d0d0-d0d0-d0d0-d0d0-d0d0d0d0d0d0',
-        'Desk',
-        'Office desk',
-        '99999999-9999-9999-9999-999999999999',
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-    ),
-    (
-        'd1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1',
-        'Monitor',
-        'LCD Monitor',
-        '88888888-8888-8888-8888-888888888888',
-        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
-    );
+    (uuid_generate_v4(), 'Laptop', 'Business laptop', (SELECT Id FROM Category WHERE Name = 'Electronics'), (SELECT Id FROM Unit WHERE Name = 'Piece')),
+    (uuid_generate_v4(), 'Office Chair', 'Ergonomic office chair', (SELECT Id FROM Category WHERE Name = 'Furniture'), (SELECT Id FROM Unit WHERE Name = 'Piece')),
+    (uuid_generate_v4(), 'Printer Paper', 'A4 printing paper', (SELECT Id FROM Category WHERE Name = 'Office Supplies'), (SELECT Id FROM Unit WHERE Name = 'Box'));
 
 -- Insert Storages
 INSERT INTO
     Storage (Id, Name, Location)
 VALUES
-    (
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        'Main Warehouse',
-        'Building A'
-    ),
-    (
-        'f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0',
-        'Secondary Warehouse',
-        'Building B'
-    );
+    (uuid_generate_v4(), 'Main Warehouse', 'Jakarta'),
+    (uuid_generate_v4(), 'Branch Storage', 'Bandung'),
+    (uuid_generate_v4(), 'Retail Location', 'Jakarta Mall');
 
 -- Insert Customers
 INSERT INTO
     Customer (Id, Name, Address, Telephone)
 VALUES
-    (
-        '01010101-0101-0101-0101-010101010101',
-        'Acme Corp',
-        '123 Business Rd',
-        '111-222-3333'
-    ),
-    (
-        '02020202-0202-0202-0202-020202020202',
-        'Beta LLC',
-        '456 Commerce St',
-        '444-555-6666'
-    );
-
--- ================================================
--- Seed Data for Purchase
--- ================================================
--- Initialize PO document counter
-INSERT INTO
-    Document_Counter (Document_Type, Year, Month, Day, Counter)
-VALUES
-    (
-        'PO',
-        EXTRACT(
-            YEAR
-            FROM
-                CURRENT_DATE
-        ),
-        EXTRACT(
-            MONTH
-            FROM
-                CURRENT_DATE
-        ),
-        EXTRACT(
-            DAY
-            FROM
-                CURRENT_DATE
-        ),
-        1
-    ) ON CONFLICT (Document_Type, Year, Month, Day) DO
-UPDATE
-SET
-    Counter = Document_Counter.Counter;
+    (uuid_generate_v4(), 'PT ABC', 'Jakarta Business District', '+6280123456789'),
+    (uuid_generate_v4(), 'CV XYZ', 'Bandung Industrial Area', '+6280234567890'),
+    (uuid_generate_v4(), 'UD Maju Jaya', 'Surabaya Commercial Center', '+6280345678901');
 
 -- Insert Suppliers
 INSERT INTO
     Supplier (Id, Name, Address, Telephone)
 VALUES
-    (
-        '03030303-0303-0303-0303-030303030303',
-        'Alpha Omega Sigma',
-        '789 Industry Ave',
-        '777-888-9999'
-    ),
-    (
-        '04040404-0404-0404-0404-040404040404',
-        'Furniture Masters',
-        '321 Home St',
-        '000-111-2222'
-    );
-
--- Insert Purchase Orders with different statuses according to business logic
-INSERT INTO
-    Purchase_Order (
-        Id,
-        Serial_Id,
-        Supplier_Id,
-        Order_Date,
-        Status,
-        Total_Amount,
-        Payment_Method,
-        Payment_Due_Date,
-        Created_By,
-        Checked_By
-    )
-VALUES
-    -- Ordered status
-    (
-        '05050505-0505-0505-0505-050505050505',
-        'PO-20250413-0001',
-        '03030303-0303-0303-0303-030303030303',
-        CURRENT_TIMESTAMP,
-        'ordered',
-        1500.00,
-        'cash',
-        NULL,
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        NULL
-    ),
-    -- Completed status
-    (
-        '06060606-0606-0606-0606-060606060606',
-        'PO-20250413-0002',
-        '04040404-0404-0404-0404-040404040404',
-        CURRENT_TIMESTAMP - INTERVAL '1 day',
-        'completed',
-        800.00,
-        'credit',
-        CURRENT_TIMESTAMP + INTERVAL '30 days',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '14771edf-0432-46b2-b768-5baa2db69d26'
-    ),
-    -- Partially_returned status
-    (
-        '07070707-0707-0707-0707-070707070707',
-        'PO-20250413-0003',
-        '03030303-0303-0303-0303-030303030303',
-        CURRENT_TIMESTAMP - INTERVAL '2 days',
-        'partially_returned',
-        2500.00,
-        'cash',
-        NULL,
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '14771edf-0432-46b2-b768-5baa2db69d26'
-    ),
-    -- Returned status
-    (
-        '08080808-0808-0808-0808-080808080808',
-        'PO-20250413-0004',
-        '04040404-0404-0404-0404-040404040404',
-        CURRENT_TIMESTAMP - INTERVAL '3 days',
-        'returned',
-        750.00,
-        'cash',
-        NULL,
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '14771edf-0432-46b2-b768-5baa2db69d26'
-    ),
-    -- Cancelled status
-    (
-        '09090909-0909-0909-0909-090909090909',
-        'PO-20250413-0005',
-        '03030303-0303-0303-0303-030303030303',
-        CURRENT_TIMESTAMP - INTERVAL '4 days',
-        'cancelled',
-        1800.00,
-        'credit',
-        CURRENT_TIMESTAMP + INTERVAL '45 days',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        NULL
-    );
-
--- Update cancelled PO with cancelled info
-UPDATE Purchase_Order
-SET
-    Cancelled_By = '14771edf-0432-46b2-b768-5baa2db69d26',
-    Cancelled_At = CURRENT_TIMESTAMP - INTERVAL '4 days'
-WHERE
-    Id = '09090909-0909-0909-0909-090909090909';
-
--- Insert Purchase Order Details
-INSERT INTO
-    Purchase_Order_Detail (
-        Id,
-        Purchase_Order_Id,
-        Product_Id,
-        Requested_Quantity,
-        Unit_Price
-    )
-VALUES
-    -- For Ordered PO (05050505-0505-0505-0505-050505050505)
-    (
-        'a1a1a1a1-a1a1-a1a1-a1a1-a1a1a1a1a1a1',
-        '05050505-0505-0505-0505-050505050505',
-        'c0c0c0c0-c0c0-c0c0-c0c0-c0c0c0c0c0c0',
-        5,
-        300.00
-    ),
-    -- For Completed PO (06060606-0606-0606-0606-060606060606)
-    (
-        'a2a2a2a2-a2a2-a2a2-a2a2-a2a2a2a2a2a2',
-        '06060606-0606-0606-0606-060606060606',
-        'd0d0d0d0-d0d0-d0d0-d0d0-d0d0d0d0d0d0',
-        4,
-        200.00
-    ),
-    -- For Partially_returned PO (07070707-0707-0707-0707-070707070707)
-    (
-        'a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3',
-        '07070707-0707-0707-0707-070707070707',
-        'c0c0c0c0-c0c0-c0c0-c0c0-c0c0c0c0c0c0',
-        5,
-        300.00
-    ),
-    (
-        'a4a4a4a4-a4a4-a4a4-a4a4-a4a4a4a4a4a4',
-        '07070707-0707-0707-0707-070707070707',
-        'd1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1',
-        10,
-        100.00
-    ),
-    -- For Returned PO (08080808-0808-0808-0808-080808080808)
-    (
-        'a5a5a5a5-a5a5-a5a5-a5a5-a5a5a5a5a5a5',
-        '08080808-0808-0808-0808-080808080808',
-        'd0d0d0d0-d0d0-d0d0-d0d0-d0d0d0d0d0d0',
-        3,
-        250.00
-    ),
-    -- For Cancelled PO (09090909-0909-0909-0909-090909090909)
-    (
-        'a6a6a6a6-a6a6-a6a6-a6a6-a6a6a6a6a6a6',
-        '09090909-0909-0909-0909-090909090909',
-        'c0c0c0c0-c0c0-c0c0-c0c0-c0c0c0c0c0c0',
-        6,
-        300.00
-    );
-
--- Insert Product Batches (only for completed or partially_returned POs)
-INSERT INTO
-    Product_Batch (
-        Id,
-        Sku,
-        Product_Id,
-        Purchase_Order_Id,
-        Initial_Quantity,
-        Current_Quantity,
-        Unit_Price
-    )
-VALUES
-    -- For Completed PO (06060606-0606-0606-0606-060606060606)
-    (
-        'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1',
-        'DES-FM130425',
-        'd0d0d0d0-d0d0-d0d0-d0d0-d0d0d0d0d0d0',
-        '06060606-0606-0606-0606-060606060606',
-        4,
-        4,
-        200.00
-    ),
-    -- For Partially_returned PO (07070707-0707-0707-0707-070707070707)
-    (
-        'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
-        'LAP-AOS130425',
-        'c0c0c0c0-c0c0-c0c0-c0c0-c0c0c0c0c0c0',
-        '07070707-0707-0707-0707-070707070707',
-        5,
-        3,
-        300.00
-    ),
-    (
-        'b3b3b3b3-b3b3-b3b3-b3b3-b3b3b3b3b3b3',
-        'MON-AOS130425',
-        'd1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1',
-        '07070707-0707-0707-0707-070707070707',
-        10,
-        10,
-        100.00
-    ),
-    -- For Returned PO (08080808-0808-0808-0808-080808080808) - keep the batches but zero quantity
-    (
-        'b4b4b4b4-b4b4-b4b4-b4b4-b4b4b4b4b4b4',
-        'DES-FM130425-2',
-        'd0d0d0d0-d0d0-d0d0-d0d0-d0d0d0d0d0d0',
-        '08080808-0808-0808-0808-080808080808',
-        3,
-        0,
-        250.00
-    );
-
--- Insert Batch Storage mappings
-INSERT INTO
-    Batch_Storage (
-        Id,
-        Batch_Id,
-        Storage_Id,
-        Quantity,
-        Created_At,
-        Updated_At
-    )
-VALUES
-    -- For Completed PO batches
-    (
-        'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1',
-        'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        4,
-        CURRENT_TIMESTAMP - INTERVAL '1 day',
-        CURRENT_TIMESTAMP - INTERVAL '1 day'
-    ),
-    -- For Partially_returned PO batches (some in main, some in secondary)
-    (
-        'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2',
-        'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        3,
-        CURRENT_TIMESTAMP - INTERVAL '2 days',
-        CURRENT_TIMESTAMP - INTERVAL '2 days'
-    ),
-    (
-        'c3c3c3c3-c3c3-c3c3-c3c3-c3c3c3c3c3c3',
-        'b3b3b3b3-b3b3-b3b3-b3b3-b3b3b3b3b3b3',
-        'f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0',
-        10,
-        CURRENT_TIMESTAMP - INTERVAL '2 days',
-        CURRENT_TIMESTAMP - INTERVAL '2 days'
-    ),
-    -- For Returned PO batches (zero quantity)
-    (
-        'c4c4c4c4-c4c4-c4c4-c4c4-c4c4c4c4c4c4',
-        'b4b4b4b4-b4b4-b4b4-b4b4-b4b4b4b4b4b4',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        0,
-        CURRENT_TIMESTAMP - INTERVAL '3 days',
-        CURRENT_TIMESTAMP - INTERVAL '3 days'
-    );
-
--- Insert Purchase Order Returns
-INSERT INTO
-    Purchase_Order_Return (
-        Id,
-        Purchase_Order_Id,
-        Product_Detail_Id,
-        Return_Quantity,
-        Reason,
-        Status,
-        Returned_By,
-        Returned_At
-    )
-VALUES
-    -- Partial return for the partially_returned PO
-    (
-        'd1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1',
-        '07070707-0707-0707-0707-070707070707',
-        'a3a3a3a3-a3a3-a3a3-a3a3-a3a3a3a3a3a3',
-        2,
-        'Damaged on arrival',
-        'returned',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        CURRENT_TIMESTAMP - INTERVAL '2 days'
-    ),
-    -- Complete return for the returned PO
-    (
-        'd2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2',
-        '08080808-0808-0808-0808-080808080808',
-        'a5a5a5a5-a5a5-a5a5-a5a5-a5a5a5a5a5a5',
-        3,
-        'Wrong item delivered',
-        'returned',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        CURRENT_TIMESTAMP - INTERVAL '3 days'
-    );
-
--- Insert Purchase Order Return Batches
-INSERT INTO
-    Purchase_Order_Return_Batch (
-        Id,
-        Purchase_Return_Id,
-        Batch_Id,
-        Quantity,
-        Created_At
-    )
-VALUES
-    -- Link return to specific batches
-    (
-        'e1e1e1e1-e1e1-e1e1-e1e1-e1e1e1e1e1e1',
-        'd1d1d1d1-d1d1-d1d1-d1d1-d1d1d1d1d1d1',
-        'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
-        2,
-        CURRENT_TIMESTAMP - INTERVAL '2 days'
-    ),
-    (
-        'e2e2e2e2-e2e2-e2e2-e2e2-e2e2e2e2e2e2',
-        'd2d2d2d2-d2d2-d2d2-d2d2-d2d2d2d2d2d2',
-        'b4b4b4b4-b4b4-b4b4-b4b4-b4b4b4b4b4b4',
-        3,
-        CURRENT_TIMESTAMP - INTERVAL '3 days'
-    );
+    (uuid_generate_v4(), 'Tech Supplies Inc.', 'Singapore Technology Park', '+6594567890123'),
+    (uuid_generate_v4(), 'Office Depot', 'Jakarta Business Center', '+6281234987654'),
+    (uuid_generate_v4(), 'Furniture World', 'Bandung Furniture District', '+6282345098765');
 
 -- ================================================
--- Inventory and Financial Logs
+-- Seed Data for Purchase
 -- ================================================
--- Insert Inventory Logs for received items
+-- Initialize document counters
 INSERT INTO
-    Inventory_Log (
-        Id,
-        Batch_Id,
-        Storage_Id,
-        User_Id,
-        Purchase_Order_Id,
-        Action,
-        Quantity,
-        Description,
-        Log_Date
-    )
+    Document_Counter (Document_Type, Year, Month, Day, Counter)
 VALUES
-    -- Receipt of completed PO
-    (
-        'f1f1f1f1-f1f1-f1f1-f1f1-f1f1f1f1f1f1',
-        'b1b1b1b1-b1b1-b1b1-b1b1-b1b1b1b1b1b1',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '06060606-0606-0606-0606-060606060606',
-        'add',
-        4,
-        'Pembelian Barang PO-20250413-0002',
-        CURRENT_TIMESTAMP - INTERVAL '1 day'
-    ),
-    -- Receipt of partially_returned PO
-    (
-        'f2f2f2f2-f2f2-f2f2-f2f2-f2f2f2f2f2f2',
-        'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '07070707-0707-0707-0707-070707070707',
-        'add',
-        5,
-        'Pembelian Barang PO-20250413-0003',
-        CURRENT_TIMESTAMP - INTERVAL '2 days'
-    ),
-    (
-        'f3f3f3f3-f3f3-f3f3-f3f3-f3f3f3f3f3f3',
-        'b3b3b3b3-b3b3-b3b3-b3b3-b3b3b3b3b3b3',
-        'f0f0f0f0-f0f0-f0f0-f0f0-f0f0f0f0f0f0',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '07070707-0707-0707-0707-070707070707',
-        'add',
-        10,
-        'Pembelian Barang PO-20250413-0003',
-        CURRENT_TIMESTAMP - INTERVAL '2 days'
-    ),
-    -- Receipt of fully returned PO
-    (
-        'f4f4f4f4-f4f4-f4f4-f4f4-f4f4f4f4f4f4',
-        'b4b4b4b4-b4b4-b4b4-b4b4-b4b4b4b4b4b4',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '08080808-0808-0808-0808-080808080808',
-        'add',
-        3,
-        'Pembelian Barang PO-20250413-0004',
-        CURRENT_TIMESTAMP - INTERVAL '3 days'
-    ),
-    -- Return for the partially_returned PO
-    (
-        'f5f5f5f5-f5f5-f5f5-f5f5-f5f5f5f5f5f5',
-        'b2b2b2b2-b2b2-b2b2-b2b2-b2b2b2b2b2b2',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '07070707-0707-0707-0707-070707070707',
-        'return',
-        2,
-        'Return Pembelian PO-20250413-0003',
-        CURRENT_TIMESTAMP - INTERVAL '2 days' + INTERVAL '2 hours'
-    ),
-    -- Return for the fully returned PO
-    (
-        'f6f6f6f6-f6f6-f6f6-f6f6-f6f6f6f6f6f6',
-        'b4b4b4b4-b4b4-b4b4-b4b4-b4b4b4b4b4b4',
-        'e0e0e0e0-e0e0-e0e0-e0e0-e0e0e0e0e0e0',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        '08080808-0808-0808-0808-080808080808',
-        'return',
-        3,
-        'Return Pembelian PO-20250413-0004',
-        CURRENT_TIMESTAMP - INTERVAL '3 days' + INTERVAL '3 hours'
-    );
+    ('PO', 2023, 4, 21, 0),
+    ('SO', 2023, 4, 21, 0),
+    ('SI', 2023, 4, 21, 0),
+    ('DN', 2023, 4, 21, 0);
 
--- Insert Financial Transaction Logs
-INSERT INTO
-    Financial_Transaction_Log (
-        Id,
-        User_Id,
-        Amount,
-        Type,
-        Purchase_Order_Id,
-        Description,
-        Transaction_Date
-    )
-VALUES
-    -- Financial transaction for completed PO
-    (
-        'c1a1b2c3-d4e5-f6a7-b8c9-d0e1f2a3b4c5',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        800.00,
-        'purchase',
-        '06060606-0606-0606-0606-060606060606',
-        'Pembelian Barang PO-20250413-0002',
-        CURRENT_TIMESTAMP - INTERVAL '1 day'
-    ),
-    -- Financial transaction for partially_returned PO
-    (
-        'd2b3c4d5-e6f7-a8b9-c0d1-e2f3a4b5c6d7',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        2500.00,
-        'purchase',
-        '07070707-0707-0707-0707-070707070707',
-        'Pembelian Barang PO-20250413-0003',
-        CURRENT_TIMESTAMP - INTERVAL '2 days'
-    ),
-    -- Financial transaction for fully returned PO
-    (
-        'e3c4d5e6-f7a8-b9c0-d1e2-f3a4b5c6d7e8',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        750.00,
-        'purchase',
-        '08080808-0808-0808-0808-080808080808',
-        'Pembelian Barang PO-20250413-0004',
-        CURRENT_TIMESTAMP - INTERVAL '3 days'
-    ),
-    -- Financial transaction for partial return
-    (
-        'f4d5e6f7-a8b9-c0d1-e2f3-a4b5c6d7e8f9',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        -600.00,
-        'purchase_return',
-        '07070707-0707-0707-0707-070707070707',
-        'Return Pembelian PO-20250413-0003',
-        CURRENT_TIMESTAMP - INTERVAL '2 days' + INTERVAL '2 hours'
-    ),
-    -- Financial transaction for full return
-    (
-        'a5e6f7a8-b9c0-d1e2-f3a4-b5c6d7e8f9a0',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        -750.00,
-        'purchase_return',
-        '08080808-0808-0808-0808-080808080808',
-        'Return Pembelian PO-20250413-0004',
-        CURRENT_TIMESTAMP - INTERVAL '3 days' + INTERVAL '3 hours'
-    ),
-    -- Financial transaction for cancelled PO
-    (
-        'b6f7a8b9-c0d1-e2f3-a4b5-c6d7e8f9a0b1',
-        '14771edf-0432-46b2-b768-5baa2db69d26',
-        0.00,
-        'purchase_cancel',
-        '09090909-0909-0909-0909-090909090909',
-        'Pembatalan Pesanan Pembelian PO-20250413-0005',
-        CURRENT_TIMESTAMP - INTERVAL '4 days'
+
+-- Insert Purchase Orders
+DO $$
+DECLARE
+    laptop_id UUID;
+    chair_id UUID;
+    paper_id UUID;
+    supplier_tech_id UUID;
+    supplier_office_id UUID;
+    purchase_order_id UUID;
+    admin_id UUID;
+    main_storage_id UUID;
+BEGIN
+    -- Get product IDs
+    SELECT Id INTO laptop_id FROM Product WHERE Name = 'Laptop';
+    SELECT Id INTO chair_id FROM Product WHERE Name = 'Office Chair';
+    SELECT Id INTO paper_id FROM Product WHERE Name = 'Printer Paper';
+    
+    -- Get supplier IDs
+    SELECT Id INTO supplier_tech_id FROM Supplier WHERE Name = 'Tech Supplies Inc.';
+    SELECT Id INTO supplier_office_id FROM Supplier WHERE Name = 'Office Depot';
+    
+    -- Get user ID
+    SELECT Id INTO admin_id FROM Appuser WHERE Username = 'admin';
+    
+    -- Get storage ID
+    SELECT Id INTO main_storage_id FROM Storage WHERE Name = 'Main Warehouse';
+    
+    -- 1. Create a completed purchase order (cash payment)
+    purchase_order_id := uuid_generate_v4();
+    
+    -- Insert purchase order
+    INSERT INTO Purchase_Order (
+        Id, Serial_Id, Supplier_Id, Order_Date, 
+        Payment_Method, Status, Total_Amount, Created_By
+    ) VALUES (
+        purchase_order_id, 'PO-20230421-0001', supplier_tech_id, 
+        '2023-04-21', 'cash', 'completed', 15000000, admin_id
     );
+    
+    -- Insert purchase order details
+    INSERT INTO Purchase_Order_Detail (
+        Id, Purchase_Order_Id, Product_Id, Requested_Quantity, Unit_Price
+    ) VALUES
+        (uuid_generate_v4(), purchase_order_id, laptop_id, 5, 3000000);
+        
+    -- Since this PO is completed, create product batches
+    WITH batch_insert AS (
+        INSERT INTO Product_Batch (
+            Id, Sku, Product_Id, Purchase_Order_Id, Initial_Quantity, Current_Quantity, Unit_Price
+        ) VALUES (
+            uuid_generate_v4(), 'LAP-TEC210423-0001', laptop_id, purchase_order_id, 5, 5, 3000000
+        ) RETURNING Id
+    )
+    INSERT INTO Batch_Storage (
+        Id, Batch_Id, Storage_Id, Quantity
+    ) SELECT 
+        uuid_generate_v4(), Id, main_storage_id, 5
+    FROM batch_insert;
+    
+    -- 2. Create an ordered purchase order (credit payment)
+    purchase_order_id := uuid_generate_v4();
+    
+    -- Insert purchase order with payment due date
+    INSERT INTO Purchase_Order (
+        Id, Serial_Id, Supplier_Id, Order_Date, 
+        Payment_Method, Payment_Due_Date, Status, Total_Amount, Created_By
+    ) VALUES (
+        purchase_order_id, 'PO-20230421-0002', supplier_office_id, 
+        '2023-04-21', 'credit', '2023-05-21', 'ordered', 5500000, admin_id
+    );
+    
+    -- Insert purchase order details
+    INSERT INTO Purchase_Order_Detail (
+        Id, Purchase_Order_Id, Product_Id, Requested_Quantity, Unit_Price
+    ) VALUES
+        (uuid_generate_v4(), purchase_order_id, chair_id, 10, 500000),
+        (uuid_generate_v4(), purchase_order_id, paper_id, 20, 25000);
+END $$;
 
 -- ================================================
 -- Seed Data for Sales
 -- ================================================
 -- Insert Sales Orders
-INSERT INTO
-    Sales_Order (
-        Id,
-        serial_id,
-        Customer_Id,
-        Order_Date,
-        Status,
-        Payment_Method,
-        Payment_Due_Date,
-        Total_Amount,
-        Created_By
-    )
-VALUES
-    (
-        '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f',
-        'SO-00001',
-        '01010101-0101-0101-0101-010101010101',
-        CURRENT_TIMESTAMP,
-        'order',
-        'cash',
-        NULL,
-        1500.00,
-        '14771edf-0432-46b2-b768-5baa2db69d26'
-    ),
-    (
-        '10101010-1010-1010-1010-101010101010',
-        'SO-00002',
-        '02020202-0202-0202-0202-020202020202',
-        CURRENT_TIMESTAMP,
-        'order',
-        'paylater',
-        CURRENT_TIMESTAMP + INTERVAL '30 days',
-        800.00,
-        '14771edf-0432-46b2-b768-5baa2db69d26'
+DO $$
+DECLARE
+    laptop_id UUID;
+    customer_abc_id UUID;
+    customer_xyz_id UUID;
+    admin_id UUID;
+    sales_order_id UUID;
+    sales_invoice_id UUID;
+    batch_storage_id UUID;
+BEGIN
+    -- Get product and batch storage IDs
+    SELECT Product_Id INTO laptop_id FROM Product_Batch WHERE SKU = 'LAP-TEC210423-0001';
+    SELECT bs.Id INTO batch_storage_id 
+    FROM Batch_Storage bs 
+    JOIN Product_Batch pb ON bs.Batch_Id = pb.Id 
+    WHERE pb.SKU = 'LAP-TEC210423-0001';
+    
+    -- Get customer IDs
+    SELECT Id INTO customer_abc_id FROM Customer WHERE Name = 'PT ABC';
+    SELECT Id INTO customer_xyz_id FROM Customer WHERE Name = 'CV XYZ';
+    
+    -- Get user ID
+    SELECT Id INTO admin_id FROM Appuser WHERE Username = 'admin';
+    
+    -- 1. Create a sales order that's already invoiced (cash payment)
+    sales_order_id := uuid_generate_v4();
+    
+    -- Insert sales order
+    INSERT INTO Sales_Order (
+        Id, Serial_Id, Customer_Id, Order_Date, 
+        Payment_Method, Status, Total_Amount, Created_By
+    ) VALUES (
+        sales_order_id, 'SO-20230421-0001', customer_abc_id, 
+        '2023-04-21', 'cash', 'invoice', 6600000, admin_id
     );
-
--- Insert Sales Order Details
-INSERT INTO
-    Sales_Order_Detail (
-        Id,
-        Sales_Order_Id,
-        Batch_Storage_Id,
-        Quantity,
-        Unit_Price
-    )
-VALUES
-    (
-        '11111111-2222-3333-4444-555555555555',
-        '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f',
-        'c1c1c1c1-c1c1-c1c1-c1c1-c1c1c1c1c1c1',
-        1,
-        300.00
-    ),
-    (
-        '66666666-7777-8888-9999-aaaaaaaaaaaa',
-        '10101010-1010-1010-1010-101010101010',
-        'c2c2c2c2-c2c2-c2c2-c2c2-c2c2c2c2c2c2',
-        2,
-        400.00
+    
+    -- Insert sales order details
+    INSERT INTO Sales_Order_Detail (
+        Id, Sales_Order_Id, Product_Id, Batch_Storage_Id, Quantity, Unit_Price
+    ) VALUES
+        (uuid_generate_v4(), sales_order_id, laptop_id, batch_storage_id, 2, 3300000);
+        
+    -- Create a sales invoice
+    sales_invoice_id := uuid_generate_v4();
+    INSERT INTO Sales_Invoice (
+        Id, Serial_Id, Sales_Order_Id, Invoice_Date, Total_Amount, Created_By
+    ) VALUES (
+        sales_invoice_id, 'SI-20230421-0001', sales_order_id, '2023-04-21', 6600000, admin_id
     );
-
--- Insert a Sales Invoice
-INSERT INTO
-    Sales_Invoice (
-        Id,
-        Sales_Order_Id,
-        Serial_Id,
-        Invoice_Date,
-        Total_Amount,
-        Created_By
-    )
-VALUES
-    (
-        '19191919-1919-1919-1919-191919191919',
-        '0f0f0f0f-0f0f-0f0f-0f0f-0f0f0f0f0f0f',
-        'SI-00001',
-        CURRENT_TIMESTAMP,
-        1500.00,
-        '14771edf-0432-46b2-b768-5baa2db69d26'
+    
+    -- Update batch storage quantity (subtract 2)
+    UPDATE Batch_Storage 
+    SET Quantity = Quantity - 2
+    WHERE Id = batch_storage_id;
+    
+    UPDATE Product_Batch
+    SET Current_Quantity = Current_Quantity - 2
+    WHERE Id = (SELECT Batch_Id FROM Batch_Storage WHERE Id = batch_storage_id);
+    
+    -- 2. Create a sales order with "order" status (paylater payment)
+    sales_order_id := uuid_generate_v4();
+    
+    -- Insert sales order with payment due date
+    INSERT INTO Sales_Order (
+        Id, Serial_Id, Customer_Id, Order_Date, 
+        Payment_Method, Payment_Due_Date, Status, Total_Amount, Created_By
+    ) VALUES (
+        sales_order_id, 'SO-20230421-0002', customer_xyz_id, 
+        '2023-04-21', 'paylater', '2023-05-21', 'order', 3300000, admin_id
     );
+    
+    -- Insert sales order details
+    INSERT INTO Sales_Order_Detail (
+        Id, Sales_Order_Id, Product_Id, Batch_Storage_Id, Quantity, Unit_Price
+    ) VALUES
+        (uuid_generate_v4(), sales_order_id, laptop_id, batch_storage_id, 1, 3300000);
+        
+    -- Update batch storage quantity (subtract 1)
+    UPDATE Batch_Storage 
+    SET Quantity = Quantity - 1
+    WHERE Id = batch_storage_id;
+    
+    UPDATE Product_Batch
+    SET Current_Quantity = Current_Quantity - 1
+    WHERE Id = (SELECT Batch_Id FROM Batch_Storage WHERE Id = batch_storage_id);
+END $$;

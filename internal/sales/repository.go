@@ -17,7 +17,8 @@ type SalesRepository interface {
 	// Sales Order operations
 	GetSalesOrders(req GetSalesOrdersRequest) ([]GetSalesOrdersResponse, int, error)
 	GetSalesOrderByID(id string) (*SalesOrder, error)
-	GetSalesOrderDetails(salesOrderID string) ([]GetSalesOrderDetail, error)
+	GetSalesOrderItems(salesOrderID string) ([]SalesOrderItem, error)
+	GetSalesOrderWithDetails(salesOrderID string) (*GetSalesOrderDetailResponse, error)
 	CreateSalesOrder(req CreateSalesOrderRequest, userID string) (*CreateSalesOrderResponse, error)
 	UpdateSalesOrder(req UpdateSalesOrderRequest) (*UpdateSalesOrderResponse, error)
 	CancelSalesOrder(req CancelSalesOrderRequest, userID string) error
@@ -227,7 +228,9 @@ func (r *SalesRepositoryImpl) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSa
 	baseQuery := `
         SELECT so.id, so.serial_id, so.customer_id, c.name AS customer_name, 
                so.order_date, so.status, so.payment_method, so.payment_due_date, 
-               so.total_amount, so.created_at, so.updated_at, so.cancelled_at
+               so.total_amount, so.created_at, so.updated_at, so.cancelled_at,
+               (SELECT si.id FROM sales_invoice si WHERE si.sales_order_id = so.id AND si.cancelled_at IS NULL LIMIT 1) AS sales_invoice_id,
+               (SELECT dn.id FROM delivery_note dn WHERE dn.sales_order_id = so.id AND dn.cancelled_at IS NULL LIMIT 1) AS delivery_note_id
         FROM sales_order so
         JOIN customer c ON so.customer_id = c.id
         WHERE 1=1`
@@ -322,38 +325,25 @@ func (r *SalesRepositoryImpl) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSa
 	var orders []GetSalesOrdersResponse
 	for rows.Next() {
 		var order GetSalesOrdersResponse
-		var orderDate time.Time
-		var updatedAt time.Time
-		var paymentDueDate, cancelledAt sql.NullTime
 
 		errScan := rows.Scan(
 			&order.ID,
 			&order.SerialID,
 			&order.CustomerID,
 			&order.CustomerName,
-			&orderDate,
+			&order.OrderDate,
 			&order.Status,
 			&order.PaymentMethod,
-			&paymentDueDate,
+			&order.PaymentDueDate,
 			&order.TotalAmount,
 			&order.CreatedAt,
-			&updatedAt,
-			&cancelledAt,
+			&order.UpdatedAt,
+			&order.CancelledAt,
+			&order.SalesInvoiceID,
+			&order.DeliveryNoteID,
 		)
 		if errScan != nil {
 			return nil, 0, fmt.Errorf("error scanning sales order row: %w", errScan)
-		}
-
-		// Format dates for response
-		order.OrderDate = orderDate.Format(time.RFC3339)
-		order.UpdatedAt = updatedAt.Format(time.RFC3339)
-
-		if paymentDueDate.Valid {
-			order.PaymentDueDate = paymentDueDate.Time.Format(time.RFC3339)
-		}
-
-		if cancelledAt.Valid {
-			order.CancelledAt = cancelledAt.Time.Format(time.RFC3339)
 		}
 
 		orders = append(orders, order)
@@ -364,6 +354,75 @@ func (r *SalesRepositoryImpl) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSa
 	}
 
 	return orders, totalItems, nil
+}
+
+// GetSalesOrderWithDetails gets both order header and details for a specific order
+func (r *SalesRepositoryImpl) GetSalesOrderWithDetails(salesOrderID string) (*GetSalesOrderDetailResponse, error) {
+	var response GetSalesOrderDetailResponse
+
+	// Get order header information with optimized query using a single join for related documents
+	err := r.db.QueryRow(`
+        SELECT 
+            so.id, so.serial_id, so.customer_id, c.name, c.telephone, c.address,
+            so.order_date, so.status, so.payment_method, so.payment_due_date, 
+            so.total_amount, so.created_by, so.created_at, so.updated_at, so.cancelled_at,
+            si.id, si.serial_id as sales_invoice_serial_id,
+            dn.id, dn.serial_id as delivery_note_serial_id
+        FROM sales_order so
+        JOIN customer c ON so.customer_id = c.id
+        LEFT JOIN LATERAL (
+            SELECT id, serial_id 
+            FROM sales_invoice 
+            WHERE sales_order_id = $1 AND cancelled_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+        ) si ON true
+        LEFT JOIN LATERAL (
+            SELECT id, serial_id
+            FROM delivery_note
+            WHERE sales_order_id = $1 AND cancelled_at IS NULL
+            ORDER BY created_at DESC
+            LIMIT 1
+        ) dn ON true
+        WHERE so.id = $1
+    `, salesOrderID).Scan(
+		&response.ID,
+		&response.SerialID,
+		&response.CustomerID,
+		&response.CustomerName,
+		&response.CustomerPhone,
+		&response.CustomerAddress,
+		&response.OrderDate,
+		&response.Status,
+		&response.PaymentMethod,
+		&response.PaymentDueDate,
+		&response.TotalAmount,
+		&response.CreatedBy,
+		&response.CreatedAt,
+		&response.UpdatedAt,
+		&response.CancelledAt,
+		&response.SalesInvoiceID,
+		&response.SalesInvoiceSerialID,
+		&response.DeliveryNoteID,
+		&response.DeliveryNoteSerialID,
+	)
+
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, fmt.Errorf("sales order tidak ditemukan: %s", salesOrderID)
+		}
+		return nil, fmt.Errorf("error fetching sales order: %w", err)
+	}
+
+	// Get order items/details
+	items, err := r.GetSalesOrderItems(salesOrderID)
+	if err != nil {
+		return nil, fmt.Errorf("error fetching order items: %w", err)
+	}
+	fmt.Println(response.SalesInvoiceSerialID, response.DeliveryNoteSerialID)
+
+	response.Items = items
+	return &response, nil
 }
 
 // GetSalesOrderByID retrieves a single sales order by its ID
@@ -403,14 +462,15 @@ func (r *SalesRepositoryImpl) GetSalesOrderByID(id string) (*SalesOrder, error) 
 	return &order, nil
 }
 
-// GetSalesOrderDetails retrieves the details (items) for a specific sales order
-func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSalesOrderDetail, error) {
+// GetSalesOrderItems retrieves the details (items) for a specific sales order
+func (r *SalesRepositoryImpl) GetSalesOrderItems(salesOrderID string) ([]SalesOrderItem, error) {
 	query := `
         SELECT sod.id, sod.sales_order_id, 
                p.id AS product_id, p.name AS product_name, 
+               u.name AS product_unit,
                pb.id AS batch_id, pb.sku AS batch_sku, 
                sod.batch_storage_id, 
-               bs.storage_id, s.name AS storage_name,
+               s.id AS storage_id, s.name AS storage_name,
                sod.quantity, sod.unit_price,
                (sod.quantity * sod.unit_price) AS total_price,
                bs.quantity + sod.quantity AS max_quantity
@@ -418,6 +478,7 @@ func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSa
         JOIN batch_storage bs ON sod.batch_storage_id = bs.id
         JOIN product_batch pb ON bs.batch_id = pb.id
         JOIN product p ON pb.product_id = p.id
+        JOIN unit u ON p.unit_id = u.id
         JOIN storage s ON bs.storage_id = s.id
         WHERE sod.sales_order_id = $1`
 
@@ -427,48 +488,38 @@ func (r *SalesRepositoryImpl) GetSalesOrderDetails(salesOrderID string) ([]GetSa
 	}
 	defer rows.Close()
 
-	var details []GetSalesOrderDetail
+	var items []SalesOrderItem
 	for rows.Next() {
-		var detail GetSalesOrderDetail
-		var storageID, storageName string
-		var maxQuantity float64
+		var item SalesOrderItem
+
 		errScan := rows.Scan(
-			&detail.ID,
-			&detail.SalesOrderID,
-			&detail.ProductID,
-			&detail.ProductName,
-			&detail.BatchID,
-			&detail.BatchSKU,
-			&detail.BatchStorageID,
-			&storageID,
-			&storageName,
-			&detail.Quantity,
-			&detail.UnitPrice,
-			&detail.TotalPrice,
-			&maxQuantity,
+			&item.ID,
+			&item.SalesOrderID,
+			&item.ProductID,
+			&item.ProductName,
+			&item.ProductUnit,
+			&item.BatchID,
+			&item.BatchSKU,
+			&item.BatchStorageID,
+			&item.StorageID,
+			&item.StorageName,
+			&item.Quantity,
+			&item.UnitPrice,
+			&item.TotalPrice,
+			&item.MaxQuantity,
 		)
 		if errScan != nil {
 			return nil, fmt.Errorf("error scanning sales order detail row: %w", errScan)
 		}
 
-		// Create a complete storage allocation with all fields populated
-		detail.StorageAllocations = []SalesOrderStorageResponse{
-			{
-				ID:          detail.BatchStorageID,
-				StorageID:   storageID,
-				StorageName: storageName,
-				Quantity:    detail.Quantity,
-				MaxQuantity: maxQuantity,
-			},
-		}
-
-		details = append(details, detail)
+		items = append(items, item)
 	}
 
 	if err = rows.Err(); err != nil {
 		return nil, fmt.Errorf("error iterating sales order detail rows: %w", err)
 	}
-	return details, nil
+
+	return items, nil
 }
 
 // CreateSalesOrder creates a new sales order with its details
@@ -2204,7 +2255,7 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
 
 	err := r.db.QueryRow(`
         SELECT 
-            i.sales_order_id, 
+            s.id, 
             i.serial_id, 
             s.serial_id,
             c.name as customer_name,
@@ -2234,16 +2285,6 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
 		return nil, errors.New("faktur ini sudah memiliki surat jalan aktif")
 	}
 
-	// Process delivery date
-	deliveryDate := time.Now()
-	if req.DeliveryDate != "" {
-		parsedDate, err := time.Parse(time.RFC3339, req.DeliveryDate)
-		if err != nil {
-			return nil, fmt.Errorf("format tanggal pengiriman tidak valid: %w", err)
-		}
-		deliveryDate = parsedDate
-	}
-
 	// Create transaction to handle serial number generation and delivery note creation
 	var response CreateDeliveryNoteResponse
 	err = utils.WithTransaction(r.db, func(tx *sql.Tx) error {
@@ -2261,7 +2302,7 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
                 delivery_date, driver_name, recipient_name, created_by
             ) VALUES ($1, $2, $3, $4, $5, $6, $7)
             RETURNING id
-        `, serialID, salesOrderID, req.SalesInvoiceID, deliveryDate,
+        `, serialID, salesOrderID, req.SalesInvoiceID, req.DeliveryDate,
 			req.DriverName, req.RecipientName, userID).Scan(&deliveryNoteID)
 
 		if err != nil {
@@ -2285,7 +2326,7 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
 			SalesOrderSerial:   salesOrderSerialID,
 			SalesInvoiceID:     req.SalesInvoiceID,
 			SalesInvoiceSerial: invoiceSerialID,
-			DeliveryDate:       deliveryDate.Format(time.RFC3339),
+			DeliveryDate:       req.DeliveryDate,
 			DriverName:         req.DriverName,
 			RecipientName:      req.RecipientName,
 			CreatedBy:          userID,

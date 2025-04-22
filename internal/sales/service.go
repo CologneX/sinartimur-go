@@ -30,32 +30,37 @@ func (s *SalesService) GetAllBatches(req GetAllBatchesRequest) ([]GetAllBatchesR
 // GetSalesOrderDetail retrieves detailed information about a sales purchase-order including its items
 func (s *SalesService) GetSalesOrderDetail(orderID string) (*GetSalesOrderDetailResponse, error) {
 	// Get the sales purchase-order header information
-	orderHeader, err := s.repo.GetSalesOrderByID(orderID)
+	orderHeader, err := s.repo.GetSalesOrderWithDetails(orderID)
 	if err != nil {
-		return nil, fmt.Errorf("sales purchase-order tidak ditemukan: %w", err)
+		return nil, err
 	}
 
 	// Get the sales purchase-order details/items
-	orderItems, err := s.repo.GetSalesOrderDetails(orderID)
+	orderItems, err := s.repo.GetSalesOrderItems(orderID)
 	if err != nil {
-		return nil, fmt.Errorf("gagal mengambil detail pesanan: %w", err)
+		return nil, err
 	}
 
 	// Combine the results
 	result := &GetSalesOrderDetailResponse{
-		ID:             orderHeader.ID,
-		SerialID:       orderHeader.SerialID,
-		CustomerID:     orderHeader.CustomerID,
-		CustomerName:   orderHeader.CustomerName,
-		OrderDate:      orderHeader.OrderDate,
-		Status:         orderHeader.Status,
-		TotalAmount:    orderHeader.TotalAmount,
-		PaymentMethod:  orderHeader.PaymentMethod,
-		PaymentDueDate: orderHeader.PaymentDueDate,
-		CreatedBy:      orderHeader.CreatedBy,
-		CreatedAt:      orderHeader.CreatedAt,
-		UpdatedAt:      orderHeader.UpdatedAt,
-		Items:          orderItems,
+		ID:              orderHeader.ID,
+		SalesInvoiceID:  orderHeader.SalesInvoiceID,
+		DeliveryNoteID:  orderHeader.DeliveryNoteID,
+		SerialID:        orderHeader.SerialID,
+		CustomerID:      orderHeader.CustomerID,
+		CustomerName:    orderHeader.CustomerName,
+		CustomerPhone:   orderHeader.CustomerPhone,
+		CustomerAddress: orderHeader.CustomerAddress,
+		OrderDate:       orderHeader.OrderDate,
+		Status:          orderHeader.Status,
+		Description:     orderHeader.Description,
+		TotalAmount:     orderHeader.TotalAmount,
+		PaymentMethod:   orderHeader.PaymentMethod,
+		PaymentDueDate:  orderHeader.PaymentDueDate,
+		CreatedBy:       orderHeader.CreatedBy,
+		CreatedAt:       orderHeader.CreatedAt,
+		UpdatedAt:       orderHeader.UpdatedAt,
+		Items:           orderItems,
 	}
 
 	return result, nil
@@ -174,7 +179,7 @@ func (s *SalesService) GetSalesInvoices(req GetSalesInvoicesRequest) ([]GetSales
 	// Call repository to fetch invoices
 	invoices, totalItems, err := s.repo.GetSalesInvoices(req)
 	if err != nil {
-		return nil, 0, fmt.Errorf("gagal mengambil daftar faktur: %w", err)
+		return nil, 0, err
 	}
 
 	return invoices, totalItems, nil
@@ -201,7 +206,7 @@ func (s *SalesService) CancelSalesInvoice(req CancelSalesInvoiceRequest, userID 
 	// Call repository to cancel invoice
 	err := s.repo.CancelSalesInvoice(req, userID)
 	if err != nil {
-		return fmt.Errorf("gagal membatalkan faktur: %w", err)
+		return err
 	}
 
 	return nil
@@ -246,7 +251,7 @@ func (s *SalesService) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, userID 
 	// Call repository to process returns
 	response, err := s.repo.ReturnInvoiceItems(req, userID)
 	if err != nil {
-		return nil, fmt.Errorf("gagal memproses pengembalian: %w", err)
+		return nil, err
 	}
 
 	return response, nil
@@ -262,7 +267,7 @@ func (s *SalesService) CancelInvoiceReturn(req CancelInvoiceReturnRequest, userI
 	// Call repository to cancel return
 	err := s.repo.CancelInvoiceReturn(req, userID)
 	if err != nil {
-		return fmt.Errorf("gagal membatalkan pengembalian: %w", err)
+		return err
 	}
 
 	return nil
@@ -295,7 +300,7 @@ func (s *SalesService) CreateDeliveryNote(req CreateDeliveryNoteRequest, userID 
 	// Call repository to create delivery note
 	response, err := s.repo.CreateDeliveryNote(req, userID)
 	if err != nil {
-		return nil, fmt.Errorf("gagal membuat surat jalan: %w", err)
+		return nil, err
 	}
 
 	return response, nil
@@ -311,7 +316,7 @@ func (s *SalesService) CancelDeliveryNote(req CancelDeliveryNoteRequest, userID 
 	// Call repository to cancel delivery note
 	err := s.repo.CancelDeliveryNote(req, userID)
 	if err != nil {
-		return fmt.Errorf("gagal membatalkan surat jalan: %w", err)
+		return err
 	}
 
 	return nil

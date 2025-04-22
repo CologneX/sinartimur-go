@@ -42,6 +42,12 @@ type ReceivedItemRequest struct {
 	UnitPrice float64 `json:"unit_price" validate:"required,gt=0"`
 }
 
+// CompletePurchaseOrderRequest holds the data needed to complete a purchase order
+type CompletePurchaseOrderRequest struct {
+	PurchaseOrderID string `json:"purchase_order_id" validate:"required,uuid"`
+	StorageID       string `json:"storage_id" validate:"required,uuid"`
+}
+
 type CreatePurchaseOrderReturnRequest struct {
 	PurchaseOrderID string               `json:"purchase_order_id" validate:"required,uuid"`
 	ProductDetailID string               `json:"product_detail_id" validate:"required,uuid"`
@@ -91,13 +97,17 @@ type PurchaseOrderDetailResponse struct {
 }
 
 type PurchaseOrderItem struct {
-	ID          string  `json:"id"`
-	ProductID   string  `json:"product_id"`
-	ProductName string  `json:"product_name"`
-	Quantity    float64 `json:"quantity"`
-	Price       float64 `json:"price"`
-	CreatedAt   string  `json:"created_at"`
-	UpdatedAt   string  `json:"updated_at"`
+	ID               string   `json:"id"`
+	ProductID        string   `json:"product_id"`
+	ProductName      string   `json:"product_name"`
+	Quantity         float64  `json:"quantity"`
+	Price            float64  `json:"price"`
+	ReturnedQuantity *float64 `json:"returned_quantity,omitempty"`
+	ReceivedQuantity *float64 `json:"received_quantity,omitempty"`
+	IsReturned       bool     `json:"is_returned"`
+	ReturnReason     *string  `json:"return_reason,omitempty"`
+	CreatedAt        string   `json:"created_at"`
+	UpdatedAt        string   `json:"updated_at"`
 }
 
 type GetPurchaseOrderResponse struct {
@@ -126,4 +136,16 @@ type GetPurchaseOrderReturnResponse struct {
 	ReturnedBy      string  `json:"returned_by"`
 	ReturnedByName  string  `json:"returned_by_name"`
 	ReturnedAt      string  `json:"returned_at"`
+}
+
+type CreatePurchaseOrderResponse struct {
+	GetPurchaseOrderResponse
+}
+
+type UpdatePurchaseOrderResponse struct {
+	GetPurchaseOrderResponse
+}
+
+type CancelPurchaseOrderResponse struct {
+	GetPurchaseOrderResponse
 }

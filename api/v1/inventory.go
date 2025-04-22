@@ -2,11 +2,12 @@ package v1
 
 import (
 	"fmt"
-	"github.com/gorilla/mux"
 	"net/http"
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
+
+	"github.com/gorilla/mux"
 )
 
 // GetAllStoragesHandler returns all storage locations with pagination
@@ -195,6 +196,7 @@ func GetAllInventoryLogHandler(storageService *inventory.StorageService) http.Ha
 		response := struct {
 			Page          int                                 `json:"current_page"`
 			TotalItems    int                                 `json:"total_items"`
+			TotalPages    int                                 `json:"total_pages"`
 			PageSize      int                                 `json:"page_size"`
 			LastRefreshed *string                             `json:"last_refreshed"`
 			Data          []inventory.GetInventoryLogResponse `json:"items"`
@@ -204,6 +206,7 @@ func GetAllInventoryLogHandler(storageService *inventory.StorageService) http.Ha
 			Page:          page,
 			TotalItems:    totalItems,
 			PageSize:      pageSize,
+			TotalPages:    (totalItems + pageSize - 1) / pageSize,
 		}
 
 		utils.WriteJSON(w, http.StatusOK, response)

@@ -63,62 +63,64 @@ type SalesOrderPaginatedResponse struct {
 // GetSalesOrdersResponse defines the response for fetching sales orders
 type GetSalesOrdersResponse struct {
 	ID             string  `json:"id"`
+	SalesInvoiceID *string `json:"sales_invoice_id,omitempty"`
+	DeliveryNoteID *string `json:"delivery_note_id,omitempty"`
 	SerialID       string  `json:"serial_id"`
 	CustomerID     string  `json:"customer_id"`
 	CustomerName   string  `json:"customer_name"`
 	OrderDate      string  `json:"order_date"`
 	Status         string  `json:"status"`
 	PaymentMethod  string  `json:"payment_method"`
-	PaymentDueDate string  `json:"payment_due_date,omitempty"`
+	PaymentDueDate *string `json:"payment_due_date,omitempty"`
 	TotalAmount    float64 `json:"total_amount"`
 	CreatedAt      string  `json:"created_at"`
 	UpdatedAt      string  `json:"updated_at"`
-	CancelledAt    string  `json:"cancelled_at,omitempty"`
+	CancelledAt    *string `json:"cancelled_at,omitempty"`
 }
 
-// GetSalesOrderDetail defines the response for fetching a sales purchase-order's details
-type GetSalesOrderDetail struct {
-	ID                 string                      `json:"id"`
-	SalesOrderID       string                      `json:"sales_order_id"`
-	ProductID          string                      `json:"product_id"`
-	ProductName        string                      `json:"product_name"`
-	BatchID            string                      `json:"batch_id"`
-	BatchSKU           string                      `json:"batch_sku"`
-	BatchStorageID     string                      `json:"batch_storage_id"`
-	Quantity           float64                     `json:"quantity"`
-	UnitPrice          float64                     `json:"unit_price"`
-	TotalPrice         float64                     `json:"total_price"`
-	StorageAllocations []SalesOrderStorageResponse `json:"storage_allocations"`
+// SalesOrderItem defines the response for fetching a sales purchase-order's details
+type SalesOrderItem struct {
+	ID             string  `json:"id"`
+	SalesOrderID   string  `json:"sales_order_id"`
+	ProductID      string  `json:"product_id"`
+	ProductName    string  `json:"product_name"`
+	ProductUnit    string  `json:"product_unit"`
+	BatchID        string  `json:"batch_id"`
+	BatchSKU       string  `json:"batch_sku"`
+	BatchStorageID string  `json:"batch_storage_id"`
+	Quantity       float64 `json:"quantity"`
+	UnitPrice      float64 `json:"unit_price"`
+	TotalPrice     float64 `json:"total_price"`
+	MaxQuantity    float64 `json:"max_quantity"`
+	StorageID      string  `json:"storage_id"`
+	StorageName    string  `json:"storage_name"`
 }
 
 type GetSalesOrderDetailResponse struct {
 	// Order header information
-	ID             string  `json:"id"`
-	SerialID       string  `json:"serial_id"`
-	CustomerID     string  `json:"customer_id"`
-	CustomerName   string  `json:"customer_name"`
-	OrderDate      string  `json:"order_date"`
-	Status         string  `json:"status"`
-	TotalAmount    float64 `json:"total_amount"`
-	PaymentMethod  string  `json:"payment_method"`
-	PaymentDueDate *string `json:"payment_due_date,omitempty"`
-	Description    string  `json:"description,omitempty"`
-	CreatedBy      string  `json:"created_by"`
-	CreatedAt      string  `json:"created_at"`
-	CancelledAt    *string `json:"cancelled_at,omitempty"`
-	UpdatedAt      string  `json:"updated_at,omitempty"`
+	ID                   string  `json:"id"`
+	SalesInvoiceID       *string `json:"sales_invoice_id,omitempty"`
+	SalesInvoiceSerialID *string `json:"sales_invoice_serial_id,omitempty"`
+	DeliveryNoteID       *string `json:"delivery_note_id,omitempty"`
+	DeliveryNoteSerialID *string `json:"delivery_note_serial_id,omitempty"`
+	SerialID             string  `json:"serial_id"`
+	CustomerID           string  `json:"customer_id"`
+	CustomerName         string  `json:"customer_name"`
+	CustomerPhone        *string `json:"customer_phone,omitempty"`
+	CustomerAddress      *string `json:"customer_address,omitempty"`
+	OrderDate            string  `json:"order_date"`
+	Status               string  `json:"status"`
+	TotalAmount          float64 `json:"total_amount"`
+	PaymentMethod        string  `json:"payment_method"`
+	PaymentDueDate       *string `json:"payment_due_date,omitempty"`
+	Description          *string `json:"description,omitempty"`
+	CreatedBy            string  `json:"created_by"`
+	CreatedAt            string  `json:"created_at"`
+	CancelledAt          *string `json:"cancelled_at,omitempty"`
+	UpdatedAt            string  `json:"updated_at,omitempty"`
 
 	// Order items/details
-	Items []GetSalesOrderDetail `json:"items"`
-}
-
-// SalesOrderStorageResponse defines the storage allocation response
-type SalesOrderStorageResponse struct {
-	ID          string  `json:"id"`
-	StorageID   string  `json:"storage_id"`
-	StorageName string  `json:"storage_name"`
-	MaxQuantity float64 `json:"max_quantity"`
-	Quantity    float64 `json:"quantity"`
+	Items []SalesOrderItem `json:"items"`
 }
 
 // CreateSalesOrderRequest defines the request for creating a sales purchase-order
@@ -162,13 +164,13 @@ type UpdateSalesOrderRequest struct {
 
 // UpdateSalesOrderResponse defines the response for updating a sales purchase-order
 type UpdateSalesOrderResponse struct {
-	ID             string `json:"id"`
-	SerialID       string `json:"serial_id"`
-	CustomerID     string `json:"customer_id"`
-	Status         string `json:"status"`
-	PaymentMethod  string `json:"payment_method"`
-	PaymentDueDate string `json:"payment_due_date,omitempty"`
-	UpdatedAt      string `json:"updated_at"`
+	ID             string  `json:"id"`
+	SerialID       string  `json:"serial_id"`
+	CustomerID     string  `json:"customer_id"`
+	Status         string  `json:"status"`
+	PaymentMethod  string  `json:"payment_method"`
+	PaymentDueDate *string `json:"payment_due_date,omitempty"`
+	UpdatedAt      string  `json:"updated_at"`
 }
 
 // AddSalesOrderItemRequest defines the request for adding an item to an existing sales purchase-order
@@ -261,18 +263,17 @@ type SalesInvoicePaginatedResponse struct {
 
 // SalesInvoiceItemResponse defines the detail items in a sales invoice
 type SalesInvoiceItemResponse struct {
-	ID             string                      `json:"id"`
-	SalesOrderID   string                      `json:"sales_order_id"`
-	ProductID      string                      `json:"product_id"`
-	ProductName    string                      `json:"product_name"`
-	BatchID        string                      `json:"batch_id"`
-	BatchSKU       string                      `json:"batch_sku"`
-	BatchStorageID string                      `json:"batch_storage_id"`
-	Quantity       float64                     `json:"quantity"`
-	ReturnedQty    float64                     `json:"returned_qty"`
-	UnitPrice      float64                     `json:"unit_price"`
-	TotalPrice     float64                     `json:"total_price"`
-	StorageDetails []SalesOrderStorageResponse `json:"storage_details"`
+	ID             string  `json:"id"`
+	SalesOrderID   string  `json:"sales_order_id"`
+	ProductID      string  `json:"product_id"`
+	ProductName    string  `json:"product_name"`
+	BatchID        string  `json:"batch_id"`
+	BatchSKU       string  `json:"batch_sku"`
+	BatchStorageID string  `json:"batch_storage_id"`
+	Quantity       float64 `json:"quantity"`
+	ReturnedQty    float64 `json:"returned_qty"`
+	UnitPrice      float64 `json:"unit_price"`
+	TotalPrice     float64 `json:"total_price"`
 }
 
 // CreateSalesInvoiceRequest defines the request for creating a sales invoice

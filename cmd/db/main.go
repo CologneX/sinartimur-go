@@ -50,5 +50,5 @@ func main() {
 		log.Fatalf("Gagal membuat user: %v", err)
 	}
 
-	fmt.Println("USer berhasil dibuat")
+	fmt.Println("User berhasil dibuat")
 }

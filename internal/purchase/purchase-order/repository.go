@@ -3,6 +3,7 @@ package purchase_order
 import (
 	"database/sql"
 	"fmt"
+	"sinartimur-go/internal/product"
 	"sinartimur-go/utils"
 	"strings"
 	"time"
@@ -15,10 +16,10 @@ type Repository interface {
 	GetByID(id string) (*PurchaseOrderDetailResponse, error)
 
 	// Core purchase order operations with transaction support
-	Create(req CreatePurchaseOrderRequest, userID string, tx *sql.Tx) error
-	Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) error
-	Delete(id string, tx *sql.Tx) error
-	CompletePurchaseOrder(id string, items []ReceivedItemRequest, userID string, tx *sql.Tx) error
+	Create(req CreatePurchaseOrderRequest, userID string, tx *sql.Tx) (string, error)
+	Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) (string, error)
+	// CompletePurchaseOrder(id string, items []ReceivedItemRequest, userID string, tx *sql.Tx) error
+	CompleteFullPurchaseOrder(id string, storageID string, userID string, tx *sql.Tx) error
 
 	// Status change operations
 	UpdateStatus(id, status, userID string, tx *sql.Tx) error
@@ -40,12 +41,15 @@ type Repository interface {
 	LogFinancialTransaction(userID string, amount float64, transactionType string, orderID string, description string, tx *sql.Tx) error
 
 	// Batch management
-	CreateProductBatch(productID, orderID, sku string, quantity, unitPrice float64, tx *sql.Tx) (string, error)
+	CreateProductBatch(productID, orderID, sku string, quantity, unitPrice float64, tx *sql.Tx) (*string, error)
 	AssignBatchToStorage(batchID, storageID string, quantity float64, tx *sql.Tx) error
 
 	// Utility functions
-	GenerateBatchSKU(productName, supplierName string, date time.Time) (string, error)
+	GenerateBatchSKU(productName, serialID string, supplierName string, date time.Time) (string, error)
 	CheckAllItemsReturned(orderID string, tx *sql.Tx) (bool, error)
+
+	// Get Products
+	GetProducts(req product.GetProductRequest) ([]product.GetProductResponse, int, error)
 }
 
 type RepositoryImpl struct {
@@ -60,7 +64,7 @@ func NewPurhaseOrderRepository(db *sql.DB) Repository {
 }
 
 // Create inserts a new purchase order with transaction support
-func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, tx *sql.Tx) error {
+func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, tx *sql.Tx) (string, error) {
 	var executor interface {
 		QueryRow(string, ...interface{}) *sql.Row
 		Exec(string, ...interface{}) (sql.Result, error)
@@ -75,19 +79,19 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 	// Parse order date
 	orderDate, err := time.Parse(time.RFC3339, req.OrderDate)
 	if err != nil {
-		return fmt.Errorf("invalid date format: %w", err)
+		return "", fmt.Errorf("invalid date format: %w", err)
 	}
 
 	// Validate payment due date for credit orders
 	var paymentDueDate sql.NullTime
 	if req.PaymentMethod == "credit" {
 		if req.PaymentDueDate == "" {
-			return fmt.Errorf("payment due date is required for credit orders")
+			return "", fmt.Errorf("payment due date is required for credit orders")
 		}
 
 		dueDate, err := time.Parse(time.RFC3339, req.PaymentDueDate)
 		if err != nil {
-			return fmt.Errorf("invalid payment due date format: %w", err)
+			return "", fmt.Errorf("invalid payment due date format: %w", err)
 		}
 
 		paymentDueDate = sql.NullTime{
@@ -101,7 +105,7 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 	if tx != nil {
 		serialID, err = utils.GenerateNextSerialID(tx, "PO")
 		if err != nil {
-			return fmt.Errorf("failed to generate serial ID: %w", err)
+			return "", fmt.Errorf("failed to generate serial ID: %w", err)
 		}
 	} else {
 		// If no transaction provided, create one temporarily just for serial ID generation
@@ -111,7 +115,7 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 			return genErr
 		})
 		if err != nil {
-			return fmt.Errorf("failed to generate serial ID: %w", err)
+			return "", fmt.Errorf("failed to generate serial ID: %w", err)
 		}
 	}
 
@@ -135,7 +139,7 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 		totalAmount, req.PaymentMethod, paymentDueDate, userID).Scan(&orderID)
 
 	if err != nil {
-		return fmt.Errorf("failed to create purchase order: %w", err)
+		return "", fmt.Errorf("failed to create purchase order: %w", err)
 	}
 
 	// Insert order items
@@ -149,11 +153,11 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
         `, orderID, item.ProductID, item.Quantity, item.Price)
 
 		if err != nil {
-			return fmt.Errorf("failed to add order item: %w", err)
+			return "", fmt.Errorf("failed to add order item: %w", err)
 		}
 	}
 
-	return nil
+	return orderID, nil
 }
 
 // GetByID retrieves a purchase order with its details
@@ -188,11 +192,33 @@ func (r *RepositoryImpl) GetByID(id string) (*PurchaseOrderDetailResponse, error
 		return nil, fmt.Errorf("failed to get purchase order: %w", err)
 	}
 
-	// Get order items
+	// Get order items with return and received information
 	rows, err := r.DB.Query(`
         SELECT 
             pod.Id, pod.Product_Id, p.Name AS ProductName,
             pod.Requested_Quantity, pod.Unit_Price,
+            COALESCE(
+                (SELECT SUM(por.Return_Quantity) 
+                 FROM Purchase_Order_Return por 
+                 WHERE por.Product_Detail_Id = pod.Id AND por.Status = 'returned'),
+                0
+            ) as ReturnedQuantity,
+            COALESCE(
+                (SELECT SUM(pb.Initial_Quantity)
+                 FROM Product_Batch pb
+                 WHERE pb.Purchase_Order_Id = pod.Purchase_Order_Id AND pb.Product_Id = pod.Product_Id),
+                0
+            ) as ReceivedQuantity,
+            CASE WHEN 
+                (SELECT COUNT(*) FROM Purchase_Order_Return por 
+                 WHERE por.Product_Detail_Id = pod.Id AND por.Status = 'returned') > 0 
+                THEN true ELSE false 
+            END as IsReturned,
+            (SELECT por.Reason 
+             FROM Purchase_Order_Return por 
+             WHERE por.Product_Detail_Id = pod.Id AND por.Status = 'returned'
+             ORDER BY por.Returned_At DESC
+             LIMIT 1) as ReturnReason,
             pod.Created_At, pod.Updated_At
         FROM Purchase_Order_Detail pod
         JOIN Product p ON pod.Product_Id = p.Id
@@ -206,14 +232,22 @@ func (r *RepositoryImpl) GetByID(id string) (*PurchaseOrderDetailResponse, error
 
 	for rows.Next() {
 		var item PurchaseOrderItem
+		var returnReason sql.NullString
+
 		err := rows.Scan(
 			&item.ID, &item.ProductID, &item.ProductName,
 			&item.Quantity, &item.Price,
+			&item.ReturnedQuantity, &item.ReceivedQuantity, &item.IsReturned, &returnReason,
 			&item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan order item: %w", err)
 		}
+
+		if returnReason.Valid {
+			item.ReturnReason = &returnReason.String
+		}
+
 		po.Items = append(po.Items, item)
 	}
 
@@ -221,108 +255,108 @@ func (r *RepositoryImpl) GetByID(id string) (*PurchaseOrderDetailResponse, error
 }
 
 // CompletePurchaseOrder implements the process of completing a purchase order
-func (r *RepositoryImpl) CompletePurchaseOrder(id string, items []ReceivedItemRequest, userID string, tx *sql.Tx) error {
-	var executor interface {
-		QueryRow(string, ...interface{}) *sql.Row
-		Exec(string, ...interface{}) (sql.Result, error)
-		Query(string, ...interface{}) (*sql.Rows, error)
-	}
+// func (r *RepositoryImpl) CompletePurchaseOrder(id string, items []ReceivedItemRequest, userID string, tx *sql.Tx) error {
+// 	var executor interface {
+// 		QueryRow(string, ...interface{}) *sql.Row
+// 		Exec(string, ...interface{}) (sql.Result, error)
+// 		Query(string, ...interface{}) (*sql.Rows, error)
+// 	}
 
-	if tx != nil {
-		executor = tx
-	} else {
-		executor = r.DB
-	}
+// 	if tx != nil {
+// 		executor = tx
+// 	} else {
+// 		executor = r.DB
+// 	}
 
-	// Get purchase order info (supplier, serial ID)
-	var serialID, supplierID, supplierName string
-	err := executor.QueryRow(`
-        SELECT po.Serial_Id, po.Supplier_Id, s.Name
-        FROM Purchase_Order po
-        JOIN Supplier s ON po.Supplier_Id = s.Id
-        WHERE po.Id = $1
-    `, id).Scan(&serialID, &supplierID, &supplierName)
+// 	// Get purchase order info (supplier, serial ID)
+// 	var serialID, supplierID, supplierName string
+// 	err := executor.QueryRow(`
+//         SELECT po.Serial_Id, po.Supplier_Id, s.Name
+//         FROM Purchase_Order po
+//         JOIN Supplier s ON po.Supplier_Id = s.Id
+//         WHERE po.Id = $1
+//     `, id).Scan(&serialID, &supplierID, &supplierName)
 
-	if err != nil {
-		return fmt.Errorf("failed to get purchase order info: %w", err)
-	}
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get purchase order info: %w", err)
+// 	}
 
-	// Update purchase order status
-	_, err = executor.Exec(`
-        UPDATE Purchase_Order
-        SET Status = 'completed', Checked_By = $1, Updated_At = NOW()
-        WHERE Id = $2
-    `, userID, id)
+// 	// Update purchase order status
+// 	_, err = executor.Exec(`
+//         UPDATE Purchase_Order
+//         SET Status = 'completed', Checked_By = $1, Updated_At = NOW()
+//         WHERE Id = $2
+//     `, userID, id)
 
-	if err != nil {
-		return fmt.Errorf("failed to update purchase order status: %w", err)
-	}
+// 	if err != nil {
+// 		return fmt.Errorf("failed to update purchase order status: %w", err)
+// 	}
 
-	// Process received items
-	now := time.Now()
+// 	// Process received items
+// 	now := time.Now()
 
-	for _, item := range items {
-		// Get product details
-		var productID, productName string
-		err := executor.QueryRow(`
-            SELECT p.Id, p.Name
-            FROM Product p
-            JOIN Purchase_Order_Detail pod ON pod.Product_Id = p.Id
-            WHERE pod.Id = $1
-        `, item.DetailID).Scan(&productID, &productName)
+// 	for _, item := range items {
+// 		// Get product details
+// 		var productID, productName string
+// 		err := executor.QueryRow(`
+//             SELECT p.Id, p.Name
+//             FROM Product p
+//             JOIN Purchase_Order_Detail pod ON pod.Product_Id = p.Id
+//             WHERE pod.Id = $1
+//         `, item.DetailID).Scan(&productID, &productName)
 
-		if err != nil {
-			return fmt.Errorf("failed to get product details: %w", err)
-		}
+// 		if err != nil {
+// 			return fmt.Errorf("failed to get product details: %w", err)
+// 		}
 
-		// Generate SKU
-		sku, err := r.GenerateBatchSKU(productName, supplierName, now)
-		if err != nil {
-			return fmt.Errorf("failed to generate SKU: %w", err)
-		}
+// 		// Generate SKU
+// 		sku, err := r.GenerateBatchSKU(productName, supplierName, now)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to generate SKU: %w", err)
+// 		}
 
-		// Create product batch
-		batchID, err := r.CreateProductBatch(productID, id, sku, item.Quantity, item.UnitPrice, tx)
-		if err != nil {
-			return fmt.Errorf("failed to create product batch: %w", err)
-		}
+// 		// Create product batch
+// 		batchID, err := r.CreateProductBatch(productID, id, sku, item.Quantity, item.UnitPrice, tx)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to create product batch: %w", err)
+// 		}
 
-		// Associate batch with storage
-		err = r.AssignBatchToStorage(batchID, item.StorageID, item.Quantity, tx)
-		if err != nil {
-			return fmt.Errorf("failed to assign batch to storage: %w", err)
-		}
+// 		// Associate batch with storage
+// 		err = r.AssignBatchToStorage(batchID, item.StorageID, item.Quantity, tx)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to assign batch to storage: %w", err)
+// 		}
 
-		// Log inventory change
-		description := fmt.Sprintf("Pembelian Barang %s", serialID)
-		err = r.LogInventoryChange(batchID, item.StorageID, userID, id, "add", item.Quantity, description, tx)
-		if err != nil {
-			return fmt.Errorf("failed to log inventory change: %w", err)
-		}
-	}
+// 		// Log inventory change
+// 		description := fmt.Sprintf("Pembelian Barang %s", serialID)
+// 		err = r.LogInventoryChange(batchID, item.StorageID, userID, id, "add", item.Quantity, description, tx)
+// 		if err != nil {
+// 			return fmt.Errorf("failed to log inventory change: %w", err)
+// 		}
+// 	}
 
-	// Get total amount for financial log
-	var totalAmount float64
-	err = executor.QueryRow(`
-        SELECT Total_Amount FROM Purchase_Order WHERE Id = $1
-    `, id).Scan(&totalAmount)
+// 	// Get total amount for financial log
+// 	var totalAmount float64
+// 	err = executor.QueryRow(`
+//         SELECT Total_Amount FROM Purchase_Order WHERE Id = $1
+//     `, id).Scan(&totalAmount)
 
-	if err != nil {
-		return fmt.Errorf("failed to get total amount: %w", err)
-	}
+// 	if err != nil {
+// 		return fmt.Errorf("failed to get total amount: %w", err)
+// 	}
 
-	// Log financial transaction
-	description := fmt.Sprintf("Pembelian Barang %s", serialID)
-	err = r.LogFinancialTransaction(userID, totalAmount, "purchase", id, description, tx)
-	if err != nil {
-		return fmt.Errorf("failed to log financial transaction: %w", err)
-	}
+// 	// Log financial transaction
+// 	description := fmt.Sprintf("Pembelian Barang %s", serialID)
+// 	err = r.LogFinancialTransaction(userID, totalAmount, "purchase", id, description, tx)
+// 	if err != nil {
+// 		return fmt.Errorf("failed to log financial transaction: %w", err)
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 // CreateProductBatch creates a new product batch
-func (r *RepositoryImpl) CreateProductBatch(productID, orderID, sku string, quantity, unitPrice float64, tx *sql.Tx) (string, error) {
+func (r *RepositoryImpl) CreateProductBatch(productID, orderID, sku string, quantity, unitPrice float64, tx *sql.Tx) (*string, error) {
 	var executor interface {
 		QueryRow(string, ...interface{}) *sql.Row
 	}
@@ -340,14 +374,17 @@ func (r *RepositoryImpl) CreateProductBatch(productID, orderID, sku string, quan
             Initial_Quantity, Current_Quantity, Unit_Price
         )
         VALUES ($1, $2, $3, $4, $5, $6)
-        RETURNING Id
+		RETURNING Id
     `, sku, productID, orderID, quantity, quantity, unitPrice).Scan(&batchID)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to create product batch: %w", err)
+		if err == sql.ErrNoRows {
+			return nil, fmt.Errorf("no batch id returned")
+		}
+		return nil, fmt.Errorf("insert returning id: %w", err)
 	}
 
-	return batchID, nil
+	return &batchID, nil
 }
 
 // AssignBatchToStorage assigns a batch to a storage location
@@ -773,9 +810,10 @@ func (r *RepositoryImpl) CheckAllItemsReturned(orderID string, tx *sql.Tx) (bool
 }
 
 // Update updates a purchase order
-func (r *RepositoryImpl) Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) error {
+func (r *RepositoryImpl) Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) (string, error) {
 	var executor interface {
 		Exec(string, ...interface{}) (sql.Result, error)
+		QueryRow(string, ...interface{}) *sql.Row
 	}
 
 	if tx != nil {
@@ -797,12 +835,8 @@ func (r *RepositoryImpl) Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) erro
 	}
 
 	if req.OrderDate != "" {
-		orderDate, err := time.Parse(time.RFC3339, req.OrderDate)
-		if err != nil {
-			return fmt.Errorf("invalid date format: %w", err)
-		}
 		query += fmt.Sprintf(", Order_Date = $%d", paramCount)
-		params = append(params, orderDate)
+		params = append(params, req.OrderDate)
 		paramCount++
 	}
 
@@ -812,13 +846,14 @@ func (r *RepositoryImpl) Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) erro
 		paramCount++
 	}
 
-	if req.PaymentDueDate != "" {
-		dueDate, err := time.Parse(time.RFC3339, req.PaymentDueDate)
-		if err != nil {
-			return fmt.Errorf("invalid payment due date format: %w", err)
+	if req.PaymentMethod == "cash" {
+		query += ", Payment_Due_Date = NULL"
+	} else if req.PaymentMethod == "credit" {
+		if req.PaymentDueDate == "" {
+			return "", fmt.Errorf("tanggal jatuh tempo tidak boleh kosong untuk metode pembayaran kredit")
 		}
 		query += fmt.Sprintf(", Payment_Due_Date = $%d", paramCount)
-		params = append(params, dueDate)
+		params = append(params, req.PaymentDueDate)
 		paramCount++
 	}
 
@@ -835,73 +870,20 @@ func (r *RepositoryImpl) Update(req UpdatePurchaseOrderRequest, tx *sql.Tx) erro
 	// Execute query
 	result, err := executor.Exec(query, params...)
 	if err != nil {
-		return fmt.Errorf("failed to update purchase order: %w", err)
+		return "", fmt.Errorf("failed to update purchase order: %w", err)
 	}
 
 	// Check if any row was affected
 	rowsAffected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
+		return "", fmt.Errorf("failed to get rows affected: %w", err)
 	}
 
 	if rowsAffected == 0 {
-		return fmt.Errorf("purchase order not found")
+		return "", fmt.Errorf("purchase order tidak ditemukan")
 	}
 
-	return nil
-}
-
-// Delete deletes a purchase order
-func (r *RepositoryImpl) Delete(id string, tx *sql.Tx) error {
-	var executor interface {
-		Exec(string, ...interface{}) (sql.Result, error)
-		QueryRow(string, ...interface{}) *sql.Row
-	}
-
-	if tx != nil {
-		executor = tx
-	} else {
-		executor = r.DB
-	}
-
-	// Check order status
-	var status string
-	err := executor.QueryRow(`
-        SELECT Status FROM Purchase_Order WHERE Id = $1
-    `, id).Scan(&status)
-
-	if err != nil {
-		if err == sql.ErrNoRows {
-			return fmt.Errorf("purchase order not found")
-		}
-		return fmt.Errorf("failed to check purchase order status: %w", err)
-	}
-
-	// Only allow deletion of orders in 'ordered' status
-	if status != "ordered" {
-		return fmt.Errorf("only purchase orders with status 'ordered' can be deleted")
-	}
-
-	// Delete purchase order (will cascade to details)
-	result, err := executor.Exec(`
-        DELETE FROM Purchase_Order WHERE Id = $1
-    `, id)
-
-	if err != nil {
-		return fmt.Errorf("failed to delete purchase order: %w", err)
-	}
-
-	// Check if any row was deleted
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	if rowsAffected == 0 {
-		return fmt.Errorf("purchase order not found")
-	}
-
-	return nil
+	return req.ID, nil
 }
 
 // UpdateStatus updates the status of a purchase order
@@ -1529,7 +1511,7 @@ func (r *RepositoryImpl) GetAllReturns(req GetPurchaseOrderReturnRequest) ([]Get
 }
 
 // GenerateBatchSKU generates a SKU for product batch
-func (r *RepositoryImpl) GenerateBatchSKU(productName, supplierName string, date time.Time) (string, error) {
+func (r *RepositoryImpl) GenerateBatchSKU(productName, supplierName, serialID string, date time.Time) (string, error) {
 	// Product abbreviation (first 3 chars)
 	productAbbr := utils.GetAbbreviation(productName, 3)
 
@@ -1539,8 +1521,211 @@ func (r *RepositoryImpl) GenerateBatchSKU(productName, supplierName string, date
 	// Format date: DDMMYY
 	dateStr := fmt.Sprintf("%02d%02d%02d", date.Day(), date.Month(), date.Year()%100)
 
-	// Format: PROD-SUPPDDMMYY
-	sku := fmt.Sprintf("%s-%s%s", productAbbr, supplierAbbr, dateStr)
+	// Extract iteration number from serial ID (PO-20250417-XXXX)
+	iterNumber := "0000"
+	parts := strings.Split(serialID, "-")
+	if len(parts) == 3 {
+		iterNumber = parts[2]
+	}
+
+	// Format: PROD-SUPPDDMMYY-XXXX (XXXX is the PO iteration number)
+	sku := fmt.Sprintf("%s-%s%s-%s", productAbbr, supplierAbbr, dateStr, iterNumber)
 
 	return strings.ToUpper(sku), nil
+}
+
+// GetProducts fetches products based on search criteria
+func (r *RepositoryImpl) GetProducts(req product.GetProductRequest) ([]product.GetProductResponse, int, error) {
+	// Base query for counting total items
+	countQuery := `
+		SELECT COUNT(*)
+		FROM Product p
+		JOIN Supplier s ON p.Supplier_Id = s.Id
+		WHERE 1=1
+	`
+
+	// Base query for fetching items
+	fetchQuery := `
+		SELECT 
+			p.Id, p.Name, p.Category_Id, c.Name AS Category,
+			p.Unit_Id, u.Name AS Unit,
+			p.Created_At, p.Updated_At
+		FROM Product p
+		JOIN Category c ON p.Category_Id = c.Id
+		JOIN Unit u ON p.Unit_Id = u.Id
+		WHERE 1=1
+	`
+
+	// Build query with filters
+	qb := utils.NewQueryBuilder(fetchQuery)
+	countQb := utils.NewQueryBuilder(countQuery)
+
+	if req.Name != "" {
+		qb.AddFilter("p.Name ILIKE %?%", req.Name)
+		countQb.AddFilter("p.Name ILIKE %?%", req.Name)
+	}
+
+	// Query execution
+	query, params := qb.Build()
+	rows, err := r.DB.Query(query, params...)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer rows.Close()
+
+	// Parse results
+	var products []product.GetProductResponse
+	for rows.Next() {
+		var prod product.GetProductResponse
+		err := rows.Scan(
+			&prod.ID, &prod.Name, &prod.CategoryID, &prod.Category,
+			&prod.UnitID, &prod.Unit,
+			&prod.CreatedAt, &prod.UpdatedAt,
+		)
+
+		if err != nil {
+			return nil, 0, err
+		}
+
+		products = append(products, prod)
+	}
+
+	// Execute count query
+	var totalItems int
+	countQuery, countParams := countQb.Build()
+	err = r.DB.QueryRow(countQuery, countParams...).Scan(&totalItems)
+	if err != nil {
+		return nil, 0, err
+	}
+	return products, totalItems, nil
+}
+
+// CompleteFullPurchaseOrder processes all items in a purchase order automatically
+func (r *RepositoryImpl) CompleteFullPurchaseOrder(id string, storageID string, userID string, tx *sql.Tx) error {
+	var executor interface {
+		QueryRow(string, ...interface{}) *sql.Row
+		Exec(string, ...interface{}) (sql.Result, error)
+		Query(string, ...interface{}) (*sql.Rows, error)
+	}
+
+	if tx != nil {
+		executor = tx
+	} else {
+		executor = r.DB
+	}
+
+	// Get purchase order info (supplier, serial ID)
+	var serialID, supplierID, supplierName string
+	err := executor.QueryRow(`
+        SELECT po.Serial_Id, po.Supplier_Id, s.Name
+        FROM Purchase_Order po
+        JOIN Supplier s ON po.Supplier_Id = s.Id
+        WHERE po.Id = $1
+    `, id).Scan(&serialID, &supplierID, &supplierName)
+
+	if err != nil {
+		return fmt.Errorf("failed to get purchase order info: %w", err)
+	}
+
+	// Update purchase order status
+	_, err = executor.Exec(`
+        UPDATE Purchase_Order
+        SET Status = 'completed', Checked_By = $1, Updated_At = NOW()
+        WHERE Id = $2
+    `, userID, id)
+
+	if err != nil {
+		return fmt.Errorf("failed to update purchase order status: %w", err)
+	}
+
+	now := time.Now()
+
+	// First, collect all the items we need to process
+	rows, err := executor.Query(`
+        SELECT pod.Id, pod.Product_Id, p.Name, pod.Requested_Quantity, pod.Unit_Price
+        FROM Purchase_Order_Detail pod
+        JOIN Product p ON pod.Product_Id = p.Id
+        WHERE pod.Purchase_Order_Id = $1
+    `, id)
+
+	if err != nil {
+		return fmt.Errorf("failed to get purchase order details: %w", err)
+	}
+
+	// Create a structure to store all the items we need to process
+	type orderItem struct {
+		detailID    string
+		productID   string
+		productName string
+		quantity    float64
+		unitPrice   float64
+	}
+
+	var items []orderItem
+
+	// Read all rows into our slice
+	for rows.Next() {
+		var item orderItem
+		err := rows.Scan(&item.detailID, &item.productID, &item.productName, &item.quantity, &item.unitPrice)
+		if err != nil {
+			rows.Close() // Important to close in case of error
+			return fmt.Errorf("failed to scan purchase order detail: %w", err)
+		}
+		items = append(items, item)
+	}
+
+	// Close the rows now that we've read all the data
+	rows.Close()
+
+	// Check for errors from iterating rows
+	if err = rows.Err(); err != nil {
+		return fmt.Errorf("error iterating through purchase order details: %w", err)
+	}
+
+	// Now process each item without the connection being used for row iteration
+	for _, item := range items {
+		// Generate SKU with the serialID
+		sku, err := r.GenerateBatchSKU(item.productName, supplierName, serialID, now)
+		if err != nil {
+			return fmt.Errorf("failed to generate SKU: %w", err)
+		}
+
+		// Create product batch
+		batchID, err := r.CreateProductBatch(item.productID, id, sku, item.quantity, item.unitPrice, tx)
+		if err != nil {
+			return fmt.Errorf("failed to create product batch: %w", err)
+		}
+
+		// Associate batch with storage
+		err = r.AssignBatchToStorage(*batchID, storageID, item.quantity, tx)
+		if err != nil {
+			return fmt.Errorf("failed to assign batch to storage: %w", err)
+		}
+
+		// Log inventory change
+		description := fmt.Sprintf("Pembelian Barang %s", serialID)
+		err = r.LogInventoryChange(*batchID, storageID, userID, id, "add", item.quantity, description, tx)
+		if err != nil {
+			return fmt.Errorf("failed to log inventory change: %w", err)
+		}
+	}
+
+	// Get total amount for financial log
+	var totalAmount float64
+	err = executor.QueryRow(`
+        SELECT Total_Amount FROM Purchase_Order WHERE Id = $1
+    `, id).Scan(&totalAmount)
+
+	if err != nil {
+		return fmt.Errorf("failed to get total amount: %w", err)
+	}
+
+	// Log financial transaction
+	description := fmt.Sprintf("Pembelian Barang %s", serialID)
+	err = r.LogFinancialTransaction(userID, totalAmount, "purchase", id, description, tx)
+	if err != nil {
+		return fmt.Errorf("failed to log financial transaction: %w", err)
+	}
+
+	return nil
 }
