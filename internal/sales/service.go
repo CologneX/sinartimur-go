@@ -29,8 +29,9 @@ func (s *SalesService) GetAllBatches(req GetAllBatchesRequest) ([]GetAllBatchesR
 
 // GetSalesOrderDetail retrieves detailed information about a sales purchase-order including its items
 func (s *SalesService) GetSalesOrderDetail(orderID string) (*GetSalesOrderDetailResponse, error) {
+	var result *GetSalesOrderDetailResponse
 	// Get the sales purchase-order header information
-	orderHeader, err := s.repo.GetSalesOrderWithDetails(orderID)
+	result, err := s.repo.GetSalesOrderWithDetails(orderID)
 	if err != nil {
 		return nil, err
 	}
@@ -41,27 +42,7 @@ func (s *SalesService) GetSalesOrderDetail(orderID string) (*GetSalesOrderDetail
 		return nil, err
 	}
 
-	// Combine the results
-	result := &GetSalesOrderDetailResponse{
-		ID:              orderHeader.ID,
-		SalesInvoiceID:  orderHeader.SalesInvoiceID,
-		DeliveryNoteID:  orderHeader.DeliveryNoteID,
-		SerialID:        orderHeader.SerialID,
-		CustomerID:      orderHeader.CustomerID,
-		CustomerName:    orderHeader.CustomerName,
-		CustomerPhone:   orderHeader.CustomerPhone,
-		CustomerAddress: orderHeader.CustomerAddress,
-		OrderDate:       orderHeader.OrderDate,
-		Status:          orderHeader.Status,
-		Description:     orderHeader.Description,
-		TotalAmount:     orderHeader.TotalAmount,
-		PaymentMethod:   orderHeader.PaymentMethod,
-		PaymentDueDate:  orderHeader.PaymentDueDate,
-		CreatedBy:       orderHeader.CreatedBy,
-		CreatedAt:       orderHeader.CreatedAt,
-		UpdatedAt:       orderHeader.UpdatedAt,
-		Items:           orderItems,
-	}
+	result.Items = orderItems
 
 	return result, nil
 }

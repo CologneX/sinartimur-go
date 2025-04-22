@@ -63,14 +63,14 @@ func (r *SalesRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAllB
 
 	// Build base query with joins to get product name, storage information and include storage location
 	qb := utils.NewQueryBuilder(`
-        SELECT bs.id, pb.id as batch_id, pb.sku, pb.product_id, p.name as product_name, 
-               pb.current_quantity, pb.unit_price, pb.created_at, 
-               bs.storage_id, s.name as storage_name, s.location as storage_location, bs.quantity
-        FROM product_batch pb
-        JOIN product p ON pb.product_id = p.id
-        JOIN batch_storage bs ON pb.id = bs.batch_id
-        JOIN storage s ON bs.storage_id = s.id
-        WHERE pb.current_quantity > 0 AND bs.quantity > 0
+        Select Bs.Id, Pb.Id As Batch_Id, Pb.Sku, Pb.Product_Id, P.Name As Product_Name, 
+               Pb.Current_Quantity, Pb.Unit_Price, Pb.Created_At, 
+               Bs.Storage_Id, S.Name As Storage_Name, S.Location As Storage_Location, Bs.Quantity
+        From Product_Batch Pb
+        Join Product P On Pb.Product_Id = P.Id
+        Join Batch_Storage Bs On Pb.Id = Bs.Batch_Id
+        Join Storage S On Bs.Storage_Id = S.Id
+        Where Pb.Current_Quantity > 0 And Bs.Quantity > 0
     `)
 
 	// Add search filter if provided
@@ -82,14 +82,14 @@ func (r *SalesRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAllB
 	}
 
 	// Get count first (count distinct storage_ids to get number of storage groups)
-	countQuery := "SELECT COUNT(DISTINCT bs.storage_id) FROM product_batch pb " +
+	countQuery := "Select Count(Distinct Bs.Storage_Id) From Product_Batch Pb " +
 		"JOIN batch_storage bs ON pb.id = bs.batch_id " +
 		"JOIN product p ON pb.product_id = p.id " +
 		"WHERE pb.current_quantity > 0 AND bs.quantity > 0"
 
 	// Add search condition to count query if needed
 	if req.Search != "" {
-		countQuery += " AND (pb.sku ILIKE $1 OR p.name ILIKE $1)"
+		countQuery += " And (pb.sku Ilike $1 Or p.name Ilike $1)"
 		err := r.db.QueryRow(countQuery, "%"+req.Search+"%").Scan(&totalItems)
 		if err != nil {
 			return nil, 0, err
@@ -226,17 +226,17 @@ func (r *SalesRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAllB
 func (r *SalesRepositoryImpl) GetSalesOrders(req GetSalesOrdersRequest) ([]GetSalesOrdersResponse, int, error) {
 	// Build base query for fetching sales orders
 	baseQuery := `
-        SELECT so.id, so.serial_id, so.customer_id, c.name AS customer_name, 
-               so.order_date, so.status, so.payment_method, so.payment_due_date, 
-               so.total_amount, so.created_at, so.updated_at, so.cancelled_at,
-               (SELECT si.id FROM sales_invoice si WHERE si.sales_order_id = so.id AND si.cancelled_at IS NULL LIMIT 1) AS sales_invoice_id,
-               (SELECT dn.id FROM delivery_note dn WHERE dn.sales_order_id = so.id AND dn.cancelled_at IS NULL LIMIT 1) AS delivery_note_id
-        FROM sales_order so
-        JOIN customer c ON so.customer_id = c.id
-        WHERE 1=1`
+        Select So.Id, So.Serial_Id, So.Customer_Id, C.Name As Customer_Name, 
+               So.Order_Date, So.Status, So.Payment_Method, So.Payment_Due_Date, 
+               So.Total_Amount, So.Created_At, So.Updated_At, So.Cancelled_At,
+               (Select Si.Id From Sales_Invoice Si Where Si.Sales_Order_Id = So.Id And Si.Cancelled_At Is Null Limit 1) As Sales_Invoice_Id,
+               (Select Dn.Id From Delivery_Note Dn Where Dn.Sales_Order_Id = So.Id And Dn.Cancelled_At Is Null Limit 1) As Delivery_Note_Id
+        From Sales_Order So
+        Join Customer C On So.Customer_Id = C.Id
+        Where 1=1`
 
 	// Create count query
-	countQuery := `SELECT COUNT(*) FROM sales_order so JOIN customer c ON so.customer_id = c.id WHERE 1=1`
+	countQuery := `Select Count(*) From Sales_Order So Join Customer C On So.Customer_Id = C.Id Where 1=1`
 
 	// Initialize query builders
 	qb := utils.NewQueryBuilder(baseQuery)
@@ -362,29 +362,34 @@ func (r *SalesRepositoryImpl) GetSalesOrderWithDetails(salesOrderID string) (*Ge
 
 	// Get order header information with optimized query using a single join for related documents
 	err := r.db.QueryRow(`
-        SELECT 
-            so.id, so.serial_id, so.customer_id, c.name, c.telephone, c.address,
-            so.order_date, so.status, so.payment_method, so.payment_due_date, 
-            so.total_amount, so.created_by, so.created_at, so.updated_at, so.cancelled_at,
-            si.id, si.serial_id as sales_invoice_serial_id,
-            dn.id, dn.serial_id as delivery_note_serial_id
-        FROM sales_order so
-        JOIN customer c ON so.customer_id = c.id
-        LEFT JOIN LATERAL (
-            SELECT id, serial_id 
-            FROM sales_invoice 
-            WHERE sales_order_id = $1 AND cancelled_at IS NULL
-            ORDER BY created_at DESC
-            LIMIT 1
-        ) si ON true
-        LEFT JOIN LATERAL (
-            SELECT id, serial_id
-            FROM delivery_note
-            WHERE sales_order_id = $1 AND cancelled_at IS NULL
-            ORDER BY created_at DESC
-            LIMIT 1
-        ) dn ON true
-        WHERE so.id = $1
+        Select 
+            So.Id, So.Serial_Id, So.Customer_Id, C.Name, C.Telephone, C.Address,
+            So.Order_Date, So.Status, So.Payment_Method, So.Payment_Due_Date, 
+            So.Total_Amount, So.Created_By, Au.Username, So.Created_At, So.Updated_At, So.Cancelled_At,
+            Si.Id, Si.Serial_Id As Sales_Invoice_Serial_Id,
+            Dn.Id, Dn.Serial_Id As Delivery_Note_Serial_Id,
+            So.Cancelled_At,
+            Au.Username As Created_By_Name, 
+            Au2.Username As Cancelled_By_Name
+        From Sales_Order So
+        Left Join Customer C On So.Customer_Id = C.Id
+        Left Join Appuser Au On So.Created_By = Au.Id
+        Left Join Appuser Au2 On So.Cancelled_By = Au2.Id
+        Left Join Lateral (
+            Select Id, Serial_Id 
+            From Sales_Invoice 
+            Where Sales_Order_Id = $1 And Cancelled_At Is Null
+            Order By Created_At Desc
+            Limit 1
+        ) Si On True
+        Left Join Lateral (
+            Select Id, Serial_Id
+            From Delivery_Note
+            Where Sales_Order_Id = $1 And Cancelled_At Is Null
+            Order By Created_At Desc
+            Limit 1
+        ) Dn On True
+        Where So.Id = $1
     `, salesOrderID).Scan(
 		&response.ID,
 		&response.SerialID,
@@ -398,13 +403,17 @@ func (r *SalesRepositoryImpl) GetSalesOrderWithDetails(salesOrderID string) (*Ge
 		&response.PaymentDueDate,
 		&response.TotalAmount,
 		&response.CreatedBy,
+		&response.CreatedByName,
 		&response.CreatedAt,
 		&response.UpdatedAt,
-		&response.CancelledAt,
+		&response.CancelledBy,
 		&response.SalesInvoiceID,
 		&response.SalesInvoiceSerialID,
 		&response.DeliveryNoteID,
 		&response.DeliveryNoteSerialID,
+		&response.CancelledAt,
+		&response.CreatedByName,
+		&response.CancelledByName,
 	)
 
 	if err != nil {
@@ -428,12 +437,12 @@ func (r *SalesRepositoryImpl) GetSalesOrderWithDetails(salesOrderID string) (*Ge
 // GetSalesOrderByID retrieves a single sales order by its ID
 func (r *SalesRepositoryImpl) GetSalesOrderByID(id string) (*SalesOrder, error) {
 	query := `
-        SELECT so.id, so.serial_id, so.customer_id, c.name AS customer_name, 
-               so.order_date, so.status, so.payment_method, so.payment_due_date, 
-               so.total_amount, so.created_by, so.created_at, so.updated_at, so.cancelled_at
-        FROM sales_order so
-        JOIN customer c ON so.customer_id = c.id
-        WHERE so.id = $1`
+        Select So.Id, So.Serial_Id, So.Customer_Id, C.Name As Customer_Name, 
+               So.Order_Date, So.Status, So.Payment_Method, So.Payment_Due_Date, 
+               So.Total_Amount, So.Created_By, So.Created_At, So.Updated_At, So.Cancelled_At
+        From Sales_Order So
+        Join Customer C On So.Customer_Id = C.Id
+        Where So.Id = $1`
 
 	var order SalesOrder
 
@@ -465,22 +474,22 @@ func (r *SalesRepositoryImpl) GetSalesOrderByID(id string) (*SalesOrder, error) 
 // GetSalesOrderItems retrieves the details (items) for a specific sales order
 func (r *SalesRepositoryImpl) GetSalesOrderItems(salesOrderID string) ([]SalesOrderItem, error) {
 	query := `
-        SELECT sod.id, sod.sales_order_id, 
-               p.id AS product_id, p.name AS product_name, 
-               u.name AS product_unit,
-               pb.id AS batch_id, pb.sku AS batch_sku, 
-               sod.batch_storage_id, 
-               s.id AS storage_id, s.name AS storage_name,
-               sod.quantity, sod.unit_price,
-               (sod.quantity * sod.unit_price) AS total_price,
-               bs.quantity + sod.quantity AS max_quantity
-        FROM sales_order_detail sod
-        JOIN batch_storage bs ON sod.batch_storage_id = bs.id
-        JOIN product_batch pb ON bs.batch_id = pb.id
-        JOIN product p ON pb.product_id = p.id
-        JOIN unit u ON p.unit_id = u.id
-        JOIN storage s ON bs.storage_id = s.id
-        WHERE sod.sales_order_id = $1`
+        Select Sod.Id, Sod.Sales_Order_Id, 
+               P.Id As Product_Id, P.Name As Product_Name, 
+               U.Name As Product_Unit,
+               Pb.Id As Batch_Id, Pb.Sku As Batch_Sku, 
+               Sod.Batch_Storage_Id, 
+               S.Id As Storage_Id, S.Name As Storage_Name,
+               Sod.Quantity, Sod.Unit_Price,
+               (Sod.Quantity * Sod.Unit_Price) As Total_Price,
+               Bs.Quantity + Sod.Quantity As Max_Quantity
+        From Sales_Order_Detail Sod
+        Join Batch_Storage Bs On Sod.Batch_Storage_Id = Bs.Id
+        Join Product_Batch Pb On Bs.Batch_Id = Pb.Id
+        Join Product P On Pb.Product_Id = P.Id
+        Join Unit U On P.Unit_Id = U.Id
+        Join Storage S On Bs.Storage_Id = S.Id
+        Where Sod.Sales_Order_Id = $1`
 
 	rows, err := r.db.Query(query, salesOrderID)
 	if err != nil {
@@ -555,9 +564,9 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 
 		// Insert sales order
 		orderQuery := `
-		INSERT INTO sales_order (customer_id, serial_id, payment_method, payment_due_date, created_by, status, total_amount)
-		VALUES ($1, $2, $3, $4, $5, 'order', $6)
-		RETURNING id, serial_id, order_date, created_at, status`
+		Insert Into Sales_Order (Customer_Id, Serial_Id, Payment_Method, Payment_Due_Date, Created_By, Status, Total_Amount)
+		Values ($1, $2, $3, $4, $5, 'order', $6)
+		Returning Id, Serial_Id, Order_Date, Created_At, Status`
 
 		errOrder := tx.QueryRow(
 			orderQuery,
@@ -575,7 +584,7 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 
 		// Get customer name
 		var customerName string
-		errCustomer := tx.QueryRow("SELECT name FROM customer WHERE id = $1", req.CustomerID).Scan(&customerName)
+		errCustomer := tx.QueryRow("Select Name From Customer Where Id = $1", req.CustomerID).Scan(&customerName)
 		if errCustomer != nil {
 			return fmt.Errorf("gagal mendapatkan data pelanggan: %w", errCustomer)
 		}
@@ -589,11 +598,11 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 
 			// Get batch and product information from batch_storage ID
 			errBatch := tx.QueryRow(`
-				SELECT bs.quantity, bs.batch_id, pb.product_id, p.name, pb.sku, pb.unit_price
-				FROM batch_storage bs
-				JOIN product_batch pb ON bs.batch_id = pb.id
-				JOIN product p ON pb.product_id = p.id
-				WHERE bs.id = $1
+				Select Bs.Quantity, Bs.Batch_Id, Pb.Product_Id, P.Name, Pb.Sku, Pb.Unit_Price
+				From Batch_Storage Bs
+				Join Product_Batch Pb On Bs.Batch_Id = Pb.Id
+				Join Product P On Pb.Product_Id = P.Id
+				Where Bs.Id = $1
 			`, item.BatchStorageID).Scan(&availableQty, &batchID, &productID, &productName, &batchSKU, &unitPrice)
 
 			if errBatch != nil {
@@ -611,10 +620,10 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 			// Insert order detail with batch_storage_id
 			var detailID string
 			errDetail := tx.QueryRow(`
-				INSERT INTO sales_order_detail 
-				(sales_order_id, batch_storage_id, quantity, unit_price) 
-				VALUES ($1, $2, $3, $4) 
-				RETURNING id`,
+				Insert Into Sales_Order_Detail 
+				(Sales_Order_Id, Batch_Storage_Id, Quantity, Unit_Price) 
+				Values ($1, $2, $3, $4) 
+				Returning Id`,
 				orderID, item.BatchStorageID, item.Quantity, item.UnitPrice).Scan(&detailID)
 
 			if errDetail != nil {
@@ -623,9 +632,9 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 
 			// Update batch_storage quantity
 			_, errBatchStorage := tx.Exec(`
-					UPDATE batch_storage 
-					SET quantity = quantity - $1 
-					WHERE id = $2
+					Update Batch_Storage 
+					Set Quantity = Quantity - $1 
+					Where Id = $2
 				`, item.Quantity, item.BatchStorageID)
 
 			if errBatchStorage != nil {
@@ -634,9 +643,9 @@ func (r *SalesRepositoryImpl) CreateSalesOrder(req CreateSalesOrderRequest, user
 
 			// Update product_batch current_quantity
 			_, errBatchQuantity := tx.Exec(`
-					UPDATE product_batch 
-					SET current_quantity = current_quantity - $1 
-					WHERE id = $2
+					Update Product_Batch 
+					Set Current_Quantity = Current_Quantity - $1 
+					Where Id = $2
 				`, item.Quantity, batchID)
 
 			if errBatchQuantity != nil {
@@ -684,7 +693,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrder(req UpdateSalesOrderRequest) (*Up
 
 	// Check if order exists
 	var status string
-	errCheck := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.ID).Scan(&status)
+	errCheck := r.db.QueryRow("Select Status From Sales_Order Where Id = $1", req.ID).Scan(&status)
 	if errCheck != nil {
 		if errors.Is(errCheck, sql.ErrNoRows) {
 			return nil, fmt.Errorf("pesanan tidak ditemukan")
@@ -722,7 +731,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrder(req UpdateSalesOrderRequest) (*Up
 	}
 
 	// Construct final query
-	query := "UPDATE sales_order SET " + strings.Join(setValues, ", ") + " WHERE id = $" + strconv.Itoa(paramCount) + " RETURNING id, serial_id, customer_id, status, payment_method, payment_due_date"
+	query := "Update Sales_Order Set " + strings.Join(setValues, ", ") + " WHERE id = $" + strconv.Itoa(paramCount) + " RETURNING id, serial_id, customer_id, status, payment_method, payment_due_date"
 	params = append(params, req.ID)
 
 	errUpdate := r.db.QueryRow(query, params...).Scan(&response.ID, &response.SerialID, &response.CustomerID,
@@ -739,7 +748,7 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 	// First check if the order exists and its status
 	var status string
 	errCheck := r.db.QueryRow(
-		"SELECT status FROM sales_order WHERE id = $1",
+		"Select Status From Sales_Order Where Id = $1",
 		req.SalesOrderID,
 	).Scan(&status)
 
@@ -758,7 +767,7 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
 		// Mark the sales order as cancelled
 		_, errCancel := tx.Exec(
-			"UPDATE sales_order SET status = 'cancel', cancelled_at = NOW(), cancelled_by = $1 WHERE id = $2",
+			"Update Sales_Order Set Status = 'cancel', Cancelled_At = Now(), Cancelled_By = $1 Where Id = $2",
 			userID, req.SalesOrderID,
 		)
 		if errCancel != nil {
@@ -767,9 +776,9 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 
 		// Get all order details to restore inventory
 		rows, errDetails := tx.Query(`
-            SELECT sod.id, sod.batch_id, sod.batch_storage_id, sod.quantity 
-            FROM sales_order_detail sod
-            WHERE sod.sales_order_id = $1
+            Select Sod.Id, Sod.Batch_Id, Sod.Batch_Storage_Id, Sod.Quantity 
+            From Sales_Order_Detail Sod
+            Where Sod.Sales_Order_Id = $1
         `, req.SalesOrderID)
 
 		if errDetails != nil {
@@ -802,7 +811,7 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 		for _, detail := range details {
 			// Restore inventory in product_batch
 			_, errRestore := tx.Exec(
-				"UPDATE product_batch SET current_quantity = current_quantity + $1 WHERE id = $2",
+				"Update Product_Batch Set Current_Quantity = Current_Quantity + $1 Where Id = $2",
 				detail.quantity, detail.batchID,
 			)
 			if errRestore != nil {
@@ -811,9 +820,9 @@ func (r *SalesRepositoryImpl) CancelSalesOrder(req CancelSalesOrderRequest, user
 
 			// Restore inventory in batch_storage directly using batch_storage_id
 			_, errBatchStorage := tx.Exec(`
-                UPDATE batch_storage 
-                SET quantity = quantity + $1 
-                WHERE id = $2
+                Update Batch_Storage 
+                Set Quantity = Quantity + $1 
+                Where Id = $2
             `, detail.quantity, detail.batchStorageID)
 			if errBatchStorage != nil {
 				return fmt.Errorf("gagal mengembalikan stok di lokasi penyimpanan: %w", errBatchStorage)
@@ -831,7 +840,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 
 	// Check if item already exists in the order
 	var existingItemID string
-	errCheckItem := r.db.QueryRow("SELECT id FROM sales_order_detail WHERE sales_order_id = $1 AND batch_storage_id = $2", req.SalesOrderID, req.BatchStorageID).Scan(&existingItemID)
+	errCheckItem := r.db.QueryRow("Select Id From Sales_Order_Detail Where Sales_Order_Id = $1 And Batch_Storage_Id = $2", req.SalesOrderID, req.BatchStorageID).Scan(&existingItemID)
 	if errCheckItem != nil && !errors.Is(errCheckItem, sql.ErrNoRows) {
 		return nil, fmt.Errorf("gagal memeriksa item pesanan: %w", errCheckItem)
 	}
@@ -840,7 +849,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 	}
 
 	// Check if sales order exists and if it can be modified
-	errCheck := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.SalesOrderID).Scan(&status)
+	errCheck := r.db.QueryRow("Select Status From Sales_Order Where Id = $1", req.SalesOrderID).Scan(&status)
 	if errCheck != nil {
 		if errors.Is(errCheck, sql.ErrNoRows) {
 			return nil, fmt.Errorf("pesanan tidak ditemukan")
@@ -859,11 +868,11 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 	var storageQty, unitPrice float64
 
 	errBatchStorage := r.db.QueryRow(`
-        SELECT bs.id, bs.batch_id, pb.product_id, p.name, pb.sku, bs.storage_id, bs.quantity, pb.unit_price
-        FROM batch_storage bs
-        JOIN product_batch pb ON bs.batch_id = pb.id
-        JOIN product p ON pb.product_id = p.id
-        WHERE bs.id = $1
+        Select Bs.Id, Bs.Batch_Id, Pb.Product_Id, P.Name, Pb.Sku, Bs.Storage_Id, Bs.Quantity, Pb.Unit_Price
+        From Batch_Storage Bs
+        Join Product_Batch Pb On Bs.Batch_Id = Pb.Id
+        Join Product P On Pb.Product_Id = P.Id
+        Where Bs.Id = $1
     `, req.BatchStorageID).Scan(
 		&batchStorageID,
 		&batchID,
@@ -897,10 +906,10 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 		// Create a new sales order detail entry with batch_storage_id
 		var detailID string
 		errDetail := tx.QueryRow(`
-            INSERT INTO sales_order_detail 
-            (sales_order_id, batch_storage_id, quantity, unit_price) 
-            VALUES ($1, $2, $3, $4) 
-            RETURNING id`,
+            Insert Into Sales_Order_Detail 
+            (Sales_Order_Id, Batch_Storage_Id, Quantity, Unit_Price) 
+            Values ($1, $2, $3, $4) 
+            Returning Id`,
 			req.SalesOrderID, batchStorageID, req.Quantity, req.UnitPrice,
 		).Scan(&detailID)
 		if errDetail != nil {
@@ -909,7 +918,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 
 		// Update product_batch quantity
 		_, errBatchUpdate := tx.Exec(
-			"UPDATE product_batch SET current_quantity = current_quantity - $1 WHERE id = $2",
+			"Update Product_Batch Set Current_Quantity = Current_Quantity - $1 Where Id = $2",
 			req.Quantity, batchID,
 		)
 		if errBatchUpdate != nil {
@@ -918,7 +927,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 
 		// Update batch_storage quantity
 		_, errBatchStorageUpdate := tx.Exec(
-			"UPDATE batch_storage SET quantity = quantity - $1 WHERE id = $2",
+			"Update Batch_Storage Set Quantity = Quantity - $1 Where Id = $2",
 			req.Quantity, batchStorageID,
 		)
 		if errBatchStorageUpdate != nil {
@@ -927,14 +936,14 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 
 		// Update the order's total_amount
 		_, errTotal := tx.Exec(`
-            UPDATE sales_order 
-            SET total_amount = (
-                SELECT COALESCE(SUM(quantity * unit_price), 0) 
-                FROM sales_order_detail 
-                WHERE sales_order_id = $1
+            Update Sales_Order 
+            Set Total_Amount = (
+                Select Coalesce(Sum(Quantity * Unit_Price), 0) 
+                From Sales_Order_Detail 
+                Where Sales_Order_Id = $1
             ),
-            updated_at = NOW()
-            WHERE id = $1`,
+            Updated_At = Now()
+            Where Id = $1`,
 			req.SalesOrderID,
 		)
 		if errTotal != nil {
@@ -966,7 +975,7 @@ func (r *SalesRepositoryImpl) AddItemToSalesOrder(req AddSalesOrderItemRequest) 
 func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemRequest) error {
 	// Check if sales order exists and is in editable state
 	var status string
-	err := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.SalesOrderID).Scan(&status)
+	err := r.db.QueryRow("Select Status From Sales_Order Where Id = $1", req.SalesOrderID).Scan(&status)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("pesanan tidak ditemukan")
@@ -985,11 +994,11 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 		var batchStorageID string
 		var quantity, unitPrice float64
 		queryErr := tx.QueryRow(`
-            SELECT 
-                bs.batch_id, sod.batch_storage_id, sod.quantity, sod.unit_price
-            FROM sales_order_detail sod
-            JOIN batch_storage bs ON sod.batch_storage_id = bs.id
-            WHERE sod.id = $1 AND sod.sales_order_id = $2
+            Select 
+                Bs.Batch_Id, Sod.Batch_Storage_Id, Sod.Quantity, Sod.Unit_Price
+            From Sales_Order_Detail Sod
+            Join Batch_Storage Bs On Sod.Batch_Storage_Id = Bs.Id
+            Where Sod.Id = $1 And Sod.Sales_Order_Id = $2
         `, req.DetailID, req.SalesOrderID).Scan(&batchID, &batchStorageID, &quantity, &unitPrice)
 
 		if queryErr != nil {
@@ -1001,9 +1010,9 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 
 		// Update batch_storage to restore quantity directly using batch_storage_id
 		_, updateErr := tx.Exec(`
-            UPDATE batch_storage
-            SET quantity = quantity + $1
-            WHERE id = $2
+            Update Batch_Storage
+            Set Quantity = Quantity + $1
+            Where Id = $2
         `, quantity, batchStorageID)
 		if updateErr != nil {
 			return fmt.Errorf("gagal memulihkan kuantitas di penyimpanan: %w", updateErr)
@@ -1011,9 +1020,9 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 
 		// Update product_batch to restore total quantity
 		_, updateErr = tx.Exec(`
-            UPDATE product_batch
-            SET current_quantity = current_quantity + $1
-            WHERE id = $2
+            Update Product_Batch
+            Set Current_Quantity = Current_Quantity + $1
+            Where Id = $2
         `, quantity, batchID)
 		if updateErr != nil {
 			return fmt.Errorf("gagal memulihkan kuantitas batch: %w", updateErr)
@@ -1021,8 +1030,8 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 
 		// Delete the order detail
 		_, deleteDetailErr := tx.Exec(`
-            DELETE FROM sales_order_detail
-            WHERE id = $1
+            Delete From Sales_Order_Detail
+            Where Id = $1
         `, req.DetailID)
 		if deleteDetailErr != nil {
 			return fmt.Errorf("gagal menghapus item pesanan: %w", deleteDetailErr)
@@ -1030,10 +1039,10 @@ func (r *SalesRepositoryImpl) DeleteSalesOrderItem(req DeleteSalesOrderItemReque
 
 		// Update total order amount
 		_, updateOrderErr := tx.Exec(`
-            UPDATE sales_order
-            SET total_amount = total_amount - $1,
-                updated_at = CURRENT_TIMESTAMP
-            WHERE id = $2
+            Update Sales_Order
+            Set Total_Amount = Total_Amount - $1,
+                Updated_At = Current_Timestamp
+            Where Id = $2
         `, quantity*unitPrice, req.SalesOrderID)
 		if updateOrderErr != nil {
 			return fmt.Errorf("gagal memperbarui total pesanan: %w", updateOrderErr)
@@ -1051,7 +1060,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 	var batchStorageID string
 
 	// Check if sales order exists and if it's in a modifiable state
-	errCheck := r.db.QueryRow("SELECT status FROM sales_order WHERE id = $1", req.SalesOrderID).Scan(&status)
+	errCheck := r.db.QueryRow("Select Status From Sales_Order Where Id = $1", req.SalesOrderID).Scan(&status)
 	if errCheck != nil {
 		if errors.Is(errCheck, sql.ErrNoRows) {
 			return nil, fmt.Errorf("pesanan tidak ditemukan")
@@ -1066,9 +1075,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 	// Get current detail information including batch_storage_id
 	errDetail := r.db.QueryRow(`
-		SELECT sod.quantity, sod.unit_price, sod.batch_storage_id 
-		FROM sales_order_detail sod
-		WHERE sod.id = $1 AND sod.sales_order_id = $2
+		Select Sod.Quantity, Sod.Unit_Price, Sod.Batch_Storage_Id 
+		From Sales_Order_Detail Sod
+		Where Sod.Id = $1 And Sod.Sales_Order_Id = $2
 	`, req.DetailID, req.SalesOrderID).Scan(
 		&currentQty,
 		&currentPrice,
@@ -1090,11 +1099,11 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 	var productName, batchSKU string
 
 	errBatchInfo := r.db.QueryRow(`
-		SELECT bs.batch_id, pb.product_id, p.name, pb.sku, bs.storage_id
-		FROM batch_storage bs
-		JOIN product_batch pb ON bs.batch_id = pb.id
-		JOIN product p ON pb.product_id = p.id
-		WHERE bs.id = $1
+		Select Bs.Batch_Id, Pb.Product_Id, P.Name, Pb.Sku, Bs.Storage_Id
+		From Batch_Storage Bs
+		Join Product_Batch Pb On Bs.Batch_Id = Pb.Id
+		Join Product P On Pb.Product_Id = P.Id
+		Where Bs.Id = $1
 	`, batchStorageID).Scan(
 		&batchID,
 		&productID,
@@ -1111,10 +1120,10 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 	var newBatchID, newProductID, newStorageID string
 	if isChangingStorage {
 		errBatchStorage := r.db.QueryRow(`
-			SELECT bs.batch_id, pb.product_id, bs.storage_id
-			FROM batch_storage bs
-			JOIN product_batch pb ON bs.batch_id = pb.id
-			WHERE bs.id = $1
+			Select Bs.Batch_Id, Pb.Product_Id, Bs.Storage_Id
+			From Batch_Storage Bs
+			Join Product_Batch Pb On Bs.Batch_Id = Pb.Id
+			Where Bs.Id = $1
 		`, req.BatchStorageID).Scan(&newBatchID, &newProductID, &newStorageID)
 
 		if errBatchStorage != nil {
@@ -1147,9 +1156,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 		err := utils.WithTransaction(r.db, func(tx *sql.Tx) error {
 			// Update the sales order detail with new price
 			_, errUpdate := tx.Exec(`
-				UPDATE sales_order_detail 
-				SET unit_price = $1, updated_at = NOW()
-				WHERE id = $2
+				Update Sales_Order_Detail 
+				Set Unit_Price = $1, Updated_At = Now()
+				Where Id = $2
 			`, newPrice, req.DetailID)
 			if errUpdate != nil {
 				return fmt.Errorf("gagal memperbarui harga item: %w", errUpdate)
@@ -1157,12 +1166,12 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 			// Update the order's total_amount
 			_, errTotal := tx.Exec(`
-				UPDATE sales_order SET total_amount = (
-					SELECT COALESCE(SUM(quantity * unit_price), 0)
-					FROM sales_order_detail
-					WHERE sales_order_id = $1
-				), updated_at = NOW()
-				WHERE id = $1
+				Update Sales_Order Set Total_Amount = (
+					Select Coalesce(Sum(Quantity * Unit_Price), 0)
+					From Sales_Order_Detail
+					Where Sales_Order_Id = $1
+				), Updated_At = Now()
+				Where Id = $1
 			`, req.SalesOrderID)
 			if errTotal != nil {
 				return fmt.Errorf("gagal memperbarui total harga pesanan: %w", errTotal)
@@ -1184,18 +1193,18 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 			if isChangingStorage {
 				// Return quantity to original batch and storage
 				_, errRestore := tx.Exec(`
-					UPDATE product_batch 
-					SET current_quantity = current_quantity + $1 
-					WHERE id = $2
+					Update Product_Batch 
+					Set Current_Quantity = Current_Quantity + $1 
+					Where Id = $2
 				`, currentQty, batchID)
 				if errRestore != nil {
 					return fmt.Errorf("gagal mengembalikan stok batch lama: %w", errRestore)
 				}
 
 				_, errRestoreStorage := tx.Exec(`
-					UPDATE batch_storage 
-					SET quantity = quantity + $1 
-					WHERE id = $2
+					Update Batch_Storage 
+					Set Quantity = Quantity + $1 
+					Where Id = $2
 				`, currentQty, batchStorageID)
 				if errRestoreStorage != nil {
 					return fmt.Errorf("gagal mengembalikan stok di lokasi penyimpanan lama: %w", errRestoreStorage)
@@ -1204,7 +1213,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 				// Validate new batch storage has enough quantity
 				var availableQty float64
 				errAvail := tx.QueryRow(`
-					SELECT quantity FROM batch_storage WHERE id = $1
+					Select Quantity From Batch_Storage Where Id = $1
 				`, req.BatchStorageID).Scan(&availableQty)
 				if errAvail != nil {
 					return fmt.Errorf("gagal memeriksa ketersediaan stok di lokasi baru: %w", errAvail)
@@ -1216,18 +1225,18 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 				// Take quantity from new batch and storage
 				_, errDeduct := tx.Exec(`
-					UPDATE product_batch 
-					SET current_quantity = current_quantity - $1 
-					WHERE id = $2
+					Update Product_Batch 
+					Set Current_Quantity = Current_Quantity - $1 
+					Where Id = $2
 				`, newQty, newBatchID)
 				if errDeduct != nil {
 					return fmt.Errorf("gagal mengurangi stok batch baru: %w", errDeduct)
 				}
 
 				_, errDeductStorage := tx.Exec(`
-					UPDATE batch_storage 
-					SET quantity = quantity - $1 
-					WHERE id = $2
+					Update Batch_Storage 
+					Set Quantity = Quantity - $1 
+					Where Id = $2
 				`, newQty, req.BatchStorageID)
 				if errDeductStorage != nil {
 					return fmt.Errorf("gagal mengurangi stok di lokasi penyimpanan baru: %w", errDeductStorage)
@@ -1235,9 +1244,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 				// Update sales order detail with new batch storage
 				_, errUpdateDetail := tx.Exec(`
-					UPDATE sales_order_detail 
-					SET batch_storage_id = $1, quantity = $2, unit_price = $3, updated_at = NOW()
-					WHERE id = $4
+					Update Sales_Order_Detail 
+					Set Batch_Storage_Id = $1, Quantity = $2, Unit_Price = $3, Updated_At = Now()
+					Where Id = $4
 				`, req.BatchStorageID, newQty, newPrice, req.DetailID)
 				if errUpdateDetail != nil {
 					return fmt.Errorf("gagal memperbarui detail pesanan: %w", errUpdateDetail)
@@ -1246,7 +1255,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 				// Update response with new batch info
 				batchID = newBatchID
 				// Get updated batch SKU
-				if err := tx.QueryRow("SELECT sku FROM product_batch WHERE id = $1", newBatchID).Scan(&batchSKU); err != nil {
+				if err := tx.QueryRow("Select Sku From Product_Batch Where Id = $1", newBatchID).Scan(&batchSKU); err != nil {
 					return fmt.Errorf("gagal mendapatkan informasi SKU batch baru: %w", err)
 				}
 			} else {
@@ -1256,7 +1265,7 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 					if qtyDifference > 0 {
 						var availableQty float64
 						errAvail := tx.QueryRow(`
-							SELECT quantity FROM batch_storage WHERE id = $1
+							Select Quantity From Batch_Storage Where Id = $1
 						`, batchStorageID).Scan(&availableQty)
 						if errAvail != nil {
 							return fmt.Errorf("gagal memeriksa ketersediaan stok: %w", errAvail)
@@ -1269,9 +1278,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 					// Update product_batch total quantity
 					_, err := tx.Exec(`
-						UPDATE product_batch 
-						SET current_quantity = current_quantity - $1 
-						WHERE id = $2
+						Update Product_Batch 
+						Set Current_Quantity = Current_Quantity - $1 
+						Where Id = $2
 					`, qtyDifference, batchID)
 					if err != nil {
 						return fmt.Errorf("gagal memperbarui stok batch: %w", err)
@@ -1279,9 +1288,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 					// Update batch_storage quantity
 					_, err = tx.Exec(`
-						UPDATE batch_storage 
-						SET quantity = quantity - $1 
-						WHERE id = $2
+						Update Batch_Storage 
+						Set Quantity = Quantity - $1 
+						Where Id = $2
 					`, qtyDifference, batchStorageID)
 					if err != nil {
 						return fmt.Errorf("gagal memperbarui stok di lokasi penyimpanan: %w", err)
@@ -1290,9 +1299,9 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 				// Update sales order detail with new quantity/price
 				_, err := tx.Exec(`
-					UPDATE sales_order_detail 
-					SET quantity = $1, unit_price = $2, updated_at = NOW()
-					WHERE id = $3
+					Update Sales_Order_Detail 
+					Set Quantity = $1, Unit_Price = $2, Updated_At = Now()
+					Where Id = $3
 				`, newQty, newPrice, req.DetailID)
 				if err != nil {
 					return fmt.Errorf("gagal memperbarui detail pesanan: %w", err)
@@ -1301,12 +1310,12 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 
 			// Update the order's total_amount
 			_, err := tx.Exec(`
-				UPDATE sales_order SET total_amount = (
-					SELECT COALESCE(SUM(quantity * unit_price), 0)
-					FROM sales_order_detail
-					WHERE sales_order_id = $1
-				), updated_at = NOW()
-				WHERE id = $1
+				Update Sales_Order Set Total_Amount = (
+					Select Coalesce(Sum(Quantity * Unit_Price), 0)
+					From Sales_Order_Detail
+					Where Sales_Order_Id = $1
+				), Updated_At = Now()
+				Where Id = $1
 			`, req.SalesOrderID)
 			if err != nil {
 				return fmt.Errorf("gagal memperbarui total harga pesanan: %w", err)
@@ -1342,37 +1351,37 @@ func (r *SalesRepositoryImpl) UpdateSalesOrderItem(req UpdateSalesOrderItemReque
 func (r *SalesRepositoryImpl) GetSalesInvoices(req GetSalesInvoicesRequest) ([]GetSalesInvoicesResponse, int, error) {
 	// Build base query for fetching sales invoices
 	baseQuery := `
-        SELECT si.id, si.serial_id, si.sales_order_id, so.serial_id AS sales_order_serial,
-               so.customer_id, c.name AS customer_name, si.invoice_date, si.total_amount,
-               CASE 
-                 WHEN si.cancelled_at IS NOT NULL THEN 'cancelled'
-                 WHEN EXISTS(SELECT 1 FROM sales_order_return sor 
-                            JOIN sales_order_detail sod ON sor.sales_detail_id = sod.id
-                            WHERE sod.sales_order_id = so.id AND sor.return_status = 'returned') 
-                    AND NOT EXISTS(SELECT 1 FROM sales_order_detail sod 
-                                  WHERE sod.sales_order_id = so.id 
-                                  AND NOT EXISTS(SELECT 1 FROM sales_order_return sor 
-                                               WHERE sor.sales_detail_id = sod.id AND sor.return_status = 'returned')) 
-                    THEN 'returned'
-                 WHEN EXISTS(SELECT 1 FROM sales_order_return sor 
-                            JOIN sales_order_detail sod ON sor.sales_detail_id = sod.id
-                            WHERE sod.sales_order_id = so.id AND sor.return_status = 'returned') THEN 'partially_returned'
-                 ELSE 'active'
-               END AS status,
-               EXISTS(SELECT 1 FROM delivery_note dn WHERE dn.sales_invoice_id = si.id AND dn.cancelled_at IS NULL) AS has_delivery_note,
-               si.created_by, si.created_at, si.cancelled_at
-        FROM sales_invoice si
-        JOIN sales_order so ON si.sales_order_id = so.id
-        JOIN customer c ON so.customer_id = c.id
-        WHERE 1=1`
+        Select Si.Id, Si.Serial_Id, Si.Sales_Order_Id, So.Serial_Id As Sales_Order_Serial,
+               So.Customer_Id, C.Name As Customer_Name, Si.Invoice_Date, Si.Total_Amount,
+               Case 
+                 When Si.Cancelled_At Is Not Null Then 'cancelled'
+                 When Exists(Select 1 From Sales_Order_Return Sor 
+                            Join Sales_Order_Detail Sod On Sor.Sales_Detail_Id = Sod.Id
+                            Where Sod.Sales_Order_Id = So.Id And Sor.Return_Status = 'returned') 
+                    And Not Exists(Select 1 From Sales_Order_Detail Sod 
+                                  Where Sod.Sales_Order_Id = So.Id 
+                                  And Not Exists(Select 1 From Sales_Order_Return Sor 
+                                               Where Sor.Sales_Detail_Id = Sod.Id And Sor.Return_Status = 'returned')) 
+                    Then 'returned'
+                 When Exists(Select 1 From Sales_Order_Return Sor 
+                            Join Sales_Order_Detail Sod On Sor.Sales_Detail_Id = Sod.Id
+                            Where Sod.Sales_Order_Id = So.Id And Sor.Return_Status = 'returned') Then 'partially_returned'
+                 Else 'active'
+               End As Status,
+               Exists(Select 1 From Delivery_Note Dn Where Dn.Sales_Invoice_Id = Si.Id And Dn.Cancelled_At Is Null) As Has_Delivery_Note,
+               Si.Created_By, Si.Created_At, Si.Cancelled_At
+        From Sales_Invoice Si
+        Join Sales_Order So On Si.Sales_Order_Id = So.Id
+        Join Customer C On So.Customer_Id = C.Id
+        Where 1=1`
 
 	// Create count query
 	countQuery := `
-        SELECT COUNT(*) 
-        FROM sales_invoice si
-        JOIN sales_order so ON si.sales_order_id = so.id
-        JOIN customer c ON so.customer_id = c.id
-        WHERE 1=1`
+        Select Count(*) 
+        From Sales_Invoice Si
+        Join Sales_Order So On Si.Sales_Order_Id = So.Id
+        Join Customer C On So.Customer_Id = C.Id
+        Where 1=1`
 
 	// Initialize query builders
 	qb := utils.NewQueryBuilder(baseQuery)
@@ -1528,15 +1537,15 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 		var totalAmount float64
 
 		err := tx.QueryRow(`
-            SELECT so.status, so.serial_id, so.customer_id, c.name, so.total_amount
-            FROM sales_order so
-            JOIN customer c ON so.customer_id = c.id
-            WHERE so.id = $1
+            Select So.Status, So.Serial_Id, So.Customer_Id, C.Name, So.Total_Amount
+            From Sales_Order So
+            Join Customer C On So.Customer_Id = C.Id
+            Where So.Id = $1
         `, req.SalesOrderID).Scan(&orderStatus, &orderSerial, &customerId, &customerName, &totalAmount)
 
 		if err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("pesanan penjualan tidak ditemukan")
+				return fmt.Errorf("sales order tidak ditemukan")
 			}
 			return fmt.Errorf("gagal memeriksa pesanan: %w", err)
 		}
@@ -1549,8 +1558,8 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 		// Check if invoice already exists for this order
 		var existingInvoice string
 		err = tx.QueryRow(`
-            SELECT id FROM sales_invoice 
-            WHERE sales_order_id = $1 AND cancelled_at IS NULL
+            Select Id From Sales_Invoice 
+            Where Sales_Order_Id = $1 And Cancelled_At Is Null
         `, req.SalesOrderID).Scan(&existingInvoice)
 
 		if err != nil && !errors.Is(err, sql.ErrNoRows) {
@@ -1572,10 +1581,10 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 
 		// Create invoice
 		err = tx.QueryRow(`
-            INSERT INTO sales_invoice (
-                sales_order_id, serial_id, total_amount, created_by
-            ) VALUES ($1, $2, $3, $4)
-            RETURNING id, serial_id, invoice_date
+            Insert Into Sales_Invoice (
+                Sales_Order_Id, Serial_Id, Total_Amount, Created_By
+            ) Values ($1, $2, $3, $4)
+            Returning Id, Serial_Id, Invoice_Date
         `, req.SalesOrderID, serialID, totalAmount, userID).Scan(&invoiceID, &serialID, &invoiceDate)
 
 		if err != nil {
@@ -1584,9 +1593,9 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 
 		// Update order status to 'invoice'
 		_, err = tx.Exec(`
-            UPDATE sales_order 
-            SET status = 'invoice', updated_at = NOW() 
-            WHERE id = $1
+            Update Sales_Order 
+            Set Status = 'invoice', Updated_At = Now() 
+            Where Id = $1
         `, req.SalesOrderID)
 
 		if err != nil {
@@ -1606,16 +1615,16 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 		var items []detailItem
 
 		rows, err := tx.Query(`
-            SELECT 
-                sod.id, 
-                sod.batch_storage_id, 
-                bs.batch_id,
-                bs.storage_id,
-                sod.quantity, 
-                sod.unit_price
-            FROM sales_order_detail sod
-            JOIN batch_storage bs ON sod.batch_storage_id = bs.id
-            WHERE sod.sales_order_id = $1
+            Select 
+                Sod.Id, 
+                Sod.Batch_Storage_Id, 
+                Bs.Batch_Id,
+                Bs.Storage_Id,
+                Sod.Quantity, 
+                Sod.Unit_Price
+            From Sales_Order_Detail Sod
+            Join Batch_Storage Bs On Sod.Batch_Storage_Id = Bs.Id
+            Where Sod.Sales_Order_Id = $1
         `, req.SalesOrderID)
 
 		if err != nil {
@@ -1650,21 +1659,21 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 		for _, item := range items {
 			// Log inventory movement
 			_, err = tx.Exec(`
-                INSERT INTO inventory_log (
-                    batch_id, 
-                    storage_id, 
-                    user_id, 
-                    sales_order_id, 
-                    action, 
-                    quantity, 
-                    description
-                ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+                Insert Into Inventory_Log (
+                    Batch_Id, 
+                    Storage_Id, 
+                    User_Id, 
+                    Sales_Order_Id, 
+                    Action, 
+                    Quantity, 
+                    Description
+                ) Values ($1, $2, $3, $4, $5, $6, $7)
             `,
 				item.batchID,
 				item.storageID,
 				userID,
 				req.SalesOrderID,
-				"invoice",
+				"sale",
 				item.quantity,
 				fmt.Sprintf("Pembuatan faktur %s", serialID))
 
@@ -1675,15 +1684,15 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 
 		// Create financial transaction log
 		_, err = tx.Exec(`
-            INSERT INTO financial_transaction_log (
-                user_id,
-                amount,
-                type,
-                sales_order_id,
-                description,
-                transaction_date,
-                is_system
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
+            Insert Into Financial_Transaction_Log (
+                User_Id,
+                Amount,
+                Type,
+                Sales_Order_Id,
+                Description,
+                Transaction_Date,
+                Is_System
+            ) Values ($1, $2, $3, $4, $5, $6, $7)
         `,
 			userID,
 			totalAmount,
@@ -1716,7 +1725,7 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 	// If a transaction was provided, use it directly
 	if tx != nil {
 		// Create a savepoint to allow rolling back just this part of the transaction
-		_, err := tx.Exec("SAVEPOINT create_invoice")
+		_, err := tx.Exec("Savepoint Create_Invoice")
 		if err != nil {
 			return nil, fmt.Errorf("failed to create savepoint: %w", err)
 		}
@@ -1726,7 +1735,7 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 
 		if err != nil {
 			// If there's an error, roll back to the savepoint
-			_, rbErr := tx.Exec("ROLLBACK TO SAVEPOINT create_invoice")
+			_, rbErr := tx.Exec("Rollback To Savepoint Create_Invoice")
 			if rbErr != nil {
 				return nil, fmt.Errorf("error creating invoice: %v, and failed to rollback: %w", err, rbErr)
 			}
@@ -1734,7 +1743,7 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 		}
 
 		// Release the savepoint on success
-		_, err = tx.Exec("RELEASE SAVEPOINT create_invoice")
+		_, err = tx.Exec("Release Savepoint Create_Invoice")
 		if err != nil {
 			return nil, fmt.Errorf("failed to release savepoint: %w", err)
 		}
@@ -1761,9 +1770,9 @@ func (r *SalesRepositoryImpl) CancelSalesInvoice(req CancelSalesInvoiceRequest, 
 	var cancelled bool
 
 	err := r.db.QueryRow(`
-        SELECT sales_order_id, cancelled_at IS NOT NULL 
-        FROM sales_invoice 
-        WHERE id = $1
+        Select Sales_Order_Id, Cancelled_At Is Not Null 
+        From Sales_Invoice 
+        Where Id = $1
     `, req.InvoiceID).Scan(&salesOrderID, &cancelled)
 
 	if err != nil {
@@ -1781,9 +1790,9 @@ func (r *SalesRepositoryImpl) CancelSalesInvoice(req CancelSalesInvoiceRequest, 
 	// Check if delivery note exists
 	var deliveryExists bool
 	err = r.db.QueryRow(`
-        SELECT EXISTS(
-            SELECT 1 FROM delivery_note 
-            WHERE sales_invoice_id = $1 AND cancelled_at IS NULL
+        Select Exists(
+            Select 1 From Delivery_Note 
+            Where Sales_Invoice_Id = $1 And Cancelled_At Is Null
         )
     `, req.InvoiceID).Scan(&deliveryExists)
 
@@ -1799,9 +1808,9 @@ func (r *SalesRepositoryImpl) CancelSalesInvoice(req CancelSalesInvoiceRequest, 
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
 		// Mark invoice as cancelled
 		_, err := tx.Exec(`
-            UPDATE sales_invoice 
-            SET cancelled_at = NOW(), cancelled_by = $1 
-            WHERE id = $2
+            Update Sales_Invoice 
+            Set Cancelled_At = Now(), Cancelled_By = $1 
+            Where Id = $2
         `, userID, req.InvoiceID)
 
 		if err != nil {
@@ -1810,9 +1819,9 @@ func (r *SalesRepositoryImpl) CancelSalesInvoice(req CancelSalesInvoiceRequest, 
 
 		// Revert sales order to 'order' status
 		_, err = tx.Exec(`
-            UPDATE sales_order 
-            SET status = 'order', updated_at = NOW() 
-            WHERE id = $1
+            Update Sales_Order 
+            Set Status = 'order', Updated_At = Now() 
+            Where Id = $1
         `, salesOrderID)
 
 		if err != nil {
@@ -1832,9 +1841,9 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 
 	// Check if invoice exists and get sales order ID
 	err := r.db.QueryRow(`
-        SELECT i.sales_order_id, i.cancelled_at IS NOT NULL
-        FROM sales_invoice i
-        WHERE i.id = $1
+        Select I.Sales_Order_Id, I.Cancelled_At Is Not Null
+        From Sales_Invoice I
+        Where I.Id = $1
     `, req.InvoiceID).Scan(&salesOrderID, &isInvoiceCancelled)
 
 	if err != nil {
@@ -1852,9 +1861,9 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 	// Check if a delivery note has been created
 	var hasDeliveryNote bool
 	err = r.db.QueryRow(`
-        SELECT EXISTS(
-            SELECT 1 FROM delivery_note 
-            WHERE sales_invoice_id = $1 AND cancelled_at IS NULL
+        Select Exists(
+            Select 1 From Delivery_Note 
+            Where Sales_Invoice_Id = $1 And Cancelled_At Is Null
         )
     `, req.InvoiceID).Scan(&hasDeliveryNote)
 
@@ -1873,14 +1882,14 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 		var previousReturnedQty float64
 
 		err = r.db.QueryRow(`
-            SELECT EXISTS(
-                SELECT 1 FROM sales_order_detail 
-                WHERE id = $1 AND sales_order_id = $2
+            Select Exists(
+                Select 1 From Sales_Order_Detail 
+                Where Id = $1 And Sales_Order_Id = $2
             ), 
-            (SELECT quantity FROM sales_order_detail WHERE id = $1),
-            COALESCE(
-                (SELECT SUM(return_quantity) FROM sales_order_return 
-                WHERE sales_detail_id = $1 AND return_status = 'completed'),
+            (Select Quantity From Sales_Order_Detail Where Id = $1),
+            Coalesce(
+                (Select Sum(Return_Quantity) From Sales_Order_Return 
+                Where Sales_Detail_Id = $1 And Return_Status = 'completed'),
                 0
             )
         `, item.DetailID, salesOrderID).Scan(&detailExists, &currentQuantity, &previousReturnedQty)
@@ -1928,9 +1937,9 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 			// Get product and batch information
 			var productID, batchID string
 			if err := tx.QueryRow(`
-                SELECT product_id, batch_id 
-                FROM sales_order_detail 
-                WHERE id = $1
+                Select Product_Id, Batch_Id 
+                From Sales_Order_Detail 
+                Where Id = $1
             `, item.DetailID).Scan(&productID, &batchID); err != nil {
 				return fmt.Errorf("gagal mendapatkan informasi produk: %w", err)
 			}
@@ -1938,25 +1947,25 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 			// Create return record for this item
 			remainingQty := 0.0
 			if err := tx.QueryRow(`
-                SELECT quantity - $1 - COALESCE(
-                    (SELECT SUM(return_quantity) FROM sales_order_return 
-                    WHERE sales_detail_id = $2 AND return_status = 'completed'),
+                Select Quantity - $1 - Coalesce(
+                    (Select Sum(Return_Quantity) From Sales_Order_Return 
+                    Where Sales_Detail_Id = $2 And Return_Status = 'completed'),
                     0
                 )
-                FROM sales_order_detail
-                WHERE id = $2
+                From Sales_Order_Detail
+                Where Id = $2
             `, item.Quantity, item.DetailID).Scan(&remainingQty); err != nil {
 				return fmt.Errorf("gagal menghitung sisa kuantitas: %w", err)
 			}
 
 			// Insert return record
 			if _, err := tx.Exec(`
-                INSERT INTO sales_order_return (
-                    id, return_source, sales_order_id, sales_detail_id,
-                    return_quantity, remaining_quantity, return_reason, 
-                    return_status, returned_by, returned_at
-                ) VALUES (
-                    $1, 'invoice', $2, $3, $4, $5, $6, 'completed', $7, NOW()
+                Insert Into Sales_Order_Return (
+                    Id, Return_Source, Sales_Order_Id, Sales_Detail_Id,
+                    Return_Quantity, Remaining_Quantity, Return_Reason, 
+                    Return_Status, Returned_By, Returned_At
+                ) Values (
+                    $1, 'invoice', $2, $3, $4, $5, $6, 'completed', $7, Now()
                 )
             `, returnID, salesOrderID, item.DetailID, item.Quantity, remainingQty,
 				req.ReturnReason, userID); err != nil {
@@ -1968,38 +1977,38 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 				// Insert return batch record
 				batchReturnID := uuid.New().String()
 				if _, err := tx.Exec(`
-                    INSERT INTO sales_order_return_batch (
-                        id, sales_return_id, batch_id, return_quantity
-                    ) VALUES ($1, $2, $3, $4)
+                    Insert Into Sales_Order_Return_Batch (
+                        Id, Sales_Return_Id, Batch_Id, Return_Quantity
+                    ) Values ($1, $2, $3, $4)
                 `, batchReturnID, returnID, batchID, storage.Quantity); err != nil {
 					return fmt.Errorf("gagal mencatat batch pengembalian: %w", err)
 				}
 
 				// Update batch storage quantity
 				if _, err := tx.Exec(`
-                    INSERT INTO batch_storage (batch_id, storage_id, quantity)
-                    VALUES ($1, $2, $3)
-                    ON CONFLICT (batch_id, storage_id) 
-                    DO UPDATE SET quantity = batch_storage.quantity + $3
+                    Insert Into Batch_Storage (Batch_Id, Storage_Id, Quantity)
+                    Values ($1, $2, $3)
+                    On Conflict (Batch_Id, Storage_Id) 
+                    Do Update Set Quantity = Batch_Storage.Quantity + $3
                 `, batchID, storage.StorageID, storage.Quantity); err != nil {
 					return fmt.Errorf("gagal memperbarui jumlah di penyimpanan: %w", err)
 				}
 
 				// Update batch current quantity
 				if _, err := tx.Exec(`
-                    UPDATE product_batch
-                    SET current_quantity = current_quantity + $1, updated_at = NOW()
-                    WHERE id = $2
+                    Update Product_Batch
+                    Set Current_Quantity = Current_Quantity + $1, Updated_At = Now()
+                    Where Id = $2
                 `, storage.Quantity, batchID); err != nil {
 					return fmt.Errorf("gagal memperbarui jumlah batch: %w", err)
 				}
 
 				// Create inventory log
 				if _, err := tx.Exec(`
-                    INSERT INTO inventory_log (
-                        batch_id, storage_id, user_id, sales_order_id, action,
-                        quantity, description
-                    ) VALUES (
+                    Insert Into Inventory_Log (
+                        Batch_Id, Storage_Id, User_Id, Sales_Order_Id, Action,
+                        Quantity, Description
+                    ) Values (
                         $1, $2, $3, $4, 'return',
                         $5, $6
                     )
@@ -2014,23 +2023,23 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 		var isFullReturn bool
 		var returnedItemsCount int
 		if err := tx.QueryRow(`
-            WITH total_items AS (
-                SELECT COUNT(*) as count, SUM(quantity) as total_qty
-                FROM sales_order_detail
-                WHERE sales_order_id = $1
+            With Total_Items As (
+                Select Count(*) As Count, Sum(Quantity) As Total_Qty
+                From Sales_Order_Detail
+                Where Sales_Order_Id = $1
             ),
-            returned_items AS (
-                SELECT 
-                    COUNT(DISTINCT d.id) as count,
-                    SUM(CASE WHEN r.remaining_quantity <= 0 THEN 1 ELSE 0 END) as fully_returned
-                FROM sales_order_detail d
-                JOIN sales_order_return r ON d.id = r.sales_detail_id
-                WHERE d.sales_order_id = $1 AND r.return_status = 'completed'
+            Returned_Items As (
+                Select 
+                    Count(Distinct D.Id) As Count,
+                    Sum(Case When R.Remaining_Quantity <= 0 Then 1 Else 0 End) As Fully_Returned
+                From Sales_Order_Detail D
+                Join Sales_Order_Return R On D.Id = R.Sales_Detail_Id
+                Where D.Sales_Order_Id = $1 And R.Return_Status = 'completed'
             )
-            SELECT 
-                CASE WHEN ti.count = ri.fully_returned THEN TRUE ELSE FALSE END,
-                ri.count
-            FROM total_items ti, returned_items ri
+            Select 
+                Case When Ti.Count = Ri.Fully_Returned Then True Else False End,
+                Ri.Count
+            From Total_Items Ti, Returned_Items Ri
         `, salesOrderID).Scan(&isFullReturn, &returnedItemsCount); err != nil {
 			if !errors.Is(err, sql.ErrNoRows) {
 				return fmt.Errorf("gagal memeriksa status pengembalian penuh: %w", err)
@@ -2044,18 +2053,18 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 		// Update sales order status if all items are fully returned
 		if isFullReturn {
 			if _, err := tx.Exec(`
-                UPDATE sales_order
-                SET status = 'return', updated_at = NOW()
-                WHERE id = $1
+                Update Sales_Order
+                Set Status = 'return', Updated_At = Now()
+                Where Id = $1
             `, salesOrderID); err != nil {
 				return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
 			}
 		} else {
 			// Otherwise mark as partially returned
 			if _, err := tx.Exec(`
-                UPDATE sales_order
-                SET status = 'partially_return', updated_at = NOW()
-                WHERE id = $1 AND status != 'return'
+                Update Sales_Order
+                Set Status = 'partially_return', Updated_At = Now()
+                Where Id = $1 And Status != 'return'
             `, salesOrderID); err != nil {
 				return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
 			}
@@ -2086,9 +2095,9 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 	var returnSource string
 
 	err := r.db.QueryRow(`
-        SELECT r.sales_order_id, r.cancelled_at IS NOT NULL, r.return_source
-        FROM sales_order_return r
-        WHERE r.id = $1
+        Select R.Sales_Order_Id, R.Cancelled_At Is Not Null, R.Return_Source
+        From Sales_Order_Return R
+        Where R.Id = $1
     `, req.ReturnID).Scan(&salesOrderID, &isCancelled, &returnSource)
 
 	if err != nil {
@@ -2112,18 +2121,18 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
 		// Get all return items to revert the inventory
 		rows, err := tx.Query(`
-            SELECT 
-                r.id,
-                r.sales_detail_id,
-                r.return_quantity,
-                rb.id as batch_return_id,
-                rb.batch_id,
-                rb.return_quantity as batch_return_quantity,
-                sod.product_id
-            FROM sales_order_return r
-            JOIN sales_order_return_batch rb ON r.id = rb.sales_return_id
-            JOIN sales_order_detail sod ON r.sales_detail_id = sod.id
-            WHERE r.id = $1
+            Select 
+                R.Id,
+                R.Sales_Detail_Id,
+                R.Return_Quantity,
+                Rb.Id As Batch_Return_Id,
+                Rb.Batch_Id,
+                Rb.Return_Quantity As Batch_Return_Quantity,
+                Sod.Product_Id
+            From Sales_Order_Return R
+            Join Sales_Order_Return_Batch Rb On R.Id = Rb.Sales_Return_Id
+            Join Sales_Order_Detail Sod On R.Sales_Detail_Id = Sod.Id
+            Where R.Id = $1
         `, req.ReturnID)
 
 		if err != nil {
@@ -2166,32 +2175,32 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 		for _, detail := range returnDetails {
 			// Update batch quantity
 			if _, err := tx.Exec(`
-                UPDATE product_batch
-                SET current_quantity = current_quantity - $1,
-                    updated_at = NOW()
-                WHERE id = $2
+                Update Product_Batch
+                Set Current_Quantity = Current_Quantity - $1,
+                    Updated_At = Now()
+                Where Id = $2
             `, detail.batchReturnQty, detail.batchID); err != nil {
 				return fmt.Errorf("gagal memperbarui jumlah batch: %w", err)
 			}
 
 			// Update sales order detail to remove returned quantity
 			if _, err := tx.Exec(`
-                UPDATE sales_order_detail
-                SET quantity = quantity + $1,
-                    updated_at = NOW()
-                WHERE id = $2
+                Update Sales_Order_Detail
+                Set Quantity = Quantity + $1,
+                    Updated_At = Now()
+                Where Id = $2
             `, detail.returnQuantity, detail.detailID); err != nil {
 				return fmt.Errorf("gagal memperbarui detail pesanan: %w", err)
 			}
 
 			// Log inventory change
 			if _, err := tx.Exec(`
-                INSERT INTO inventory_log (
-                    batch_id, user_id, sales_order_id, action, 
-                    quantity, description, log_date
-                ) VALUES (
+                Insert Into Inventory_Log (
+                    Batch_Id, User_Id, Sales_Order_Id, Action, 
+                    Quantity, Description, Log_Date
+                ) Values (
                     $1, $2, $3, 'remove', $4, 
-                    'Pembatalan pengembalian barang', NOW()
+                    'Pembatalan pengembalian barang', Now()
                 )
             `, detail.batchID, userID, salesOrderID, detail.batchReturnQty); err != nil {
 				return fmt.Errorf("gagal mencatat perubahan inventaris: %w", err)
@@ -2200,11 +2209,11 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 
 		// Mark return as cancelled
 		if _, err := tx.Exec(`
-            UPDATE sales_order_return
-            SET return_status = 'cancelled',
-                cancelled_at = NOW(),
-                cancelled_by = $1
-            WHERE id = $2
+            Update Sales_Order_Return
+            Set Return_Status = 'cancelled',
+                Cancelled_At = Now(),
+                Cancelled_By = $1
+            Where Id = $2
         `, userID, req.ReturnID); err != nil {
 			return fmt.Errorf("gagal membatalkan pengembalian: %w", err)
 		}
@@ -2212,11 +2221,11 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 		// Determine current status based on remaining returns
 		var hasActiveReturns bool
 		if err := tx.QueryRow(`
-            SELECT EXISTS (
-                SELECT 1 FROM sales_order_return
-                WHERE sales_order_id = $1
-                AND return_status = 'completed'
-                AND cancelled_at IS NULL
+            Select Exists (
+                Select 1 From Sales_Order_Return
+                Where Sales_Order_Id = $1
+                And Return_Status = 'completed'
+                And Cancelled_At Is Null
             )
         `, salesOrderID).Scan(&hasActiveReturns); err != nil {
 			return fmt.Errorf("gagal memeriksa status pengembalian: %w", err)
@@ -2231,10 +2240,10 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
 		}
 
 		if _, err := tx.Exec(`
-            UPDATE sales_order
-            SET status = $1,
-                updated_at = NOW()
-            WHERE id = $2
+            Update Sales_Order
+            Set Status = $1,
+                Updated_At = Now()
+            Where Id = $2
         `, newStatus, salesOrderID); err != nil {
 			return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
 		}
@@ -2254,20 +2263,20 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
 	var customerName string
 
 	err := r.db.QueryRow(`
-        SELECT 
-            s.id, 
-            i.serial_id, 
-            s.serial_id,
-            c.name as customer_name,
-            i.cancelled_at IS NOT NULL,
-            EXISTS (
-                SELECT 1 FROM delivery_note dn 
-                WHERE dn.sales_invoice_id = i.id AND dn.cancelled_at IS NULL
+        Select 
+            S.Id, 
+            I.Serial_Id, 
+            S.Serial_Id,
+            C.Name As Customer_Name,
+            I.Cancelled_At Is Not Null,
+            Exists (
+                Select 1 From Delivery_Note Dn 
+                Where Dn.Sales_Invoice_Id = I.Id And Dn.Cancelled_At Is Null
             )
-        FROM sales_invoice i
-        JOIN sales_order s ON i.sales_order_id = s.id
-        JOIN customer c ON s.customer_id = c.id
-        WHERE i.id = $1
+        From Sales_Invoice I
+        Join Sales_Order S On I.Sales_Order_Id = S.Id
+        Join Customer C On S.Customer_Id = C.Id
+        Where I.Id = $1
     `, req.SalesInvoiceID).Scan(&salesOrderID, &invoiceSerialID, &salesOrderSerialID, &customerName, &invoiceCancelled, &hasDeliveryNote)
 
 	if err != nil {
@@ -2297,11 +2306,11 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
 		// Create delivery note
 		var deliveryNoteID string
 		err = tx.QueryRow(`
-            INSERT INTO delivery_note (
-                serial_id, sales_order_id, sales_invoice_id, 
-                delivery_date, driver_name, recipient_name, created_by
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id
+            Insert Into Delivery_Note (
+                Serial_Id, Sales_Order_Id, Sales_Invoice_Id, 
+                Delivery_Date, Driver_Name, Recipient_Name, Created_By
+            ) Values ($1, $2, $3, $4, $5, $6, $7)
+            Returning Id
         `, serialID, salesOrderID, req.SalesInvoiceID, req.DeliveryDate,
 			req.DriverName, req.RecipientName, userID).Scan(&deliveryNoteID)
 
@@ -2311,9 +2320,9 @@ func (r *SalesRepositoryImpl) CreateDeliveryNote(req CreateDeliveryNoteRequest, 
 
 		// Update sales order status to 'delivery'
 		if _, err = tx.Exec(`
-            UPDATE sales_order 
-            SET status = 'delivery', updated_at = NOW() 
-            WHERE id = $1
+            Update Sales_Order 
+            Set Status = 'delivery', Updated_At = Now() 
+            Where Id = $1
         `, salesOrderID); err != nil {
 			return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
 		}
@@ -2351,17 +2360,17 @@ func (r *SalesRepositoryImpl) CancelDeliveryNote(req CancelDeliveryNoteRequest, 
 	var isCancelled bool
 
 	err := r.db.QueryRow(`
-        SELECT 
-            dn.sales_order_id, 
-            dn.cancelled_at IS NOT NULL,
-            EXISTS (
-                SELECT 1 FROM sales_order_return r
-                WHERE r.delivery_note_id = dn.id 
-                AND r.cancelled_at IS NULL
-                AND r.return_status = 'completed'
+        Select 
+            Dn.Sales_Order_Id, 
+            Dn.Cancelled_At Is Not Null,
+            Exists (
+                Select 1 From Sales_Order_Return R
+                Where R.Delivery_Note_Id = Dn.Id 
+                And R.Cancelled_At Is Null
+                And R.Return_Status = 'completed'
             )
-        FROM delivery_note dn
-        WHERE dn.id = $1
+        From Delivery_Note Dn
+        Where Dn.Id = $1
     `, req.DeliveryNoteID).Scan(&salesOrderID, &isCancelled, &hasReturn)
 
 	if err != nil {
@@ -2383,20 +2392,20 @@ func (r *SalesRepositoryImpl) CancelDeliveryNote(req CancelDeliveryNoteRequest, 
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
 		// Mark delivery note as cancelled
 		if _, err := tx.Exec(`
-            UPDATE delivery_note
-            SET cancelled_at = NOW(),
-                cancelled_by = $1
-            WHERE id = $2
+            Update Delivery_Note
+            Set Cancelled_At = Now(),
+                Cancelled_By = $1
+            Where Id = $2
         `, userID, req.DeliveryNoteID); err != nil {
 			return fmt.Errorf("gagal membatalkan surat jalan: %w", err)
 		}
 
 		// Update sales order status back to 'invoice'
 		if _, err := tx.Exec(`
-            UPDATE sales_order
-            SET status = 'invoice',
-                updated_at = NOW()
-            WHERE id = $1
+            Update Sales_Order
+            Set Status = 'invoice',
+                Updated_At = Now()
+            Where Id = $1
         `, salesOrderID); err != nil {
 			return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
 		}

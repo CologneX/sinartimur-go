@@ -4,6 +4,15 @@ import (
 	"sinartimur-go/utils"
 )
 
+// SalesOrderStatusEnums defines the possible statuses for a sales-order
+const (
+	SalesOrderStatusOrder             string = "order"
+	SalesOrderStatusCompleted         string = "completed"
+	SalesOrderStatusPartiallyReturned string = "partially_returned"
+	SalesOrderStatusReturned          string = "returned"
+	SalesOrderStatusCancelled         string = "cancelled"
+)
+
 // SalesOrder represents a sales purchase-order entity from the database
 type SalesOrder struct {
 	ID             string  `json:"id"`
@@ -115,8 +124,11 @@ type GetSalesOrderDetailResponse struct {
 	PaymentDueDate       *string `json:"payment_due_date,omitempty"`
 	Description          *string `json:"description,omitempty"`
 	CreatedBy            string  `json:"created_by"`
+	CreatedByName        string  `json:"created_by_name"`
 	CreatedAt            string  `json:"created_at"`
 	CancelledAt          *string `json:"cancelled_at,omitempty"`
+	CancelledBy          *string `json:"cancelled_by,omitempty"`
+	CancelledByName      *string `json:"cancelled_by_name,omitempty"`
 	UpdatedAt            string  `json:"updated_at,omitempty"`
 
 	// Order items/details
