@@ -502,7 +502,7 @@ func ReturnInvoiceItemsHandler(salesService *sales.SalesService) http.HandlerFun
 		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
-		var req sales.ReturnInvoiceItemsRequest
+		var req sales.ReturnItemRequest
 		errors := utils.DecodeAndValidate(r, &req)
 		if errors != nil {
 			utils.ErrorJSON(w, &dto.APIError{
@@ -533,28 +533,30 @@ func ReturnInvoiceItemsHandler(salesService *sales.SalesService) http.HandlerFun
 func CancelInvoiceReturnHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		userID := r.Context().Value("user_id").(string)
-
-		// Extract return ID from URL path parameters
-		vars := mux.Vars(r)
-		returnID := vars["return_id"]
-
-		if returnID == "" {
+		userID, errUser := r.Context().Value("user_id").(string)
+		if errUser != false {
 			utils.ErrorJSON(w, &dto.APIError{
-				StatusCode: http.StatusBadRequest,
+				StatusCode: http.StatusUnauthorized,
 				Details: map[string]string{
-					"general": "ID pengembalian harus diisi",
+					"general": "Unauthorized",
 				},
 			})
 			return
 		}
 
-		req := sales.CancelInvoiceReturnRequest{
-			ReturnID: returnID,
+		// Parse and validate request body
+		var req sales.CancelReturnRequest
+		errs := utils.DecodeAndValidate(r, &req)
+		if errs != nil {
+			utils.ErrorJSON(w, &dto.APIError{
+				StatusCode: http.StatusBadRequest,
+				Details:    errs,
+			})
+			return
 		}
 
 		// Call service to cancel return
-		err := salesService.CancelInvoiceReturn(req, userID)
+		err := salesService.CancelReturn(req, userID)
 		if err != nil {
 			utils.ErrorJSON(w, &dto.APIError{
 				StatusCode: http.StatusBadRequest,

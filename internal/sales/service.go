@@ -3,7 +3,6 @@ package sales
 import (
 	"errors"
 	"fmt"
-	"sinartimur-go/utils"
 	"time"
 )
 
@@ -194,43 +193,9 @@ func (s *SalesService) CancelSalesInvoice(req CancelSalesInvoiceRequest, userID 
 }
 
 // ReturnInvoiceItems processes returns for invoice items
-func (s *SalesService) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, userID string) (*ReturnInvoiceItemsResponse, error) {
-	// Validate request
-	if req.InvoiceID == "" {
-		return nil, errors.New("ID faktur wajib diisi")
-	}
-
-	if len(req.ReturnItems) == 0 {
-		return nil, errors.New("tidak ada item yang ditentukan untuk pengembalian")
-	}
-
-	for _, item := range req.ReturnItems {
-		if item.DetailID == "" {
-			return nil, errors.New("ID detail item wajib diisi")
-		}
-		if item.Quantity <= 0 {
-			return nil, errors.New("jumlah pengembalian harus lebih dari 0")
-		}
-
-		totalStorageQty := 0.0
-		for _, storage := range item.StorageReturns {
-			if storage.StorageID == "" {
-				return nil, errors.New("ID lokasi penyimpanan wajib diisi")
-			}
-			if storage.Quantity <= 0 {
-				return nil, errors.New("jumlah pengembalian di penyimpanan harus lebih dari 0")
-			}
-			totalStorageQty += storage.Quantity
-		}
-
-		if !utils.FloatEquals(totalStorageQty, item.Quantity) {
-			return nil, fmt.Errorf("total jumlah pengembalian di penyimpanan (%f) tidak sama dengan jumlah yang diminta (%f)",
-				totalStorageQty, item.Quantity)
-		}
-	}
-
+func (s *SalesService) ReturnInvoiceItems(req ReturnItemRequest, userID string) (*ReturnInvoiceItemsResponse, error) {
 	// Call repository to process returns
-	response, err := s.repo.ReturnInvoiceItems(req, userID)
+	response, err := s.repo.ReturnItemFromSalesOrder(req, userID)
 	if err != nil {
 		return nil, err
 	}
@@ -238,15 +203,10 @@ func (s *SalesService) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, userID 
 	return response, nil
 }
 
-// CancelInvoiceReturn cancels a previously processed return
-func (s *SalesService) CancelInvoiceReturn(req CancelInvoiceReturnRequest, userID string) error {
-	// Validate request
-	if req.ReturnID == "" {
-		return errors.New("ID pengembalian wajib diisi")
-	}
-
+// CancelReturn cancels a previously processed return
+func (s *SalesService) CancelReturn(req CancelReturnRequest, userID string) error {
 	// Call repository to cancel return
-	err := s.repo.CancelInvoiceReturn(req, userID)
+	err := s.repo.CancelSalesOrderReturn(req, userID)
 	if err != nil {
 		return err
 	}

@@ -146,9 +146,9 @@ func RegisterSalesRoutes(router *mux.Router, salesService *sales.SalesService) {
 	router.HandleFunc("/invoice", v1.CreateSalesInvoiceHandler(salesService)).Methods("POST")
 	router.HandleFunc("/invoice/cancel", v1.CancelSalesInvoiceHandler(salesService)).Methods("POST")
 
-	// Sales Invoice Return endpoints
-	router.HandleFunc("/invoice/return", v1.ReturnInvoiceItemsHandler(salesService)).Methods("POST")
-	router.HandleFunc("/invoice/return/{return_id}/cancel", v1.CancelInvoiceReturnHandler(salesService)).Methods("POST")
+	// Return endpoints
+	router.HandleFunc("/return", v1.ReturnInvoiceItemsHandler(salesService)).Methods("POST")
+	router.HandleFunc("/return/cancel", v1.CancelInvoiceReturnHandler(salesService)).Methods("POST")
 
 	// Delivery Note endpoints
 	router.HandleFunc("/delivery-note", v1.CreateDeliveryNoteHandler(salesService)).Methods("POST")

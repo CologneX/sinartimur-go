@@ -35,8 +35,8 @@ type SalesRepository interface {
 	CancelSalesInvoice(req CancelSalesInvoiceRequest, userID string) error
 
 	// Return operations
-	ReturnInvoiceItems(req ReturnInvoiceItemsRequest, userID string) (*ReturnInvoiceItemsResponse, error)
-	CancelInvoiceReturn(req CancelInvoiceReturnRequest, userID string) error
+	ReturnItemFromSalesOrder(req ReturnItemRequest, userID string) (*ReturnInvoiceItemsResponse, error)
+	CancelSalesOrderReturn(req CancelReturnRequest, userID string) error
 
 	// Delivery Note operations
 	CreateDeliveryNote(req CreateDeliveryNoteRequest, userID string) (*CreateDeliveryNoteResponse, error)
@@ -82,10 +82,7 @@ func (r *SalesRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAllB
 	}
 
 	// Get count first (count distinct storage_ids to get number of storage groups)
-	countQuery := "Select Count(Distinct Bs.Storage_Id) From Product_Batch Pb " +
-		"JOIN batch_storage bs ON pb.id = bs.batch_id " +
-		"JOIN product p ON pb.product_id = p.id " +
-		"WHERE pb.current_quantity > 0 AND bs.quantity > 0"
+	countQuery := "Select Count(Distinct Bs.Storage_Id) From Product_Batch Pb Join Batch_Storage Bs On Pb.Id = Bs.Batch_Id Join Product P On Pb.Product_Id = P.Id Where Pb.Current_Quantity > 0 And Bs.Quantity > 0"
 
 	// Add search condition to count query if needed
 	if req.Search != "" {
@@ -1832,98 +1829,91 @@ func (r *SalesRepositoryImpl) CancelSalesInvoice(req CancelSalesInvoiceRequest, 
 	})
 }
 
-// ReturnInvoiceItems handles returning items from a sales invoice
-func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, userID string) (*ReturnInvoiceItemsResponse, error) {
+// ReturnItemFromSalesOrder handles returning items from a sales order (invoice or delivery)
+func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, userID string) (*ReturnInvoiceItemsResponse, error) {
 	var response ReturnInvoiceItemsResponse
-	var salesOrderID string
-	var totalReturnQuantity float64
-	var isInvoiceCancelled bool
 
-	// Check if invoice exists and get sales order ID
+	// First, verify the sales order exists and get its status
+	var salesOrderStatus string
+	var isInvoiceCancelled bool
+	var hasDeliveryNote bool
+	var deliveryNoteID sql.NullString
+
 	err := r.db.QueryRow(`
-        Select I.Sales_Order_Id, I.Cancelled_At Is Not Null
-        From Sales_Invoice I
-        Where I.Id = $1
-    `, req.InvoiceID).Scan(&salesOrderID, &isInvoiceCancelled)
+        Select 
+            So.Status, 
+            Exists(Select 1 From Sales_Invoice Si Where Si.Sales_Order_Id = So.Id And Si.Cancelled_At Is Null) As Has_Invoice,
+            Exists(Select 1 From Delivery_Note Dn Where Dn.Sales_Order_Id = So.Id And Dn.Cancelled_At Is Null) As Has_Delivery,
+            (Select Dn.Id From Delivery_Note Dn Where Dn.Sales_Order_Id = So.Id And Dn.Cancelled_At Is Null Limit 1) As Delivery_Note_Id
+        From Sales_Order So
+        Where So.Id = $1
+    `, req.SalesOrderID).Scan(&salesOrderStatus, &isInvoiceCancelled, &hasDeliveryNote, &deliveryNoteID)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, fmt.Errorf("faktur dengan ID %s tidak ditemukan", req.InvoiceID)
+			return nil, fmt.Errorf("sales order with ID %s not found", req.SalesOrderID)
 		}
-		return nil, fmt.Errorf("gagal memeriksa faktur: %w", err)
+		return nil, fmt.Errorf("failed to check sales order: %w", err)
 	}
 
-	// Check if invoice is already cancelled
-	if isInvoiceCancelled {
-		return nil, errors.New("faktur sudah dibatalkan, tidak dapat diproses pengembalian")
+	// Determine return source based on order status
+	var returnSource string
+	if salesOrderStatus == "delivery" {
+		returnSource = "delivery"
+		if !deliveryNoteID.Valid {
+			return nil, fmt.Errorf("order is in delivery status but no active delivery note found")
+		}
+	} else if salesOrderStatus == "invoice" {
+		returnSource = "invoice"
+	} else {
+		return nil, fmt.Errorf("cannot process return for order in '%s' status", salesOrderStatus)
 	}
 
-	// Check if a delivery note has been created
-	var hasDeliveryNote bool
+	// Verify the detail ID belongs to this order and get necessary info
+	var detailExists bool
+	var currentQuantity, previousReturnedQty float64
+	var batchStorageID, batchID, productID string
+
 	err = r.db.QueryRow(`
-        Select Exists(
-            Select 1 From Delivery_Note 
-            Where Sales_Invoice_Id = $1 And Cancelled_At Is Null
-        )
-    `, req.InvoiceID).Scan(&hasDeliveryNote)
+        Select 
+            Exists(Select 1 From Sales_Order_Detail Where Id = $1 And Sales_Order_Id = $2),
+            (Select Quantity From Sales_Order_Detail Where Id = $1),
+            Coalesce((Select Sum(Return_Quantity) From Sales_Order_Return 
+                Where Sales_Detail_Id = $1 And Return_Status = 'completed'), 0),
+            (Select Batch_Storage_Id From Sales_Order_Detail Where Id = $1),
+            (Select Bs.Batch_Id From Sales_Order_Detail Sod 
+                Join Batch_Storage Bs On Sod.Batch_Storage_Id = Bs.Id
+                Where Sod.Id = $1),
+            (Select Pb.Product_Id From Sales_Order_Detail Sod 
+                Join Batch_Storage Bs On Sod.Batch_Storage_Id = Bs.Id
+                Join Product_Batch Pb On Bs.Batch_Id = Pb.Id
+                Where Sod.Id = $1)
+    `, req.SalesOrderDetailID, req.SalesOrderID).Scan(
+		&detailExists, &currentQuantity, &previousReturnedQty,
+		&batchStorageID, &batchID, &productID)
 
 	if err != nil {
-		return nil, fmt.Errorf("gagal memeriksa surat jalan: %w", err)
+		return nil, fmt.Errorf("failed to verify item with ID %s: %w", req.SalesOrderDetailID, err)
 	}
 
-	if hasDeliveryNote {
-		return nil, errors.New("faktur telah memiliki surat jalan, pengembalian harus dilakukan melalui surat jalan")
+	if !detailExists {
+		return nil, fmt.Errorf("item with ID %s not found in this order", req.SalesOrderDetailID)
 	}
 
-	// Verify all detail IDs exist and belong to this sales order
-	for _, item := range req.ReturnItems {
-		var detailExists bool
-		var currentQuantity float64
-		var previousReturnedQty float64
+	// Parse the requested quantity
+	quantity, err := strconv.ParseFloat(req.Quantity, 64)
+	if err != nil {
+		return nil, fmt.Errorf("invalid quantity format: %w", err)
+	}
 
-		err = r.db.QueryRow(`
-            Select Exists(
-                Select 1 From Sales_Order_Detail 
-                Where Id = $1 And Sales_Order_Id = $2
-            ), 
-            (Select Quantity From Sales_Order_Detail Where Id = $1),
-            Coalesce(
-                (Select Sum(Return_Quantity) From Sales_Order_Return 
-                Where Sales_Detail_Id = $1 And Return_Status = 'completed'),
-                0
-            )
-        `, item.DetailID, salesOrderID).Scan(&detailExists, &currentQuantity, &previousReturnedQty)
+	// Check if return quantity is valid
+	if quantity <= 0 {
+		return nil, fmt.Errorf("return quantity must be greater than 0")
+	}
 
-		if err != nil {
-			return nil, fmt.Errorf("gagal memverifikasi item dengan ID %s: %w", item.DetailID, err)
-		}
-
-		if !detailExists {
-			return nil, fmt.Errorf("item dengan ID %s tidak ditemukan dalam pesanan ini", item.DetailID)
-		}
-
-		// Check if return quantity is valid
-		if item.Quantity <= 0 {
-			return nil, fmt.Errorf("kuantitas pengembalian harus lebih dari 0")
-		}
-
-		if item.Quantity > (currentQuantity - previousReturnedQty) {
-			return nil, fmt.Errorf("kuantitas pengembalian %f melebihi kuantitas yang tersedia %f",
-				item.Quantity, (currentQuantity - previousReturnedQty))
-		}
-
-		totalReturnQuantity += item.Quantity
-
-		// Validate storage returns match the total quantity
-		var totalStorageQty float64
-		for _, storage := range item.StorageReturns {
-			totalStorageQty += storage.Quantity
-		}
-
-		if !utils.FloatEquals(totalStorageQty, item.Quantity) {
-			return nil, fmt.Errorf("total kuantitas dari semua penyimpanan (%f) tidak sama dengan kuantitas pengembalian (%f)",
-				totalStorageQty, item.Quantity)
-		}
+	if quantity > (currentQuantity - previousReturnedQty) {
+		return nil, fmt.Errorf("return quantity %f exceeds available quantity %f",
+			quantity, (currentQuantity - previousReturnedQty))
 	}
 
 	// Execute transaction
@@ -1932,142 +1922,121 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 		returnID := uuid.New().String()
 		response.ReturnID = returnID
 
-		// Process each return item
-		for _, item := range req.ReturnItems {
-			// Get product and batch information
-			var productID, batchID string
-			if err := tx.QueryRow(`
-                Select Product_Id, Batch_Id 
-                From Sales_Order_Detail 
-                Where Id = $1
-            `, item.DetailID).Scan(&productID, &batchID); err != nil {
-				return fmt.Errorf("gagal mendapatkan informasi produk: %w", err)
-			}
+		// Calculate remaining quantity
+		remainingQty := currentQuantity - previousReturnedQty - quantity
 
-			// Create return record for this item
-			remainingQty := 0.0
-			if err := tx.QueryRow(`
-                Select Quantity - $1 - Coalesce(
-                    (Select Sum(Return_Quantity) From Sales_Order_Return 
-                    Where Sales_Detail_Id = $2 And Return_Status = 'completed'),
-                    0
-                )
-                From Sales_Order_Detail
-                Where Id = $2
-            `, item.Quantity, item.DetailID).Scan(&remainingQty); err != nil {
-				return fmt.Errorf("gagal menghitung sisa kuantitas: %w", err)
-			}
+		// Insert return record
+		if _, err := tx.Exec(`
+            Insert Into Sales_Order_Return (
+                Id, Return_Source, Sales_Order_Id, Sales_Detail_Id,
+                Return_Quantity, Remaining_Quantity, Return_Reason, 
+                Return_Status, Returned_By, Returned_At, Delivery_Note_Id
+            ) Values (
+                $1, $2, $3, $4, $5, $6, $7, 'completed', $8, Now(), $9
+            )
+        `, returnID, returnSource, req.SalesOrderID, req.SalesOrderDetailID,
+			quantity, remainingQty, req.ReturnReason, userID,
+			sql.NullString{String: deliveryNoteID.String, Valid: deliveryNoteID.Valid}); err != nil {
+			return fmt.Errorf("failed to create return record: %w", err)
+		}
 
-			// Insert return record
-			if _, err := tx.Exec(`
-                Insert Into Sales_Order_Return (
-                    Id, Return_Source, Sales_Order_Id, Sales_Detail_Id,
-                    Return_Quantity, Remaining_Quantity, Return_Reason, 
-                    Return_Status, Returned_By, Returned_At
-                ) Values (
-                    $1, 'invoice', $2, $3, $4, $5, $6, 'completed', $7, Now()
-                )
-            `, returnID, salesOrderID, item.DetailID, item.Quantity, remainingQty,
-				req.ReturnReason, userID); err != nil {
-				return fmt.Errorf("gagal membuat catatan pengembalian: %w", err)
-			}
+		// Insert return batch record
+		batchReturnID := uuid.New().String()
+		if _, err := tx.Exec(`
+            Insert Into Sales_Order_Return_Batch (
+                Id, Sales_Return_Id, Batch_Id, Return_Quantity
+            ) Values ($1, $2, $3, $4)
+        `, batchReturnID, returnID, batchID, quantity); err != nil {
+			return fmt.Errorf("failed to record batch return: %w", err)
+		}
 
-			// Process storage returns and restore inventory
-			for _, storage := range item.StorageReturns {
-				// Insert return batch record
-				batchReturnID := uuid.New().String()
-				if _, err := tx.Exec(`
-                    Insert Into Sales_Order_Return_Batch (
-                        Id, Sales_Return_Id, Batch_Id, Return_Quantity
-                    ) Values ($1, $2, $3, $4)
-                `, batchReturnID, returnID, batchID, storage.Quantity); err != nil {
-					return fmt.Errorf("gagal mencatat batch pengembalian: %w", err)
-				}
+		// Get product information for later use in inventory log
+		var productName string
+		if err := tx.QueryRow(`Select Name From Product Where Id = $1`, productID).Scan(&productName); err != nil {
+			return fmt.Errorf("failed to get product name: %w", err)
+		}
 
-				// Update batch storage quantity
-				if _, err := tx.Exec(`
-                    Insert Into Batch_Storage (Batch_Id, Storage_Id, Quantity)
-                    Values ($1, $2, $3)
-                    On Conflict (Batch_Id, Storage_Id) 
-                    Do Update Set Quantity = Batch_Storage.Quantity + $3
-                `, batchID, storage.StorageID, storage.Quantity); err != nil {
-					return fmt.Errorf("gagal memperbarui jumlah di penyimpanan: %w", err)
-				}
+		// Determine where to return inventory (default to original batch_storage)
+		var storageID string
+		if err := tx.QueryRow(`Select Storage_Id From Batch_Storage Where Id = $1`, batchStorageID).Scan(&storageID); err != nil {
+			return fmt.Errorf("failed to get storage ID: %w", err)
+		}
 
-				// Update batch current quantity
-				if _, err := tx.Exec(`
-                    Update Product_Batch
-                    Set Current_Quantity = Current_Quantity + $1, Updated_At = Now()
-                    Where Id = $2
-                `, storage.Quantity, batchID); err != nil {
-					return fmt.Errorf("gagal memperbarui jumlah batch: %w", err)
-				}
+		// Update batch storage quantity
+		if _, err := tx.Exec(`
+            Insert Into Batch_Storage (Batch_Id, Storage_Id, Quantity)
+            Values ($1, $2, $3)
+            On Conflict (Batch_Id, Storage_Id) 
+            Do Update Set Quantity = Batch_Storage.Quantity + $3
+        `, batchID, storageID, quantity); err != nil {
+			return fmt.Errorf("failed to update storage quantity: %w", err)
+		}
 
-				// Create inventory log
-				if _, err := tx.Exec(`
-                    Insert Into Inventory_Log (
-                        Batch_Id, Storage_Id, User_Id, Sales_Order_Id, Action,
-                        Quantity, Description
-                    ) Values (
-                        $1, $2, $3, $4, 'return',
-                        $5, $6
-                    )
-                `, batchID, storage.StorageID, userID, salesOrderID,
-					storage.Quantity, fmt.Sprintf("Pengembalian dari faktur")); err != nil {
-					return fmt.Errorf("gagal membuat log inventaris: %w", err)
-				}
-			}
+		// Update batch current quantity
+		if _, err := tx.Exec(`
+            Update Product_Batch
+            Set Current_Quantity = Current_Quantity + $1, Updated_At = Now()
+            Where Id = $2
+        `, quantity, batchID); err != nil {
+			return fmt.Errorf("failed to update batch quantity: %w", err)
+		}
+
+		// Create inventory log
+		if _, err := tx.Exec(`
+            Insert Into Inventory_Log (
+                Batch_Id, Storage_Id, User_Id, Sales_Order_Id, Action,
+                Quantity, Description
+            ) Values (
+                $1, $2, $3, $4, 'return',
+                $5, $6
+            )
+        `, batchID, storageID, userID, req.SalesOrderID,
+			quantity, fmt.Sprintf("Return from %s: %s", returnSource, productName)); err != nil {
+			return fmt.Errorf("failed to create inventory log: %w", err)
 		}
 
 		// Check if this is a full return (all items returned)
 		var isFullReturn bool
-		var returnedItemsCount int
 		if err := tx.QueryRow(`
             With Total_Items As (
-                Select Count(*) As Count, Sum(Quantity) As Total_Qty
+                Select Count(*) As Count
                 From Sales_Order_Detail
                 Where Sales_Order_Id = $1
             ),
-            Returned_Items As (
-                Select 
-                    Count(Distinct D.Id) As Count,
-                    Sum(Case When R.Remaining_Quantity <= 0 Then 1 Else 0 End) As Fully_Returned
-                From Sales_Order_Detail D
-                Join Sales_Order_Return R On D.Id = R.Sales_Detail_Id
-                Where D.Sales_Order_Id = $1 And R.Return_Status = 'completed'
+            Fully_Returned_Items As (
+                Select Count(*) As Count
+                From Sales_Order_Detail Sod
+                Where Sales_Order_Id = $1
+                And (
+                    Select Coalesce(Sum(Return_Quantity), 0) 
+                    From Sales_Order_Return 
+                    Where Sales_Detail_Id = Sod.Id 
+                    And Return_Status = 'completed'
+                    And Cancelled_At Is Null
+                ) >= Sod.Quantity
             )
-            Select 
-                Case When Ti.Count = Ri.Fully_Returned Then True Else False End,
-                Ri.Count
-            From Total_Items Ti, Returned_Items Ri
-        `, salesOrderID).Scan(&isFullReturn, &returnedItemsCount); err != nil {
-			if !errors.Is(err, sql.ErrNoRows) {
-				return fmt.Errorf("gagal memeriksa status pengembalian penuh: %w", err)
-			}
-			isFullReturn = false
-			returnedItemsCount = len(req.ReturnItems)
+            Select Ti.Count = Fri.Count
+            From Total_Items Ti, Fully_Returned_Items Fri
+        `, req.SalesOrderID).Scan(&isFullReturn); err != nil {
+			return fmt.Errorf("failed to check full return status: %w", err)
 		}
 
 		response.IsFullReturn = isFullReturn
 
-		// Update sales order status if all items are fully returned
+		// Update sales order status based on return status
+		var newStatus string
 		if isFullReturn {
-			if _, err := tx.Exec(`
-                Update Sales_Order
-                Set Status = 'return', Updated_At = Now()
-                Where Id = $1
-            `, salesOrderID); err != nil {
-				return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
-			}
+			newStatus = "returned"
 		} else {
-			// Otherwise mark as partially returned
-			if _, err := tx.Exec(`
-                Update Sales_Order
-                Set Status = 'partially_return', Updated_At = Now()
-                Where Id = $1 And Status != 'return'
-            `, salesOrderID); err != nil {
-				return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
-			}
+			newStatus = "partially_returned"
+		}
+
+		if _, err := tx.Exec(`
+            Update Sales_Order
+            Set Status = $1, Updated_At = Now()
+            Where Id = $2
+        `, newStatus, req.SalesOrderID); err != nil {
+			return fmt.Errorf("failed to update order status: %w", err)
 		}
 
 		return nil
@@ -2078,132 +2047,153 @@ func (r *SalesRepositoryImpl) ReturnInvoiceItems(req ReturnInvoiceItemsRequest, 
 	}
 
 	// Set response fields
-	response.InvoiceID = req.InvoiceID
-	response.ReturnedItems = len(req.ReturnItems)
-	response.TotalQuantity = totalReturnQuantity
+	response.SalesOrderID = req.SalesOrderID
+	response.ReturnedItems = "1"
+	response.TotalQuantity = req.Quantity
 	response.ReturnDate = time.Now().Format(time.RFC3339)
 	response.ReturnStatus = "completed"
 
 	return &response, nil
 }
 
-// CancelInvoiceReturn cancels a previously processed return on a sales invoice
-func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest, userID string) error {
+// CancelSalesOrderReturn cancels a previously processed return
+func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, userID string) error {
 	// Verify the return exists and is not already cancelled
 	var salesOrderID string
 	var isCancelled bool
 	var returnSource string
+	var salesDetailID string
+	var returnQuantity float64
 
 	err := r.db.QueryRow(`
-        Select R.Sales_Order_Id, R.Cancelled_At Is Not Null, R.Return_Source
+        Select R.Sales_Order_Id, R.Cancelled_At Is Not Null, R.Return_Source, R.Sales_Detail_Id, R.Return_Quantity
         From Sales_Order_Return R
         Where R.Id = $1
-    `, req.ReturnID).Scan(&salesOrderID, &isCancelled, &returnSource)
+    `, req.ReturnID).Scan(&salesOrderID, &isCancelled, &returnSource, &salesDetailID, &returnQuantity)
 
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return errors.New("pengembalian tidak ditemukan")
+			return errors.New("return not found")
 		}
-		return fmt.Errorf("gagal memeriksa pengembalian: %w", err)
-	}
-
-	// Check if return source is from invoice (not delivery note)
-	if returnSource != "invoice" {
-		return errors.New("pengembalian ini berasal dari surat jalan, bukan faktur")
+		return fmt.Errorf("failed to check return: %w", err)
 	}
 
 	// Check if already cancelled
 	if isCancelled {
-		return errors.New("pengembalian sudah dibatalkan sebelumnya")
+		return errors.New("this return has already been cancelled")
 	}
 
 	// Execute transaction
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
-		// Get all return items to revert the inventory
+		// Get all return batch records
 		rows, err := tx.Query(`
             Select 
-                R.Id,
-                R.Sales_Detail_Id,
-                R.Return_Quantity,
-                Rb.Id As Batch_Return_Id,
+                Rb.Id,
                 Rb.Batch_Id,
-                Rb.Return_Quantity As Batch_Return_Quantity,
-                Sod.Product_Id
-            From Sales_Order_Return R
-            Join Sales_Order_Return_Batch Rb On R.Id = Rb.Sales_Return_Id
-            Join Sales_Order_Detail Sod On R.Sales_Detail_Id = Sod.Id
-            Where R.Id = $1
+                Rb.Return_Quantity
+            From Sales_Order_Return_Batch Rb
+            Where Rb.Sales_Return_Id = $1
         `, req.ReturnID)
 
 		if err != nil {
-			return fmt.Errorf("gagal mengambil detail pengembalian: %w", err)
+			return fmt.Errorf("failed to get return batch records: %w", err)
 		}
 		defer rows.Close()
 
-		type returnDetail struct {
-			returnID       string
-			detailID       string
-			returnQuantity float64
-			batchReturnID  string
-			batchID        string
-			batchReturnQty float64
-			productID      string
+		type batchReturn struct {
+			id       string
+			batchId  string
+			quantity float64
 		}
 
-		var returnDetails []returnDetail
+		var batchReturns []batchReturn
 		for rows.Next() {
-			var detail returnDetail
-			if err := rows.Scan(
-				&detail.returnID,
-				&detail.detailID,
-				&detail.returnQuantity,
-				&detail.batchReturnID,
-				&detail.batchID,
-				&detail.batchReturnQty,
-				&detail.productID,
-			); err != nil {
-				return fmt.Errorf("gagal memindai data pengembalian: %w", err)
+			var br batchReturn
+			if err := rows.Scan(&br.id, &br.batchId, &br.quantity); err != nil {
+				return fmt.Errorf("failed to scan batch return data: %w", err)
 			}
-			returnDetails = append(returnDetails, detail)
+			batchReturns = append(batchReturns, br)
 		}
 
 		if err = rows.Err(); err != nil {
-			return fmt.Errorf("error saat membaca data pengembalian: %w", err)
+			return fmt.Errorf("error while reading batch returns: %w", err)
 		}
 
-		// Process each return detail to revert inventory
-		for _, detail := range returnDetails {
-			// Update batch quantity
+		// Process each batch return
+		for _, br := range batchReturns {
+			// Update batch quantity - remove the returned quantity
 			if _, err := tx.Exec(`
                 Update Product_Batch
                 Set Current_Quantity = Current_Quantity - $1,
                     Updated_At = Now()
                 Where Id = $2
-            `, detail.batchReturnQty, detail.batchID); err != nil {
-				return fmt.Errorf("gagal memperbarui jumlah batch: %w", err)
+            `, br.quantity, br.batchId); err != nil {
+				return fmt.Errorf("failed to update batch quantity: %w", err)
 			}
 
-			// Update sales order detail to remove returned quantity
-			if _, err := tx.Exec(`
-                Update Sales_Order_Detail
-                Set Quantity = Quantity + $1,
-                    Updated_At = Now()
-                Where Id = $2
-            `, detail.returnQuantity, detail.detailID); err != nil {
-				return fmt.Errorf("gagal memperbarui detail pesanan: %w", err)
+			// Find and update the related storage quantities
+			// This is complex because we need to determine which storage the items were returned to
+			storageRows, err := tx.Query(`
+                Select Bs.Id, Bs.Storage_Id, Bs.Quantity
+                From Batch_Storage Bs
+                Where Bs.Batch_Id = $1
+                Order By Bs.Quantity Desc
+            `, br.batchId)
+
+			if err != nil {
+				return fmt.Errorf("failed to get storage records: %w", err)
 			}
 
-			// Log inventory change
-			if _, err := tx.Exec(`
-                Insert Into Inventory_Log (
-                    Batch_Id, User_Id, Sales_Order_Id, Action, 
-                    Quantity, Description, Log_Date
-                ) Values (
-                    $1, $2, $3, 'remove', $4, 
-                    'Pembatalan pengembalian barang', Now()
-                )
-            `, detail.batchID, userID, salesOrderID, detail.batchReturnQty); err != nil {
-				return fmt.Errorf("gagal mencatat perubahan inventaris: %w", err)
+			var remainingQty = br.quantity
+			for storageRows.Next() && remainingQty > 0 {
+				var storageId string
+				var bsId string
+				var storageQty float64
+
+				if err := storageRows.Scan(&bsId, &storageId, &storageQty); err != nil {
+					storageRows.Close()
+					return fmt.Errorf("failed to scan storage data: %w", err)
+				}
+
+				// Determine how much to take from this storage
+				var qtyToRemove float64
+				if storageQty >= remainingQty {
+					qtyToRemove = remainingQty
+					remainingQty = 0
+				} else {
+					qtyToRemove = storageQty
+					remainingQty -= storageQty
+				}
+
+				// Update storage quantity
+				if _, err := tx.Exec(`
+                    Update Batch_Storage
+                    Set Quantity = Quantity - $1
+                    Where Id = $2
+                `, qtyToRemove, bsId); err != nil {
+					storageRows.Close()
+					return fmt.Errorf("failed to update storage quantity: %w", err)
+				}
+
+				// Log inventory change
+				if _, err := tx.Exec(`
+                    Insert Into Inventory_Log (
+                        Batch_Id, Storage_Id, User_Id, Sales_Order_Id, Action, 
+                        Quantity, Description
+                    ) Values (
+                        $1, $2, $3, $4, 'remove', $5, 
+                        'Cancelled return'
+                    )
+                `, br.batchId, storageId, userID, salesOrderID, qtyToRemove); err != nil {
+					storageRows.Close()
+					return fmt.Errorf("failed to log inventory change: %w", err)
+				}
+			}
+			storageRows.Close()
+
+			// Ensure all quantity was processed
+			if remainingQty > 0 {
+				return fmt.Errorf("insufficient storage quantities found for batch %s", br.batchId)
 			}
 		}
 
@@ -2215,11 +2205,11 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
                 Cancelled_By = $1
             Where Id = $2
         `, userID, req.ReturnID); err != nil {
-			return fmt.Errorf("gagal membatalkan pengembalian: %w", err)
+			return fmt.Errorf("failed to mark return as cancelled: %w", err)
 		}
 
-		// Determine current status based on remaining returns
-		var hasActiveReturns bool
+		// Update order status based on remaining active returns
+		var hasRemainingReturns bool
 		if err := tx.QueryRow(`
             Select Exists (
                 Select 1 From Sales_Order_Return
@@ -2227,25 +2217,73 @@ func (r *SalesRepositoryImpl) CancelInvoiceReturn(req CancelInvoiceReturnRequest
                 And Return_Status = 'completed'
                 And Cancelled_At Is Null
             )
-        `, salesOrderID).Scan(&hasActiveReturns); err != nil {
-			return fmt.Errorf("gagal memeriksa status pengembalian: %w", err)
+        `, salesOrderID).Scan(&hasRemainingReturns); err != nil {
+			return fmt.Errorf("failed to check remaining returns: %w", err)
 		}
 
-		// Update sales order status based on remaining returns
 		var newStatus string
-		if hasActiveReturns {
-			newStatus = "partially_return"
+		if hasRemainingReturns {
+			// Check if it's a full return or partial
+			var isFullReturn bool
+			if err := tx.QueryRow(`
+                With Total_Items As (
+                    Select Count(*) As Count
+                    From Sales_Order_Detail
+                    Where Sales_Order_Id = $1
+                ),
+                Fully_Returned_Items As (
+                    Select Count(*) As Count
+                    From Sales_Order_Detail Sod
+                    Where Sales_Order_Id = $1
+                    And (
+                        Select Coalesce(Sum(Return_Quantity), 0) 
+                        From Sales_Order_Return 
+                        Where Sales_Detail_Id = Sod.Id 
+                        And Return_Status = 'completed'
+                        And Cancelled_At Is Null
+                    ) >= Sod.Quantity
+                )
+                Select Ti.Count = Fri.Count
+                From Total_Items Ti, Fully_Returned_Items Fri
+            `, salesOrderID).Scan(&isFullReturn); err != nil {
+				return fmt.Errorf("failed to check full return status: %w", err)
+			}
+
+			if isFullReturn {
+				newStatus = "returned"
+			} else {
+				newStatus = "partially_returned"
+			}
 		} else {
-			newStatus = "invoice" // Return to invoice status if no active returns
+			// Determine appropriate status based on delivery note/invoice existence
+			var hasDelivery bool
+			var hasInvoice bool
+
+			if err := tx.QueryRow(`
+                Select 
+                    Exists(Select 1 From Delivery_Note Where Sales_Order_Id = $1 And Cancelled_At Is Null),
+                    Exists(Select 1 From Sales_Invoice Where Sales_Order_Id = $1 And Cancelled_At Is Null)
+            `, salesOrderID).Scan(&hasDelivery, &hasInvoice); err != nil {
+				return fmt.Errorf("failed to check order documents: %w", err)
+			}
+
+			if hasDelivery {
+				newStatus = "delivery"
+			} else if hasInvoice {
+				newStatus = "invoice"
+			} else {
+				newStatus = "order"
+			}
 		}
 
+		// Update order status
 		if _, err := tx.Exec(`
             Update Sales_Order
             Set Status = $1,
                 Updated_At = Now()
             Where Id = $2
         `, newStatus, salesOrderID); err != nil {
-			return fmt.Errorf("gagal memperbarui status pesanan: %w", err)
+			return fmt.Errorf("failed to update order status: %w", err)
 		}
 
 		return nil

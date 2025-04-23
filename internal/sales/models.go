@@ -313,39 +313,16 @@ type CancelSalesInvoiceRequest struct {
 	InvoiceID string `json:"invoice_id" validate:"required,uuid"`
 }
 
-// ReturnInvoiceItemsRequest defines the request for returning items from a sales invoice
-type ReturnInvoiceItemsRequest struct {
-	InvoiceID    string                     `json:"invoice_id" validate:"required,uuid"`
-	ReturnItems  []InvoiceReturnItemRequest `json:"return_items" validate:"required,min=1,dive"`
-	ReturnReason string                     `json:"return_reason,omitempty"`
+// ReturnItemRequest defines the request for returning items from a sales order
+type ReturnItemRequest struct {
+	SalesOrderID       string `json:"sales_order_id" validate:"required,uuid"`
+	SalesOrderDetailID string `json:"sales_order_detail_id" validate:"required,uuid"`
+	Quantity           string `json:"quantity" validate:"required,gt=0"`
+	ReturnReason       string `json:"return_reason"`
 }
 
-// InvoiceReturnItemRequest defines a single item to be returned
-type InvoiceReturnItemRequest struct {
-	DetailID       string                 `json:"detail_id" validate:"required,uuid"`
-	Quantity       float64                `json:"quantity" validate:"required,gt=0"`
-	StorageReturns []StorageReturnRequest `json:"storage_returns" validate:"required,min=1,dive"`
-}
-
-// StorageReturnRequest defines storage details for a returned item
-type StorageReturnRequest struct {
-	StorageID string  `json:"storage_id" validate:"required,uuid"`
-	Quantity  float64 `json:"quantity" validate:"required,gt=0"`
-}
-
-// ReturnInvoiceItemsResponse defines the response for returning items
-type ReturnInvoiceItemsResponse struct {
-	ReturnID      string  `json:"return_id"`
-	InvoiceID     string  `json:"invoice_id"`
-	ReturnedItems int     `json:"returned_items"`
-	TotalQuantity float64 `json:"total_quantity"`
-	ReturnDate    string  `json:"return_date"`
-	ReturnStatus  string  `json:"return_status"`
-	IsFullReturn  bool    `json:"is_full_return"`
-}
-
-// CancelInvoiceReturnRequest defines the request for cancelling a return
-type CancelInvoiceReturnRequest struct {
+// CancelReturnRequest defines the request for cancelling a return
+type CancelReturnRequest struct {
 	ReturnID string `json:"return_id" validate:"required,uuid"`
 }
 
@@ -364,48 +341,6 @@ type SalesOrderReturn struct {
 	CancelledBy       *string `json:"cancelled_by,omitempty"`
 	ReturnedAt        string  `json:"returned_at"`
 	CancelledAt       *string `json:"cancelled_at,omitempty"`
-}
-
-// SalesOrderReturnBatch represents a batch record for a sales return
-type SalesOrderReturnBatch struct {
-	ID             string  `json:"id"`
-	SalesReturnID  string  `json:"sales_return_id"`
-	BatchID        *string `json:"batch_id,omitempty"`
-	ReturnQuantity float64 `json:"return_quantity"`
-	CreatedAt      string  `json:"created_at"`
-}
-
-// GetSalesReturnsResponse defines the response for fetching sales returns
-type GetSalesReturnsResponse struct {
-	ID                 string  `json:"id"`
-	ReturnSource       string  `json:"return_source"`
-	SalesOrderID       string  `json:"sales_order_id"`
-	SalesOrderSerial   string  `json:"sales_order_serial"`
-	InvoiceID          string  `json:"invoice_id,omitempty"`
-	InvoiceSerial      string  `json:"invoice_serial,omitempty"`
-	DeliveryNoteID     string  `json:"delivery_note_id,omitempty"`
-	DeliveryNoteSerial string  `json:"delivery_note_serial,omitempty"`
-	ReturnedItems      int     `json:"returned_items"`
-	TotalQuantity      float64 `json:"total_quantity"`
-	ReturnReason       string  `json:"return_reason,omitempty"`
-	ReturnStatus       string  `json:"return_status"`
-	ReturnedBy         string  `json:"returned_by"`
-	ReturnedAt         string  `json:"returned_at"`
-	CancelledAt        string  `json:"cancelled_at,omitempty"`
-	CancelledBy        string  `json:"cancelled_by,omitempty"`
-}
-
-// SalesReturnItemResponse defines the details of returned items
-type SalesReturnItemResponse struct {
-	ReturnID    string  `json:"return_id"`
-	DetailID    string  `json:"detail_id"`
-	ProductID   string  `json:"product_id"`
-	ProductName string  `json:"product_name"`
-	BatchID     string  `json:"batch_id"`
-	BatchSKU    string  `json:"batch_sku"`
-	Quantity    float64 `json:"quantity"`
-	UnitPrice   float64 `json:"unit_price"`
-	TotalPrice  float64 `json:"total_price"`
 }
 
 // DeliveryNote represents a delivery note entity from the database
@@ -486,66 +421,6 @@ type DeliveryNotePaginatedResponse struct {
 	Items []GetDeliveryNotesResponse `json:"items"`
 }
 
-// ReturnDeliveryItemsRequest defines the request for returning items from a delivery note
-type ReturnDeliveryItemsRequest struct {
-	DeliveryNoteID string                      `json:"delivery_note_id" validate:"required,uuid"`
-	ReturnItems    []DeliveryReturnItemRequest `json:"return_items" validate:"required,min=1,dive"`
-	ReturnReason   string                      `json:"return_reason,omitempty"`
-}
-
-// DeliveryReturnItemRequest defines a single item to be returned from delivery
-type DeliveryReturnItemRequest struct {
-	DetailID       string                 `json:"detail_id" validate:"required,uuid"`
-	Quantity       float64                `json:"quantity" validate:"required,gt=0"`
-	StorageReturns []StorageReturnRequest `json:"storage_returns" validate:"required,min=1,dive"`
-}
-
-// ReturnDeliveryItemsResponse defines the response for returning delivery items
-type ReturnDeliveryItemsResponse struct {
-	ReturnID       string  `json:"return_id"`
-	DeliveryNoteID string  `json:"delivery_note_id"`
-	ReturnedItems  int     `json:"returned_items"`
-	TotalQuantity  float64 `json:"total_quantity"`
-	ReturnDate     string  `json:"return_date"`
-	ReturnStatus   string  `json:"return_status"`
-	IsFullReturn   bool    `json:"is_full_return"`
-}
-
-// CancelDeliveryReturnRequest defines the request for cancelling a delivery return
-type CancelDeliveryReturnRequest struct {
-	ReturnID string `json:"return_id" validate:"required,uuid"`
-}
-
-// GetDeliveryReturnsResponse defines the response for fetching delivery returns
-type GetDeliveryReturnsResponse struct {
-	ID                 string  `json:"id"`
-	DeliveryNoteID     string  `json:"delivery_note_id"`
-	DeliveryNoteSerial string  `json:"delivery_note_serial"`
-	SalesOrderID       string  `json:"sales_order_id"`
-	SalesOrderSerial   string  `json:"sales_order_serial"`
-	ReturnedItems      int     `json:"returned_items"`
-	TotalQuantity      float64 `json:"total_quantity"`
-	ReturnReason       string  `json:"return_reason,omitempty"`
-	ReturnStatus       string  `json:"return_status"`
-	ReturnedBy         string  `json:"returned_by"`
-	ReturnedAt         string  `json:"returned_at"`
-	CancelledAt        string  `json:"cancelled_at,omitempty"`
-	CancelledBy        string  `json:"cancelled_by,omitempty"`
-}
-
-// DeliveryReturnItemResponse defines the details of returned delivery items
-type DeliveryReturnItemResponse struct {
-	ReturnID    string  `json:"return_id"`
-	DetailID    string  `json:"detail_id"`
-	ProductID   string  `json:"product_id"`
-	ProductName string  `json:"product_name"`
-	BatchID     string  `json:"batch_id"`
-	BatchSKU    string  `json:"batch_sku"`
-	Quantity    float64 `json:"quantity"`
-	UnitPrice   float64 `json:"unit_price"`
-	TotalPrice  float64 `json:"total_price"`
-}
-
 // GetAllBatchesRequest holds query parameters for batch search
 type GetAllBatchesRequest struct {
 	Search string `json:"search" validate:"omitempty"`
@@ -569,4 +444,15 @@ type GetAllBatchesResponse struct {
 	StorageName               string                     `json:"storage_name"`
 	StorageLocation           string                     `json:"storage_location,omitempty"`
 	GetAllBatchesStorageItems []GetAllBatchesStorageItem `json:"items"`
+}
+
+// ReturnInvoiceItemsResponse defines the response for returning items from a sales order
+type ReturnInvoiceItemsResponse struct {
+	ReturnID      string `json:"return_id"`
+	SalesOrderID  string `json:"sales_order_id"`
+	ReturnedItems string `json:"returned_items"`
+	TotalQuantity string `json:"total_quantity"`
+	ReturnDate    string `json:"return_date"`
+	ReturnStatus  string `json:"return_status"`
+	IsFullReturn  bool   `json:"is_full_return"`
 }
