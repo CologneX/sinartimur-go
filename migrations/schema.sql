@@ -222,7 +222,8 @@ CREATE TABLE
                 'completed',
                 'partially_returned',
                 'returned',
-                'cancelled'
+                'cancelled',
+                'delivery'
             )
         ), -- ordered, completed, partially_returned, returned, cancelled
         Payment_Method VARCHAR(50) NOT NULL, -- cash, paylater
