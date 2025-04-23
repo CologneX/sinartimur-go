@@ -139,7 +139,7 @@ func (r *RepositoryImpl) Create(req CreatePurchaseOrderRequest, userID string, t
 		totalAmount, req.PaymentMethod, paymentDueDate, userID).Scan(&orderID)
 
 	if err != nil {
-		return "", fmt.Errorf("failed to create purchase order: %w", err)
+		return "", err
 	}
 
 	// Insert order items
