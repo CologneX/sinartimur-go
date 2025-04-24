@@ -103,6 +103,13 @@ type SalesOrderItem struct {
 	MaxQuantity    float64 `json:"max_quantity"`
 	StorageID      string  `json:"storage_id"`
 	StorageName    string  `json:"storage_name"`
+
+	// Return information (only populated for returned orders)
+	ReturnID       string  `json:"return_id,omitempty"`
+	ReturnQuantity float64 `json:"return_quantity,omitempty"`
+	ReturnReason   string  `json:"return_reason,omitempty"`
+	ReturnedAt     string  `json:"returned_at,omitempty"`
+	ReturnedBy     string  `json:"returned_by,omitempty"`
 }
 
 type GetSalesOrderDetailResponse struct {
@@ -315,10 +322,10 @@ type CancelSalesInvoiceRequest struct {
 
 // ReturnItemRequest defines the request for returning items from a sales order
 type ReturnItemRequest struct {
-	SalesOrderID       string `json:"sales_order_id" validate:"required,uuid"`
-	SalesOrderDetailID string `json:"sales_order_detail_id" validate:"required,uuid"`
-	Quantity           string `json:"quantity" validate:"required,gt=0"`
-	ReturnReason       string `json:"return_reason"`
+	SalesOrderID       string  `json:"sales_order_id" validate:"required,uuid"`
+	SalesOrderDetailID string  `json:"sales_order_detail_id" validate:"required,uuid"`
+	Quantity           float64 `json:"quantity" validate:"required,gt=0"`
+	ReturnReason       string  `json:"return_reason" validate:"required"`
 }
 
 // CancelReturnRequest defines the request for cancelling a return
@@ -448,11 +455,11 @@ type GetAllBatchesResponse struct {
 
 // ReturnInvoiceItemsResponse defines the response for returning items from a sales order
 type ReturnInvoiceItemsResponse struct {
-	ReturnID      string `json:"return_id"`
-	SalesOrderID  string `json:"sales_order_id"`
-	ReturnedItems string `json:"returned_items"`
-	TotalQuantity string `json:"total_quantity"`
-	ReturnDate    string `json:"return_date"`
-	ReturnStatus  string `json:"return_status"`
-	IsFullReturn  bool   `json:"is_full_return"`
+	ReturnID      string  `json:"return_id"`
+	SalesOrderID  string  `json:"sales_order_id"`
+	ReturnedItems float64 `json:"returned_items"`
+	TotalQuantity float64 `json:"total_quantity"`
+	ReturnDate    string  `json:"return_date"`
+	ReturnStatus  string  `json:"return_status"`
+	IsFullReturn  bool    `json:"is_full_return"`
 }

@@ -359,34 +359,34 @@ func (r *SalesRepositoryImpl) GetSalesOrderWithDetails(salesOrderID string) (*Ge
 
 	// Get order header information with optimized query using a single join for related documents
 	err := r.db.QueryRow(`
-        Select 
+        SELECT 
             So.Id, So.Serial_Id, So.Customer_Id, C.Name, C.Telephone, C.Address,
             So.Order_Date, So.Status, So.Payment_Method, So.Payment_Due_Date, 
             So.Total_Amount, So.Created_By, Au.Username, So.Created_At, So.Updated_At, So.Cancelled_At,
-            Si.Id, Si.Serial_Id As Sales_Invoice_Serial_Id,
-            Dn.Id, Dn.Serial_Id As Delivery_Note_Serial_Id,
+            Si.Id, Si.Serial_Id AS Sales_Invoice_Serial_Id,
+            Dn.Id, Dn.Serial_Id AS Delivery_Note_Serial_Id,
             So.Cancelled_At,
-            Au.Username As Created_By_Name, 
-            Au2.Username As Cancelled_By_Name
-        From Sales_Order So
-        Left Join Customer C On So.Customer_Id = C.Id
-        Left Join Appuser Au On So.Created_By = Au.Id
-        Left Join Appuser Au2 On So.Cancelled_By = Au2.Id
-        Left Join Lateral (
-            Select Id, Serial_Id 
-            From Sales_Invoice 
-            Where Sales_Order_Id = $1 And Cancelled_At Is Null
-            Order By Created_At Desc
-            Limit 1
-        ) Si On True
-        Left Join Lateral (
-            Select Id, Serial_Id
-            From Delivery_Note
-            Where Sales_Order_Id = $1 And Cancelled_At Is Null
-            Order By Created_At Desc
-            Limit 1
-        ) Dn On True
-        Where So.Id = $1
+            Au.Username AS Created_By_Name, 
+            Au2.Username AS Cancelled_By_Name
+        FROM Sales_Order So
+        LEFT JOIN Customer C ON So.Customer_Id = C.Id
+        LEFT JOIN Appuser Au ON So.Created_By = Au.Id
+        LEFT JOIN Appuser Au2 ON So.Cancelled_By = Au2.Id
+        LEFT JOIN LATERAL (
+            SELECT Id, Serial_Id 
+            FROM Sales_Invoice 
+            WHERE Sales_Order_Id = $1 AND Cancelled_At IS NULL
+            ORDER BY Created_At DESC
+            LIMIT 1
+        ) Si ON TRUE
+        LEFT JOIN LATERAL (
+            SELECT Id, Serial_Id
+            FROM Delivery_Note
+            WHERE Sales_Order_Id = $1 AND Cancelled_At IS NULL
+            ORDER BY Created_At DESC
+            LIMIT 1
+        ) Dn ON TRUE
+        WHERE So.Id = $1
     `, salesOrderID).Scan(
 		&response.ID,
 		&response.SerialID,
@@ -425,8 +425,62 @@ func (r *SalesRepositoryImpl) GetSalesOrderWithDetails(salesOrderID string) (*Ge
 	if err != nil {
 		return nil, fmt.Errorf("error fetching order items: %w", err)
 	}
-	fmt.Println(response.SalesInvoiceSerialID, response.DeliveryNoteSerialID)
 
+	// If the order has a returned status, fetch return information for each item
+	if response.Status == "returned" || response.Status == "partially_returned" {
+		// Create a map to store return information by detail ID
+		type returnInfo struct {
+			ReturnID       string
+			ReturnQuantity float64
+			ReturnReason   string
+			ReturnedAt     string
+			ReturnedBy     string
+		}
+
+		returnMap := make(map[string]returnInfo)
+
+		// Query to get return information
+		returnsRows, errRet := r.db.Query(`
+            SELECT 
+                Sor.Id, Sor.Sales_Detail_Id, Sor.Return_Quantity, 
+                Sor.Return_Reason, Sor.Returned_At, Au.Username AS Returned_By
+            FROM Sales_Order_Return Sor
+            LEFT JOIN Appuser Au ON Sor.Returned_By = Au.Id
+            WHERE Sor.Sales_Order_Id = $1 
+            AND Sor.Return_Status = 'completed'
+            AND Sor.Cancelled_At IS NULL
+        `, salesOrderID)
+
+		if errRet != nil {
+			return nil, fmt.Errorf("error fetching return information: %w", errRet)
+		}
+		defer returnsRows.Close()
+
+		// Process return information
+		for returnsRows.Next() {
+			var ri returnInfo
+			var detailID string
+			if errScan := returnsRows.Scan(&ri.ReturnID, &detailID, &ri.ReturnQuantity, &ri.ReturnReason, &ri.ReturnedAt, &ri.ReturnedBy); err != nil {
+				return nil, fmt.Errorf("error scanning return data: %w", errScan)
+			}
+			returnMap[detailID] = ri
+		}
+
+		if err = returnsRows.Err(); err != nil {
+			return nil, fmt.Errorf("error iterating return rows: %w", err)
+		}
+
+		// Add return information to each item
+		for i := range items {
+			if ri, exists := returnMap[items[i].ID]; exists {
+				items[i].ReturnID = ri.ReturnID
+				items[i].ReturnQuantity = ri.ReturnQuantity
+				items[i].ReturnReason = ri.ReturnReason
+				items[i].ReturnedAt = ri.ReturnedAt
+				items[i].ReturnedBy = ri.ReturnedBy
+			}
+		}
+	}
 	response.Items = items
 	return &response, nil
 }
@@ -1900,20 +1954,14 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
 		return nil, fmt.Errorf("item with ID %s not found in this order", req.SalesOrderDetailID)
 	}
 
-	// Parse the requested quantity
-	quantity, err := strconv.ParseFloat(req.Quantity, 64)
-	if err != nil {
-		return nil, fmt.Errorf("invalid quantity format: %w", err)
-	}
-
 	// Check if return quantity is valid
-	if quantity <= 0 {
+	if req.Quantity <= 0 {
 		return nil, fmt.Errorf("return quantity must be greater than 0")
 	}
 
-	if quantity > (currentQuantity - previousReturnedQty) {
+	if req.Quantity > (currentQuantity - previousReturnedQty) {
 		return nil, fmt.Errorf("return quantity %f exceeds available quantity %f",
-			quantity, (currentQuantity - previousReturnedQty))
+			req.Quantity, (currentQuantity - previousReturnedQty))
 	}
 
 	// Execute transaction
@@ -1923,7 +1971,7 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
 		response.ReturnID = returnID
 
 		// Calculate remaining quantity
-		remainingQty := currentQuantity - previousReturnedQty - quantity
+		remainingQty := currentQuantity - previousReturnedQty - req.Quantity
 
 		// Insert return record
 		if _, err := tx.Exec(`
@@ -1935,7 +1983,7 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
                 $1, $2, $3, $4, $5, $6, $7, 'completed', $8, Now(), $9
             )
         `, returnID, returnSource, req.SalesOrderID, req.SalesOrderDetailID,
-			quantity, remainingQty, req.ReturnReason, userID,
+			req.Quantity, remainingQty, req.ReturnReason, userID,
 			sql.NullString{String: deliveryNoteID.String, Valid: deliveryNoteID.Valid}); err != nil {
 			return fmt.Errorf("failed to create return record: %w", err)
 		}
@@ -1946,7 +1994,7 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
             Insert Into Sales_Order_Return_Batch (
                 Id, Sales_Return_Id, Batch_Id, Return_Quantity
             ) Values ($1, $2, $3, $4)
-        `, batchReturnID, returnID, batchID, quantity); err != nil {
+        `, batchReturnID, returnID, batchID, req.Quantity); err != nil {
 			return fmt.Errorf("failed to record batch return: %w", err)
 		}
 
@@ -1968,7 +2016,7 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
             Values ($1, $2, $3)
             On Conflict (Batch_Id, Storage_Id) 
             Do Update Set Quantity = Batch_Storage.Quantity + $3
-        `, batchID, storageID, quantity); err != nil {
+        `, batchID, storageID, req.Quantity); err != nil {
 			return fmt.Errorf("failed to update storage quantity: %w", err)
 		}
 
@@ -1977,7 +2025,7 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
             Update Product_Batch
             Set Current_Quantity = Current_Quantity + $1, Updated_At = Now()
             Where Id = $2
-        `, quantity, batchID); err != nil {
+        `, req.Quantity, batchID); err != nil {
 			return fmt.Errorf("failed to update batch quantity: %w", err)
 		}
 
@@ -1991,7 +2039,7 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
                 $5, $6
             )
         `, batchID, storageID, userID, req.SalesOrderID,
-			quantity, fmt.Sprintf("Return from %s: %s", returnSource, productName)); err != nil {
+			req.Quantity, fmt.Sprintf("Return from %s: %s", returnSource, productName)); err != nil {
 			return fmt.Errorf("failed to create inventory log: %w", err)
 		}
 
@@ -2048,8 +2096,8 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
 
 	// Set response fields
 	response.SalesOrderID = req.SalesOrderID
-	response.ReturnedItems = "1"
-	response.TotalQuantity = req.Quantity
+	response.ReturnedItems = 2
+	response.TotalQuantity = 2
 	response.ReturnDate = time.Now().Format(time.RFC3339)
 	response.ReturnStatus = "completed"
 
@@ -2085,7 +2133,16 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
 
 	// Execute transaction
 	return utils.WithTransaction(r.db, func(tx *sql.Tx) error {
-		// Get all return batch records
+		// First, collect all return batch records
+		type batchReturn struct {
+			id       string
+			batchId  string
+			quantity float64
+		}
+
+		var batchReturns []batchReturn
+
+		// Get all batch returns
 		rows, err := tx.Query(`
             Select 
                 Rb.Id,
@@ -2098,28 +2155,25 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
 		if err != nil {
 			return fmt.Errorf("failed to get return batch records: %w", err)
 		}
-		defer rows.Close()
 
-		type batchReturn struct {
-			id       string
-			batchId  string
-			quantity float64
-		}
-
-		var batchReturns []batchReturn
+		// Important: collect all data before closing rows
 		for rows.Next() {
 			var br batchReturn
 			if err := rows.Scan(&br.id, &br.batchId, &br.quantity); err != nil {
+				rows.Close()
 				return fmt.Errorf("failed to scan batch return data: %w", err)
 			}
 			batchReturns = append(batchReturns, br)
 		}
 
+		// Close rows before further DB operations
+		rows.Close()
+
 		if err = rows.Err(); err != nil {
 			return fmt.Errorf("error while reading batch returns: %w", err)
 		}
 
-		// Process each batch return
+		// Process each batch return after closing the first result set
 		for _, br := range batchReturns {
 			// Update batch quantity - remove the returned quantity
 			if _, err := tx.Exec(`
@@ -2131,8 +2185,16 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
 				return fmt.Errorf("failed to update batch quantity: %w", err)
 			}
 
-			// Find and update the related storage quantities
-			// This is complex because we need to determine which storage the items were returned to
+			// Next, collect all storage records for this batch in a separate slice
+			type storageRecord struct {
+				id        string
+				storageId string
+				quantity  float64
+			}
+
+			var storageRecords []storageRecord
+
+			// Query storage records
 			storageRows, err := tx.Query(`
                 Select Bs.Id, Bs.Storage_Id, Bs.Quantity
                 From Batch_Storage Bs
@@ -2144,25 +2206,38 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
 				return fmt.Errorf("failed to get storage records: %w", err)
 			}
 
-			var remainingQty = br.quantity
-			for storageRows.Next() && remainingQty > 0 {
-				var storageId string
-				var bsId string
-				var storageQty float64
-
-				if err := storageRows.Scan(&bsId, &storageId, &storageQty); err != nil {
+			// Collect all storage records before closing
+			for storageRows.Next() {
+				var sr storageRecord
+				if err := storageRows.Scan(&sr.id, &sr.storageId, &sr.quantity); err != nil {
 					storageRows.Close()
 					return fmt.Errorf("failed to scan storage data: %w", err)
+				}
+				storageRecords = append(storageRecords, sr)
+			}
+
+			// Close the storage rows cursor
+			storageRows.Close()
+
+			if err = storageRows.Err(); err != nil {
+				return fmt.Errorf("error reading storage records: %w", err)
+			}
+
+			// Now process the storage records outside the cursor loop
+			var remainingQty = br.quantity
+			for _, sr := range storageRecords {
+				if remainingQty <= 0 {
+					break
 				}
 
 				// Determine how much to take from this storage
 				var qtyToRemove float64
-				if storageQty >= remainingQty {
+				if sr.quantity >= remainingQty {
 					qtyToRemove = remainingQty
 					remainingQty = 0
 				} else {
-					qtyToRemove = storageQty
-					remainingQty -= storageQty
+					qtyToRemove = sr.quantity
+					remainingQty -= sr.quantity
 				}
 
 				// Update storage quantity
@@ -2170,8 +2245,7 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
                     Update Batch_Storage
                     Set Quantity = Quantity - $1
                     Where Id = $2
-                `, qtyToRemove, bsId); err != nil {
-					storageRows.Close()
+                `, qtyToRemove, sr.id); err != nil {
 					return fmt.Errorf("failed to update storage quantity: %w", err)
 				}
 
@@ -2184,12 +2258,10 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
                         $1, $2, $3, $4, 'remove', $5, 
                         'Cancelled return'
                     )
-                `, br.batchId, storageId, userID, salesOrderID, qtyToRemove); err != nil {
-					storageRows.Close()
+                `, br.batchId, sr.storageId, userID, salesOrderID, qtyToRemove); err != nil {
 					return fmt.Errorf("failed to log inventory change: %w", err)
 				}
 			}
-			storageRows.Close()
 
 			// Ensure all quantity was processed
 			if remainingQty > 0 {
@@ -2208,7 +2280,9 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
 			return fmt.Errorf("failed to mark return as cancelled: %w", err)
 		}
 
-		// Update order status based on remaining active returns
+		// Continue with the rest of the function to update order status...
+
+		// The remaining code is unchanged
 		var hasRemainingReturns bool
 		if err := tx.QueryRow(`
             Select Exists (

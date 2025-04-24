@@ -533,16 +533,7 @@ func ReturnInvoiceItemsHandler(salesService *sales.SalesService) http.HandlerFun
 func CancelInvoiceReturnHandler(salesService *sales.SalesService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Extract user ID from token
-		userID, errUser := r.Context().Value("user_id").(string)
-		if errUser != false {
-			utils.ErrorJSON(w, &dto.APIError{
-				StatusCode: http.StatusUnauthorized,
-				Details: map[string]string{
-					"general": "Unauthorized",
-				},
-			})
-			return
-		}
+		userID := r.Context().Value("user_id").(string)
 
 		// Parse and validate request body
 		var req sales.CancelReturnRequest

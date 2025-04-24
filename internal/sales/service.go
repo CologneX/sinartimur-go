@@ -35,13 +35,13 @@ func (s *SalesService) GetSalesOrderDetail(orderID string) (*GetSalesOrderDetail
 		return nil, err
 	}
 
-	// Get the sales purchase-order details/items
-	orderItems, err := s.repo.GetSalesOrderItems(orderID)
-	if err != nil {
-		return nil, err
-	}
-
-	result.Items = orderItems
+	// // Get the sales purchase-order details/items
+	// orderItems, err := s.repo.GetSalesOrderItems(orderID)
+	// if err != nil {
+	// 	return nil, errÏ
+	// }
+	// fmt.Println("GetSalesOrderDetail", orderItems)
+	// result.Items = orderItems
 
 	return result, nil
 }
