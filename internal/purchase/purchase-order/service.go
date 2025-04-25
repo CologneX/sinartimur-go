@@ -138,8 +138,8 @@ func (s *PurchaseOrderService) GetPurchaseOrderDetail(id string) (*GetPurchaseOr
 // 	return nil
 // }
 
-// CreateReturn handles creating a purchase order return
-func (s *PurchaseOrderService) CreateReturn(req CreatePurchaseOrderReturnRequest, userID string) *dto.APIError {
+// CreateReturnItem handles creating a purchase order return
+func (s *PurchaseOrderService) CreateReturnItem(req CreateReturnPurchaseOrderItemRequest, userID string) *dto.APIError {
 	// Start transaction
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -153,7 +153,7 @@ func (s *PurchaseOrderService) CreateReturn(req CreatePurchaseOrderReturnRequest
 	defer tx.Rollback()
 
 	// Process return with transaction
-	if err := s.repo.CreateReturn(req, userID, tx); err != nil {
+	if err := s.repo.ReturnPurchaseOrderItem(req, userID, tx); err != nil {
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{
@@ -175,8 +175,8 @@ func (s *PurchaseOrderService) CreateReturn(req CreatePurchaseOrderReturnRequest
 	return nil
 }
 
-// CancelReturn handles cancelling a purchase order return
-func (s *PurchaseOrderService) CancelReturn(id string, userID string) *dto.APIError {
+// CancelReturnItem handles cancelling a purchase order return
+func (s *PurchaseOrderService) CancelReturnItem(req CancelReturnPurchaseOrderItemRequest, userID string) *dto.APIError {
 	// Start transaction
 	tx, err := s.db.Begin()
 	if err != nil {
@@ -190,7 +190,7 @@ func (s *PurchaseOrderService) CancelReturn(id string, userID string) *dto.APIEr
 	defer tx.Rollback()
 
 	// Process return cancellation with transaction
-	if err := s.repo.CancelReturn(id, userID, tx); err != nil {
+	if err := s.repo.CancelReturnPurchaseOrderItem(req, userID, tx); err != nil {
 		return &dto.APIError{
 			StatusCode: 500,
 			Details: map[string]string{

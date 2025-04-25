@@ -460,7 +460,7 @@ func (r *SalesRepositoryImpl) GetSalesOrderWithDetails(salesOrderID string) (*Ge
 		for returnsRows.Next() {
 			var ri returnInfo
 			var detailID string
-			if errScan := returnsRows.Scan(&ri.ReturnID, &detailID, &ri.ReturnQuantity, &ri.ReturnReason, &ri.ReturnedAt, &ri.ReturnedBy); err != nil {
+			if errScan := returnsRows.Scan(&ri.ReturnID, &detailID, &ri.ReturnQuantity, &ri.ReturnReason, &ri.ReturnedAt, &ri.ReturnedBy); errScan != nil {
 				return nil, fmt.Errorf("error scanning return data: %w", errScan)
 			}
 			returnMap[detailID] = ri
@@ -1724,9 +1724,9 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
 				item.storageID,
 				userID,
 				req.SalesOrderID,
-				"sale",
+				"remove",
 				item.quantity,
-				fmt.Sprintf("Pembuatan faktur %s", serialID))
+				fmt.Sprintf("Penjualan %s", serialID))
 
 			if err != nil {
 				return fmt.Errorf("gagal mencatat log inventaris: %w", err)
@@ -1747,9 +1747,9 @@ func (r *SalesRepositoryImpl) CreateSalesInvoice(req CreateSalesInvoiceRequest, 
         `,
 			userID,
 			totalAmount,
-			"sales_invoice",
+			"debit",
 			req.SalesOrderID,
-			fmt.Sprintf("Pembuatan faktur penjualan %s", serialID),
+			fmt.Sprintf("Penjualan  %s", serialID),
 			invoiceDate,
 			true)
 
@@ -2029,18 +2029,50 @@ func (r *SalesRepositoryImpl) ReturnItemFromSalesOrder(req ReturnItemRequest, us
 			return fmt.Errorf("failed to update batch quantity: %w", err)
 		}
 
-		// Create inventory log
+		// Get sales order serial ID
+		var serialID string
+		if err := tx.QueryRow(`SELECT Serial_Id FROM Sales_Order WHERE Id = $1`, req.SalesOrderID).Scan(&serialID); err != nil {
+			return fmt.Errorf("failed to get sales order serial ID: %w", err)
+		}
+
+		// Insert with the modified description
 		if _, err := tx.Exec(`
-            Insert Into Inventory_Log (
-                Batch_Id, Storage_Id, User_Id, Sales_Order_Id, Action,
-                Quantity, Description
-            ) Values (
-                $1, $2, $3, $4, 'return',
-                $5, $6
-            )
-        `, batchID, storageID, userID, req.SalesOrderID,
-			req.Quantity, fmt.Sprintf("Return from %s: %s", returnSource, productName)); err != nil {
+    Insert Into Inventory_Log (
+        Batch_Id, Storage_Id, User_Id, Sales_Order_Id, Action,
+        Quantity, Description
+    ) Values (
+        $1, $2, $3, $4, 'add',
+        $5, $6
+    )
+`, batchID, storageID, userID, req.SalesOrderID,
+			req.Quantity, fmt.Sprintf("Retur Barang Penjualan %s", serialID)); err != nil {
 			return fmt.Errorf("failed to create inventory log: %w", err)
+		}
+
+		// 2) financial log for the return (refund)
+		var unitPrice float64
+		if err := tx.QueryRow(`
+        SELECT Sod.Unit_Price
+        FROM Sales_Order_Detail Sod
+        WHERE Sod.Id = $1 AND Sod.Sales_Order_Id = $2
+    `, req.SalesOrderDetailID, req.SalesOrderID).Scan(&unitPrice); err != nil {
+			return fmt.Errorf("gagal mengambil harga satuan untuk retur: %w", err)
+		}
+
+		if _, err := tx.Exec(`
+        INSERT INTO Financial_Transaction_Log (
+            User_Id, Amount, Type, Sales_Order_Id,
+            Description, Transaction_Date, Is_System
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `, userID,
+			req.Quantity*unitPrice,
+			"credit",
+			req.SalesOrderID,
+			fmt.Sprintf("Retur Barang Penjualan %s", serialID),
+			time.Now(),
+			true,
+		); err != nil {
+			return fmt.Errorf("gagal mencatat transaksi keuangan retur: %w", err)
 		}
 
 		// Check if this is a full return (all items returned)
@@ -2249,6 +2281,12 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
 					return fmt.Errorf("failed to update storage quantity: %w", err)
 				}
 
+				// Get sales order serial ID
+				var serialID string
+				if err := tx.QueryRow(`SELECT Serial_Id FROM Sales_Order WHERE Id = $1`, salesOrderID).Scan(&serialID); err != nil {
+					return fmt.Errorf("failed to get sales order serial ID: %w", err)
+				}
+
 				// Log inventory change
 				if _, err := tx.Exec(`
                     Insert Into Inventory_Log (
@@ -2256,10 +2294,36 @@ func (r *SalesRepositoryImpl) CancelSalesOrderReturn(req CancelReturnRequest, us
                         Quantity, Description
                     ) Values (
                         $1, $2, $3, $4, 'remove', $5, 
-                        'Cancelled return'
+                        $6
                     )
-                `, br.batchId, sr.storageId, userID, salesOrderID, qtyToRemove); err != nil {
+                `, br.batchId, sr.storageId, userID, salesOrderID, qtyToRemove,
+					fmt.Sprintf("Batal Retur Barang Penjualan %s", serialID)); err != nil {
 					return fmt.Errorf("failed to log inventory change: %w", err)
+				}
+
+				var unitPrice float64
+				if err := tx.QueryRow(`
+        SELECT Sod.Unit_Price
+        FROM Sales_Order_Detail Sod
+        WHERE Sod.Id = $1
+    `, salesDetailID).Scan(&unitPrice); err != nil {
+					return fmt.Errorf("gagal mengambil harga satuan untuk batal retur: %w", err)
+				}
+
+				if _, err := tx.Exec(`
+        INSERT INTO Financial_Transaction_Log (
+            User_Id, Amount, Type, Sales_Order_Id,
+            Description, Transaction_Date, Is_System
+        ) VALUES ($1,$2,$3,$4,$5,$6,$7)
+    `, userID,
+					returnQuantity*unitPrice,
+					"debit",
+					salesOrderID,
+					fmt.Sprintf("Batal Retur %s", req.ReturnID),
+					time.Now(),
+					true,
+				); err != nil {
+					return fmt.Errorf("gagal mencatat transaksi keuangan batal retur: %w", err)
 				}
 			}
 

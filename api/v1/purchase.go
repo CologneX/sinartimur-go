@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"fmt"
 	"net/http"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/internal/purchase"
@@ -148,8 +147,7 @@ func CancelPurchaseOrderHandler(purchaseOrderService *purchase_order.PurchaseOrd
 // CreatePurchaseOrderReturnHandler creates a new purchase purchase-order return
 func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase_order.PurchaseOrderService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("Masuk")
-		var req purchase_order.CreatePurchaseOrderReturnRequest
+		var req purchase_order.CreateReturnPurchaseOrderItemRequest
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 
@@ -160,7 +158,7 @@ func CreatePurchaseOrderReturnHandler(purchaseOrderService *purchase_order.Purch
 
 		// Get user ID from context
 		userID := r.Context().Value("user_id").(string)
-		apiError := purchaseOrderService.CreateReturn(req, userID)
+		apiError := purchaseOrderService.CreateReturnItem(req, userID)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return
@@ -206,9 +204,16 @@ func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase_order.Purch
 		params := mux.Vars(r)
 		id := params["id"]
 
+		var req purchase_order.CancelReturnPurchaseOrderItemRequest
+		req.ReturnID = id
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
 		// Get user ID from context
 		userID := r.Context().Value("user_id").(string)
-		apiError := purchaseOrderService.CancelReturn(id, userID)
+		apiError := purchaseOrderService.CancelReturnItem(req, userID)
 		if apiError != nil {
 			utils.ErrorJSON(w, apiError)
 			return

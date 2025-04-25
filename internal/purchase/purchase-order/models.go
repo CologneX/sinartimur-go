@@ -57,18 +57,26 @@ type CompletePurchaseOrderRequest struct {
 	StorageID       string `json:"storage_id" validate:"required,uuid"`
 }
 
-type CreatePurchaseOrderReturnRequest struct {
-	PurchaseOrderID string               `json:"purchase_order_id" validate:"required,uuid"`
-	ProductDetailID string               `json:"product_detail_id" validate:"required,uuid"`
-	ReturnQuantity  float64              `json:"return_quantity" validate:"required,gt=0"`
-	Reason          string               `json:"reason"`
-	Batches         []ReturnBatchRequest `json:"batches" validate:"required,dive"`
+type CreateReturnPurchaseOrderItemRequest struct {
+	PurchaseOrderID string  `json:"purchase_order_id" validate:"required,uuid"`
+	ProductDetailID string  `json:"product_detail_id" validate:"required,uuid"`
+	ReturnQuantity  float64 `json:"return_quantity" validate:"required,gt=0"`
+	Reason          string  `json:"reason"`
 }
 
-type ReturnBatchRequest struct {
-	BatchID   string  `json:"batch_id" validate:"required,uuid"`
-	StorageID string  `json:"storage_id" validate:"required,uuid"`
-	Quantity  float64 `json:"quantity" validate:"required,gt=0"`
+type CancelReturnPurchaseOrderItemRequest struct {
+	ReturnID string `json:"return_id" validate:"required,uuid"`
+}
+
+type CreateReturnPurchaseOrderItemResponse struct {
+	PurchaseOrderDetailID string `json:"purchase_order_detail_id"`
+	ProductName           string `json:"product_name"`
+	ProductSKU            string `json:"product_sku"`
+	ReturnQuantity        string `json:"return_quantity"`
+	ReturnReason          string `json:"return_reason"`
+	ReturnedAt            string `json:"returned_at"`
+	ReturnedBy            string `json:"returned_by"`
+	ReturnedByName        string `json:"returned_by_name"`
 }
 
 type GetPurchaseOrderRequest struct {

@@ -326,7 +326,8 @@ Create Table
         Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Set Null,
         Sales_Order_Id Uuid References Sales_Order (Id) On Delete Set Null,
         Target_Storage_Id Uuid REFERENCES Storage (Id) ON DELETE SET NULL,
-        Action VARCHAR(50) Not Null CHECK (Action IN ('add', 'remove', 'transfer', 'return', 'sale', 'purchase')), -- e.g., "add", "remove", "transfer", "return"
+        Action VARCHAR(50) Not Null CHECK (Action IN ('transfer', 'add', 'remove')),
+        -- e.g., "add", "remove", "transfer", "return"
         Quantity NUMERIC(15, 2) Not Null,
         Log_Date Timestamptz Default Current_Timestamp,
         Description TEXT,
@@ -340,7 +341,7 @@ Create Table
         Id Uuid Primary Key Default Uuid_Generate_V4 (),
         User_Id Uuid References Appuser (Id),
         Amount NUMERIC(15, 2) Not Null,
-        Type VARCHAR(50) Not Null,
+        Type VARCHAR(50) Not Null CHECK (Type IN ('debit', 'credit')),
         Purchase_Order_Id Uuid References Purchase_Order (Id) On Delete Set Null,
         Sales_Order_Id Uuid References Sales_Order (Id) On Delete Set Null,
         Description TEXT,
