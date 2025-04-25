@@ -23,6 +23,7 @@ import (
 func RegisterAuthRoutes(router *mux.Router, userService *auth.AuthService) {
 	router.HandleFunc("/login", v1.LoginHandler(userService)).Methods("POST")
 	router.HandleFunc("/refresh", v1.RefreshTokenHandler(userService)).Methods("GET")
+	router.HandleFunc("/logout", v1.LogoutHandler(userService)).Methods("DELETE")
 }
 
 func RegisterUserRoutes(router *mux.Router, userService *user.UserService) {
@@ -42,8 +43,8 @@ func RegisterPurchaseOrderRoutes(router *mux.Router, purchaseOrderService *purch
 	router.HandleFunc("/order/{id}/cancel", v1.CancelPurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
 	router.HandleFunc("/order/{id}/check", v1.CheckPurchaseOrderHandler(purchaseOrderService)).Methods("PUT")
 	router.HandleFunc("/order/returns", v1.GetAllPurchaseOrderReturnHandler(purchaseOrderService)).Methods("GET")
-	router.HandleFunc("/order/return", v1.CreatePurchaseOrderReturnHandler(purchaseOrderService)).Methods("POST")
-	router.HandleFunc("/order/return/{id}/cancel", v1.CancelPurchaseOrderReturnHandler(purchaseOrderService)).Methods("PUT")
+	router.HandleFunc("/return", v1.CreatePurchaseOrderReturnHandler(purchaseOrderService)).Methods("POST")
+	router.HandleFunc("/return/{id}/cancel", v1.CancelPurchaseOrderReturnHandler(purchaseOrderService)).Methods("PUT")
 	// Add route for completing full purchase order
 	// router.HandleFunc("/api/v1/purchase-orders/{id}/complete-full", middleware.AuthHandler(middleware.RoleHandler("purchase", v1.CompleteFullPurchaseOrderHandler(purchaseOrderService)))).Methods("POST")
 	router.HandleFunc("/order/{id}/complete", v1.CompleteFullPurchaseOrderHandler(purchaseOrderService)).Methods("POST")

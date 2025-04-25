@@ -105,3 +105,38 @@ func RefreshTokenHandler(userService *auth.AuthService) http.HandlerFunc {
 		w.WriteHeader(http.StatusOK)
 	}
 }
+
+// LogoutHandler revokes the refresh token in Redis and clears all cookies.
+func LogoutHandler(userService *auth.AuthService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// fetch the refresh token cookie
+		refreshCookie, err := r.Cookie("refresh_token")
+		if err != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusUnauthorized, map[string]string{"error": "Refresh token missing"}))
+			return
+		}
+
+		// revoke it in Redis
+		if err := userService.Logout(refreshCookie.Value); err != nil {
+			utils.ErrorJSON(w, err)
+			return
+		}
+
+		// clear all cookies
+		names := []string{"access_token", "refresh_token", "user"}
+		for _, name := range names {
+			http.SetCookie(w, &http.Cookie{
+				Name:     name,
+				Value:    "",
+				Path:     "/",
+				Expires:  time.Unix(0, 0),
+				MaxAge:   -1,
+				HttpOnly: name != "user",
+				Secure:   true,
+				SameSite: http.SameSiteStrictMode,
+			})
+		}
+
+		w.WriteHeader(http.StatusOK)
+	}
+}

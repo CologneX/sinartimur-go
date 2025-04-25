@@ -2,12 +2,13 @@ package auth
 
 import (
 	"fmt"
-	"github.com/golang-jwt/jwt/v5"
 	"net/http"
 	"sinartimur-go/config"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 // AuthService is a service that handles user authentication
@@ -176,4 +177,18 @@ func (s *AuthService) RefreshAuth(refreshToken string) (string, *dto.APIError) {
 	}
 
 	return accessToken, nil
+}
+
+func (s *AuthService) Logout(refreshToken string) *dto.APIError {
+	// assume you store refresh tokens keyed by token string
+	err := s.redisClient.Delete(refreshToken)
+	if err != nil {
+		return &dto.APIError{
+			StatusCode: http.StatusInternalServerError,
+			Details: map[string]string{
+				"general": "Gagal logout",
+			},
+		}
+	}
+	return nil
 }
