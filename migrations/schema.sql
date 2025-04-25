@@ -346,11 +346,11 @@ Create Table
         Sales_Order_Id Uuid References Sales_Order (Id) On Delete Set Null,
         Description TEXT,
         Is_System BOOLEAN Default True,
-        Transaction_Date Timestamptz Not Null,
+        Transaction_Date Timestamptz Not Null DEFAULT now(),
         Created_At Timestamptz Default Current_Timestamp,
         Edited_At Timestamptz Default Null,
         Deleted_At Timestamptz Default Null
-    );
+    );Ï
 
 CREATE TABLE
     Document_Counter (
