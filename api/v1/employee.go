@@ -102,7 +102,7 @@ func GetAllEmployeesHandler(employeeService *employee.EmployeeService) http.Hand
 		}
 
 		employees, totalItems, errService := employeeService.GetAllEmployees(req)
-		if err != nil {
+		if errService != nil {
 			utils.ErrorJSON(w, errService)
 			return
 		}
