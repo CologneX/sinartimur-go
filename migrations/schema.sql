@@ -350,7 +350,7 @@ Create Table
         Created_At Timestamptz Default Current_Timestamp,
         Edited_At Timestamptz Default Null,
         Deleted_At Timestamptz Default Null
-    );Ï
+    );
 
 CREATE TABLE
     Document_Counter (
