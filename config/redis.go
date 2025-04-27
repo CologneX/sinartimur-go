@@ -3,9 +3,11 @@ package config
 import (
 	"context"
 	"fmt"
-	"github.com/redis/go-redis/v9"
 	"os"
+	"strconv"
 	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 var ctx = context.Background()
@@ -15,14 +17,18 @@ type RedisClient struct {
 }
 
 func NewRedisClient() *RedisClient {
-	redisAddr := fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT"))
+	addr := fmt.Sprintf("%s:%s", os.Getenv("REDIS_HOST"), os.Getenv("REDIS_PORT"))
+
+	fmt.Println("Connecting to Redis at: ", addr)
+	// parse DB
+	dbNum, _ := strconv.Atoi(os.Getenv("REDIS_DB"))
 	rdb := redis.NewClient(&redis.Options{
-		Addr:     redisAddr,
-		Password: "",
-		DB:       0,
+	  Addr:     addr,
+	  Password: os.Getenv("REDIS_PASSWORD"),
+	  DB:       dbNum,
 	})
 	return &RedisClient{client: rdb}
-}
+  }
 
 func (r *RedisClient) Set(key string, value interface{}, expiration time.Duration) error {
 	return r.client.Set(ctx, key, value, expiration).Err()

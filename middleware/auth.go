@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"sinartimur-go/pkg/dto"
 	"sinartimur-go/utils"
+
+	"github.com/gorilla/handlers"
 )
 
 func AuthMiddleware(next http.Handler) http.Handler {
@@ -39,4 +41,14 @@ func AuthMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), "user_id", userID)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+func CORSMiddleware() func(http.Handler) http.Handler {
+	return handlers.CORS(
+		handlers.AllowedOrigins([]string{"http://52.76.42.12", "http://localhost:5173"}),
+		handlers.AllowedMethods([]string{"GET", "POST", "PUT", "DELETE", "OPTIONS"}),
+		handlers.AllowedHeaders([]string{"Content-Type", "Authorization"}),
+		handlers.ExposedHeaders([]string{"Set-Cookie"}),
+		handlers.AllowCredentials(),
+	)
 }

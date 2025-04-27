@@ -50,8 +50,7 @@ func main() {
 	// Register routes
 	SetupRoutes(v1, services)
 
-	// Add CORS middleware
-	log.Fatal(http.ListenAndServe(":8080", handlers.CORS()(loggedRouter)))
+	log.Fatal(http.ListenAndServe(":8080", middleware.CORSMiddleware()(loggedRouter)))
 }
 
 type Services struct {

@@ -34,9 +34,9 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 			Value:    accessToken,
 			Expires:  time.Now().Add(time.Minute * 15),
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   false,
 			Path:     "/",
-			SameSite: http.SameSiteStrictMode,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		http.SetCookie(w, &http.Cookie{
@@ -44,9 +44,9 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 			Value:    refreshToken,
 			Expires:  time.Now().Add(time.Hour * 24 * 7),
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   false,
 			Path:     "/",
-			SameSite: http.SameSiteStrictMode,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		// Return JSON response with username and roles
@@ -67,9 +67,9 @@ func LoginHandler(userService *auth.AuthService) http.HandlerFunc {
 		http.SetCookie(w, &http.Cookie{
 			Name:     "user",
 			Value:    responseJSON,
-			Secure:   true,
+			Secure:   false,
 			Path:     "/",
-			SameSite: http.SameSiteStrictMode,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		utils.WriteJSON(w, http.StatusOK, response)
@@ -97,9 +97,9 @@ func RefreshTokenHandler(userService *auth.AuthService) http.HandlerFunc {
 			Value:    accessToken,
 			Expires:  time.Now().Add(time.Minute * 15),
 			HttpOnly: true,
-			Secure:   true,
+			Secure:   false,
 			Path:     "/",
-			SameSite: http.SameSiteStrictMode,
+			SameSite: http.SameSiteLaxMode,
 		})
 
 		w.WriteHeader(http.StatusOK)
@@ -132,8 +132,8 @@ func LogoutHandler(userService *auth.AuthService) http.HandlerFunc {
 				Expires:  time.Unix(0, 0),
 				MaxAge:   -1,
 				HttpOnly: name != "user",
-				Secure:   true,
-				SameSite: http.SameSiteStrictMode,
+				Secure:   false,
+				SameSite: http.SameSiteLaxMode,
 			})
 		}
 
