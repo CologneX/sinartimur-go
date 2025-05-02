@@ -1,38 +1,32 @@
-# Stage 1: Build the Go binary
+# ── STAGE 1: compile binaries ────────────────────────────────────────────────
 FROM golang:alpine AS builder
-
-# Set environment variables for Go
-ENV CGO_ENABLED=0 \
-    GOOS=linux \
-    GOARCH=amd64
-
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy go.mod and go.sum files
+# pull in modules
 COPY go.mod go.sum ./
-
-# Download Go module dependencies
 RUN go mod download
 
-# Copy the rest of the application source code
+# copy source
 COPY . .
 
-# Build the Go application
-# Changed from building just main.go to building the whole app package
-RUN go build -o sinartimur-app ./cmd/app
+# build main server
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -o sinartimur-app ./cmd/app
 
-# Stage 2: Create a minimal runtime image
+# build admin CLI
+RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 \
+    go build -o dbcmd ./cmd/db/main.go
+
+# ── STAGE 2: final image ────────────────────────────────────────────────────
 FROM alpine:latest
-
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the compiled Go binary from the builder stage
+# copy both binaries
 COPY --from=builder /app/sinartimur-app .
+COPY --from=builder /app/dbcmd .
 
-# Expose the application port
-EXPOSE 8080
+# copy migrations if needed
+COPY migrations ./migrations
 
-# Set the entrypoint command to run the application
+# drop in your entrypoint
 CMD ["./sinartimur-app"]

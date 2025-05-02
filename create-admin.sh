@@ -10,21 +10,22 @@ PASSWORD=$2
 
 echo "⚙️ Creating user: $USERNAME"
 
-BACKEND_CONTAINER=$(docker ps --filter "name=backend" --format "{{.ID}}")
+CID=$(docker ps --filter "name=backend" -q)
+[ -z "$CID" ]
 
-if [ -z "$BACKEND_CONTAINER" ]; then
+if [ -z "$CID" ]; then
     echo "❌ Backend container not found. Make sure it's running."
     exit 1
 fi
 
-echo "📦 Found backend container: $BACKEND_CONTAINER"
+echo "📦 Found backend container: $CID"
 
 echo "📝 Preparing environment…"
-grep -v '^#' /etc/environment \
-  | docker exec -i $BACKEND_CONTAINER tee /app/.env > /dev/null
+grep -v '^#' /etc/environment | docker exec -i $CID tee /app/.env >/dev/null
+
 
 echo "🔑 Creating user..."
-docker exec $BACKEND_CONTAINER go run cmd/db/main.go "$USERNAME" "$PASSWORD"
+docker exec -i $CID /app/dbcmd "$USERNAME" "$PASSWORD"
 
 # Clean up the temporary .env file
 docker exec $BACKEND_CONTAINER rm -f /app/.env
