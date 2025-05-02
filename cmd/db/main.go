@@ -29,6 +29,8 @@ func main() {
 		os.Getenv("POSTGRES_DB"),
 	)
 
+	fmt.Println(conn)
+
 	db, err := sql.Open("postgres", conn)
 	if err != nil {
 		log.Fatalf("Failed to open database: %v", err)

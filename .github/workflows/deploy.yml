@@ -1,56 +1,62 @@
-name: Build and Deploy to EC2
+name: CI/CD
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
-  build_and_deploy:
+  build-and-push:
+    name: Build & Push Docker Image
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout code
-        uses: actions/checkout@master
+      - uses: actions/checkout@v4
 
-      - name: Build Docker image
-        run: |
-          docker build -t sinartimur-app:latest .
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Save & compress image
-        run: |
-          docker save sinartimur-app:latest | gzip > sinartimur-app.tar.gz
+      - name: Build & Push Image
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: Dockerfile.prod
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/sinartimur-app:latest
 
-      - name: Package codebase
-        run: |
-          # Create empty archive first to avoid recursion issues
-          touch codebase.tar.gz
-          tar --exclude='codebase.tar.gz' --exclude='.git' --exclude='.github' --exclude='sinartimur-app.tar.gz' -czf codebase.tar.gz .
-
-      - name: Copy files to EC2
-        uses: appleboy/scp-action@master
+      - name: Copy code to EC2 via SCP
+        uses: appleboy/scp-action@v0.1.2
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "sinartimur-app.tar.gz,docker-compose.prod.yaml,codebase.tar.gz"
-          target: "~/"
+          port: ${{ secrets.EC2_SSH_PORT }}
+          source: "./"
+          target: "~/app"
 
-      - name: Deploy to EC2
-        uses: appleboy/ssh-action@v0.1.5
+  deploy:
+    name: SSH Deploy to EC2
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Pull new image & restart
+        uses: appleboy/ssh-action@v0.1.7
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: ${{ secrets.EC2_SSH_PORT }}
           script: |
-            gzip -df ~/sinartimur-app.tar.gz
-            docker load -i ~/sinartimur-app.tar
-            rm -rf ~/app || true
-            mkdir -p ~/app
-            tar -xzf ~/codebase.tar.gz -C ~/app
-            cd ~
-            docker-compose -f ~/app/docker-compose.prod.yaml down
-            docker-compose -f ~/app/docker-compose.prod.yaml up -d
-            docker system prune -f
-            rm ~/sinartimur-app.tar
-            rm ~/sinartimur-app.tar.gz 2>/dev/null || true
-            rm ~/codebase.tar.gz
+            set -o allexport
+            source /etc/environment
+            set +o allexport
+
+            cd ~/app
+
+            chmod +x create-admin.sh
+            chmod +x migrate.sh
+            docker compose -f docker-compose.prod.yaml pull backend
+            docker compose -f docker-compose.prod.yaml up -d --remove-orphans
