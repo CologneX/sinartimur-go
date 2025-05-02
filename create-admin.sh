@@ -19,8 +19,9 @@ fi
 
 echo "📦 Found backend container: $BACKEND_CONTAINER"
 
-echo "📝 Preparing environment..."
-docker exec $BACKEND_CONTAINER bash -c "grep -v '^#' /etc/environment > /app/.env"
+echo "📝 Preparing environment…"
+grep -v '^#' /etc/environment \
+  | docker exec -i $BACKEND_CONTAINER tee /app/.env > /dev/null
 
 echo "🔑 Creating user..."
 docker exec $BACKEND_CONTAINER go run cmd/db/main.go "$USERNAME" "$PASSWORD"
