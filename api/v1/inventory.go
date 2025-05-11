@@ -1,7 +1,6 @@
 package v1
 
 import (
-	"fmt"
 	"net/http"
 	"sinartimur-go/internal/inventory"
 	"sinartimur-go/pkg/dto"
@@ -130,7 +129,6 @@ func DeleteStorageHandler(storageService *inventory.StorageService) http.Handler
 func MoveBatchHandler(storageService *inventory.StorageService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var req inventory.MoveBatchRequest
-		fmt.Println(&req)
 
 		validationErrors := utils.DecodeAndValidate(r, &req)
 		if validationErrors != nil {

@@ -13,7 +13,7 @@ func CreateFinanceTransactionHandler(financialService *finance.FinanceService) h
 	return func(w http.ResponseWriter, r *http.Request) {
 
 		// Get user ID from context
-		userID, ok := r.Context().Value("userId").(string)
+		userID, ok := r.Context().Value("user_id").(string)
 		if !ok {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusUnauthorized, map[string]string{
 				"general": "Tidak terautentikasi",
