@@ -76,17 +76,11 @@ func GetAllFinanceTransactionsHandler(financialService *finance.FinanceService) 
 
 		// Parse date ranges
 		if startDate := r.URL.Query().Get("start_date"); startDate != "" {
-			parsedDate, err := time.Parse(time.RFC3339, startDate)
-			if err == nil {
-				req.StartDate = parsedDate
-			}
+			req.StartDate = startDate
 		}
 
 		if endDate := r.URL.Query().Get("end_date"); endDate != "" {
-			parsedDate, err := time.Parse(time.RFC3339, endDate)
-			if err == nil {
-				req.EndDate = parsedDate
-			}
+			req.EndDate = endDate
 		}
 
 		// Set pagination parameters

@@ -2,7 +2,6 @@ package finance
 
 import (
 	"sinartimur-go/utils"
-	"time"
 )
 
 // GetFinanceTransactionResponse defines the response returned to clients
@@ -17,9 +16,9 @@ type GetFinanceTransactionResponse struct {
 	SalesOrderID    string     `json:"sales_order_id,omitempty"`
 	Description     string     `json:"description"`
 	IsSystem        bool       `json:"is_system"`
-	TransactionDate time.Time  `json:"transaction_date"`
-	CreatedAt       time.Time  `json:"created_at"`
-	EditedAt        *time.Time `json:"edited_at,omitempty"`
+	TransactionDate string  `json:"transaction_date"`
+	CreatedAt       string  `json:"created_at"`
+	EditedAt        *string `json:"edited_at,omitempty"`
 }
 
 // GetFinanceTransactionRequest defines the parameters for filtering finance transactions
@@ -29,8 +28,8 @@ type GetFinanceTransactionRequest struct {
 	PurchaseOrderID string    `json:"purchase_order_id,omitempty" validate:"omitempty,uuid"`
 	SalesOrderID    string    `json:"sales_order_id,omitempty" validate:"omitempty,uuid"`
 	IsSystem        *bool     `json:"is_system,omitempty"`
-	StartDate       time.Time `json:"start_date,omitempty"`
-	EndDate         time.Time `json:"end_date,omitempty"`
+	StartDate       string `json:"start_date,omitempty"`
+	EndDate         string `json:"end_date,omitempty"`
 	// Add pagination fields
 	utils.PaginationParameter
 }
@@ -42,7 +41,7 @@ type CreateFinanceTransactionRequest struct {
 	PurchaseOrderID string    `json:"purchase_order_id,omitempty" validate:"omitempty,uuid"`
 	SalesOrderID    string    `json:"sales_order_id,omitempty" validate:"omitempty,uuid"`
 	Description     string    `json:"description" validate:"required"`
-	TransactionDate time.Time `json:"transaction_date" validate:"required,rfc3339"`
+	TransactionDate string `json:"transaction_date" validate:"required,rfc3339"`
 }
 
 // CancelFinanceTransactionRequest defines fields required to cancel a finance transaction

@@ -113,11 +113,11 @@ func (r *financeTransactionRepositoryImpl) GetAll(req GetFinanceTransactionReque
 	}
 
 	// Date range filters
-	if !req.StartDate.IsZero() {
+	if req.StartDate != "" {
 		queryBuilder.AddFilter("Transaction_Date >=", req.StartDate)
 	}
 
-	if !req.EndDate.IsZero() {
+	if req.EndDate != "" {
 		queryBuilder.AddFilter("Transaction_Date <=", req.EndDate)
 	}
 
@@ -159,7 +159,6 @@ func (r *financeTransactionRepositoryImpl) GetAll(req GetFinanceTransactionReque
 	for rows.Next() {
 		var tx GetFinanceTransactionResponse
 		var purchaseOrderID, salesOrderID sql.NullString
-		var editedAt sql.NullTime
 
 		err = rows.Scan(
 			&tx.ID,
@@ -173,7 +172,7 @@ func (r *financeTransactionRepositoryImpl) GetAll(req GetFinanceTransactionReque
 			&tx.IsSystem,
 			&tx.TransactionDate,
 			&tx.CreatedAt,
-			&editedAt,
+			&tx.EditedAt,
 		)
 
 		if err != nil {
@@ -186,10 +185,6 @@ func (r *financeTransactionRepositoryImpl) GetAll(req GetFinanceTransactionReque
 
 		if salesOrderID.Valid {
 			tx.SalesOrderID = salesOrderID.String
-		}
-
-		if editedAt.Valid {
-			tx.EditedAt = &editedAt.Time
 		}
 
 		transactions = append(transactions, tx)
@@ -228,7 +223,6 @@ func (r *financeTransactionRepositoryImpl) GetByID(id string) (*GetFinanceTransa
 
 	var tx GetFinanceTransactionResponse
 	var purchaseOrderID, salesOrderID sql.NullString
-	var editedAt sql.NullTime
 
 	err := r.db.QueryRow(query, id).Scan(
 		&tx.ID,
@@ -242,7 +236,7 @@ func (r *financeTransactionRepositoryImpl) GetByID(id string) (*GetFinanceTransa
 		&tx.IsSystem,
 		&tx.TransactionDate,
 		&tx.CreatedAt,
-		&editedAt,
+		&tx.EditedAt,
 	)
 
 	if err != nil {
@@ -258,10 +252,6 @@ func (r *financeTransactionRepositoryImpl) GetByID(id string) (*GetFinanceTransa
 
 	if salesOrderID.Valid {
 		tx.SalesOrderID = salesOrderID.String
-	}
-
-	if editedAt.Valid {
-		tx.EditedAt = &editedAt.Time
 	}
 
 	return &tx, nil
