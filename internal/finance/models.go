@@ -19,6 +19,7 @@ type GetFinanceTransactionResponse struct {
 	TransactionDate string  `json:"transaction_date"`
 	CreatedAt       string  `json:"created_at"`
 	EditedAt        *string `json:"edited_at,omitempty"`
+	DeletedAt       *string `json:"deleted_at,omitempty"`
 }
 
 // GetFinanceTransactionRequest defines the parameters for filtering finance transactions
@@ -46,8 +47,8 @@ type CreateFinanceTransactionRequest struct {
 
 // CancelFinanceTransactionRequest defines fields required to cancel a finance transaction
 type CancelFinanceTransactionRequest struct {
-	ID          string  `json:"id" validate:"required,uuid"`
-	Description *string `json:"description,omitempty" validate:"omitempty"`
+	ID          string `json:"id" validate:"required,uuid"`
+	Description string `json:"description" validate:"required"`
 }
 
 // FinanceTransactionSummary represents transaction summary statistics

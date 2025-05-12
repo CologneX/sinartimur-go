@@ -67,7 +67,6 @@ func (r *financeTransactionRepositoryImpl) Create(req CreateFinanceTransactionRe
 	return nil
 }
 
-// GetAll fetches financial transactions with filtering and pagination
 // GetAll fetches financial transactions with filtering and pagination using the materialized view
 func (r *financeTransactionRepositoryImpl) GetAll(req GetFinanceTransactionRequest) ([]GetFinanceTransactionResponse, int, error) {
 	// Build base query using the materialized view
@@ -84,7 +83,8 @@ func (r *financeTransactionRepositoryImpl) GetAll(req GetFinanceTransactionReque
             Is_System, 
             Transaction_Date, 
             Created_At, 
-            Edited_At
+            Edited_At,
+			Deleted_At
         FROM 
             finance_transaction_log_view
         WHERE 
@@ -173,6 +173,7 @@ func (r *financeTransactionRepositoryImpl) GetAll(req GetFinanceTransactionReque
 			&tx.TransactionDate,
 			&tx.CreatedAt,
 			&tx.EditedAt,
+			&tx.DeletedAt,
 		)
 
 		if err != nil {
@@ -280,7 +281,7 @@ func (r *financeTransactionRepositoryImpl) Cancel(req CancelFinanceTransactionRe
 		WHERE Id = $2
 	`
 
-	cancelDescription := fmt.Sprintf("%s [DIBATALKAN: %s]", tx.Description, *req.Description)
+	cancelDescription := fmt.Sprintf("%s [DIBATALKAN: %s]", tx.Description, req.Description)
 
 	_, err = r.db.Exec(query, cancelDescription, req.ID)
 	if err != nil {

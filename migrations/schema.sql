@@ -489,8 +489,6 @@ FROM
     LEFT JOIN Appuser u ON ft.User_Id = u.Id
     LEFT JOIN Purchase_Order po ON ft.Purchase_Order_Id = po.Id
     LEFT JOIN Sales_Order so ON ft.Sales_Order_Id = so.Id
-WHERE
-    ft.Deleted_At IS NULL
 WITH
     DATA;
 

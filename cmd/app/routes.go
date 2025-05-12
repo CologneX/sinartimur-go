@@ -124,7 +124,7 @@ func RegisterCustomerRoutes(router *mux.Router, customerService *customer.Custom
 func RegisterFinanceTransactionRoutes(router *mux.Router, service *finance.FinanceService) {
 	router.HandleFunc("/transaction", v1.CreateFinanceTransactionHandler(service)).Methods("POST")
 	router.HandleFunc("/transactions", v1.GetAllFinanceTransactionsHandler(service)).Methods("GET")
-	router.HandleFunc("/transaction/cancel/{id}", v1.CancelFinanceTransactionHandler(service)).Methods("POST")
+	router.HandleFunc("/transaction/cancel", v1.CancelFinanceTransactionHandler(service)).Methods("POST")
 	router.HandleFunc("/transactions/summary", v1.GetFinanceTransactionSummaryHandler(service)).Methods("GET")
 	router.HandleFunc("/transactions/refresh", v1.RefreshFinanceTransactionViewHandler(service)).Methods("POST")
 }
