@@ -113,10 +113,16 @@ func GetAllFinanceTransactionsHandler(financialService *finance.FinanceService) 
 func CancelFinanceTransactionHandler(financialService *finance.FinanceService) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get user ID from context
-		userID := r.Context().Value("userId").(string)
-
+		userID, ok := r.Context().Value("user_id").(string)
+		if !ok {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusUnauthorized, map[string]string{
+				"general": "Tidak terautentikasi",
+			}))
+			return
+		}
 		// Decode and validate the request
 		var req finance.CancelFinanceTransactionRequest
+
 		errors := utils.DecodeAndValidate(r, &req)
 		if errors != nil {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, errors))

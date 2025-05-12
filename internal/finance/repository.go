@@ -280,7 +280,7 @@ func (r *financeTransactionRepositoryImpl) Cancel(req CancelFinanceTransactionRe
 		WHERE Id = $2
 	`
 
-	cancelDescription := fmt.Sprintf("%s [DIBATALKAN: %s]", tx.Description, req.Description)
+	cancelDescription := fmt.Sprintf("%s [DIBATALKAN: %s]", tx.Description, *req.Description)
 
 	_, err = r.db.Exec(query, cancelDescription, req.ID)
 	if err != nil {
