@@ -1,8 +1,9 @@
 package inventory
 
 import (
-	"github.com/google/uuid"
 	"sinartimur-go/utils"
+
+	"github.com/google/uuid"
 )
 
 // Storage represents a storage location in the system
@@ -67,6 +68,7 @@ type ProductBatch struct {
 type GetAllBatchesRequest struct {
 	ProductID string `json:"product_id" validate:"omitempty,uuid"`
 	SKU       string `json:"sku" validate:"omitempty"`
+	StorageID string `json:"storage_id" validate:"omitempty,uuid"`
 	utils.PaginationParameter
 }
 

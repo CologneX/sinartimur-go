@@ -154,6 +154,7 @@ func (r *StorageRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAl
                pb.unit_price, pb.created_at, pb.updated_at
         FROM product_batch pb
         JOIN product p ON pb.product_id = p.id
+		JOIN batch_storage bs ON pb.id = bs.batch_id
         WHERE 1=1
     `)
 
@@ -163,6 +164,9 @@ func (r *StorageRepositoryImpl) GetAllBatches(req GetAllBatchesRequest) ([]GetAl
 	}
 	if req.SKU != "" {
 		qb.AddFilter("pb.sku ILIKE", "%"+req.SKU+"%")
+	}
+	if req.StorageID != "" {
+		qb.AddFilter("bs.storage_id =", req.StorageID)
 	}
 
 	// Get count first
