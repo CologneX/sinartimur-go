@@ -483,7 +483,8 @@ SELECT
     ft.Is_System,
     ft.Transaction_Date,
     ft.Created_At,
-    ft.Edited_At
+    ft.Edited_At,
+    ft.Deleted_At
 FROM
     Financial_Transaction_Log ft
     LEFT JOIN Appuser u ON ft.User_Id = u.Id
