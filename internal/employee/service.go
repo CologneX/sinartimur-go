@@ -134,3 +134,53 @@ func (s *EmployeeService) GetAllEmployees(req GetAllEmployeeRequest) ([]GetEmplo
 	}
 	return employees, totalItems, nil
 }
+
+// GetAttendanceService retrieves attendance records for employees on a specific date
+func (s *EmployeeService) GetAllAttendance(req GetAttendanceRequest) ([]GetAttendanceResponse, *dto.APIError) {
+	// Call repository to fetch attendance records
+	attendances, err := s.repo.GetAttendance(req)
+	if err != nil {
+		return nil, &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": err.Error(),
+			},
+		}
+	}
+
+	return attendances, nil
+}
+
+// UpdateAttendanceService updates the attendance record for an employee
+func (s *EmployeeService) UpdateAttendance(req UpdateAttendanceRequest) *dto.APIError {
+	// Check if the employee exists
+	employee, err := s.repo.GetByID(req.EmployeeID)
+	if err != nil {
+		return &dto.APIError{
+			StatusCode: 404,
+			Details: map[string]string{
+				"general": "Gagal mendapatkan data karyawan: " + err.Error(),
+			},
+		}
+	}
+	if employee == nil {
+		return &dto.APIError{
+			StatusCode: 404,
+			Details: map[string]string{
+				"general": "Karyawan tidak ditemukan",
+			},
+		}
+	}
+
+	// Call repository to update attendance
+	if err := s.repo.UpdateAttendance(req); err != nil {
+		return &dto.APIError{
+			StatusCode: 500,
+			Details: map[string]string{
+				"general": "Gagal memperbarui data kehadiran: " + err.Error(),
+			},
+		}
+	}
+
+	return nil
+}

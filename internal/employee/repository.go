@@ -14,6 +14,8 @@ type EmployeeRepository interface {
 	GetByID(id string) (*GetEmployeeResponse, error)
 	GetByNIK(nik string) (*GetEmployeeResponse, error)
 	GetByPhone(phone string) (*GetEmployeeResponse, error)
+	GetAttendance(req GetAttendanceRequest) ([]GetAttendanceResponse, error)
+	UpdateAttendance(req UpdateAttendanceRequest) error
 }
 
 type employeeRepositoryImpl struct {
@@ -154,5 +156,90 @@ func (r *employeeRepositoryImpl) GetByPhone(phone string) (*GetEmployeeResponse,
 	if err != nil {
 		return nil, err
 	}
+	return &employee, nil
+}
+
+// GetAttendance retrieves attendance records for employees on a specific date
+func (r *employeeRepositoryImpl) GetAttendance(req GetAttendanceRequest) ([]GetAttendanceResponse, error) {
+	queryBuilder := utils.NewQueryBuilder(`
+        SELECT e.Id, e.Name, a.Attendance_Date, a.Status, a.Description
+        FROM Employee e
+        LEFT JOIN Attendance a ON e.Id = a.Employee_Id AND a.Attendance_Date = $1
+        WHERE e.Deleted_At IS NULL
+    `)
+
+	// Add the parameter for Attendance_Date
+	queryBuilder.Params = append(queryBuilder.Params, req.AttendanceDate)
+
+	// // Add sorting and pagination
+	// if req.SortBy != "" {
+	//     direction := "ASC"
+	//     if req.SortOrder == "desc" {
+	//         direction = "DESC"
+	//     }
+	//     queryBuilder.Query.WriteString(fmt.Sprintf(" ORDER BY %s %s", req.SortBy, direction))
+	// }
+	// queryBuilder.AddPagination(req.PageSize, req.Page)
+
+	// Execute the query
+	query, params := queryBuilder.Build()
+	rows, err := r.db.Query(query, params...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch attendance records: %w", err)
+	}
+	defer rows.Close()
+
+	var attendances []GetAttendanceResponse
+	for rows.Next() {
+		var attendance GetAttendanceResponse
+		err = rows.Scan(&attendance.EmployeeID, &attendance.EmployeeName, &attendance.AttendanceDate, &attendance.AttendanceStatus, &attendance.Description)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan attendance record: %w", err)
+		}
+		attendances = append(attendances, attendance)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating attendance records: %w", err)
+	}
+
+	return attendances, nil
+}
+
+// UpdateAttendance updates the attendance record for an employee
+func (r *employeeRepositoryImpl) UpdateAttendance(req UpdateAttendanceRequest) error {
+    query := `
+        INSERT INTO Attendance (Employee_Id, Attendance_Date, Status, Description, Created_At, Updated_At)
+        VALUES ($1, $2, $3, $4, NOW(), NOW())
+        ON CONFLICT (Employee_Id, Attendance_Date)
+        DO UPDATE SET Status = $3, Description = $4, Updated_At = NOW()
+    `
+
+    _, err := r.db.Exec(query, req.EmployeeID, req.AttendanceDate, req.AttendanceStatus, req.Description)
+    if err != nil {
+        return fmt.Errorf("failed to update attendance record: %w", err)
+    }
+
+    return nil
+}
+
+// GetEmployeeByID retrieves an employee by their ID
+func (r *employeeRepositoryImpl) GetEmployeeByID(employeeID string) (*Employee, error) {
+	query := `
+		SELECT Id, Name, Position, Phone, Nik, Hired_Date, Created_At, Updated_At, Deleted_At
+		FROM Employee
+		WHERE Id = $1 AND Deleted_At IS NULL
+	`
+
+	row := r.db.QueryRow(query, employeeID)
+
+	var employee Employee
+	if err := row.Scan(&employee.ID, &employee.Name, &employee.Position, &employee.Phone, &employee.Nik, &employee.HiredDate, &employee.CreatedAt, &employee.UpdatedAt, &employee.DeletedAt); err != nil {
+		if err == sql.ErrNoRows {
+			return nil, nil // Employee not found
+		}
+		return nil, fmt.Errorf("failed to fetch employee: %w", err)
+	}
+
 	return &employee, nil
 }

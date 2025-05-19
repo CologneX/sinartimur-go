@@ -110,3 +110,81 @@ func GetAllEmployeesHandler(employeeService *employee.EmployeeService) http.Hand
 		utils.WritePaginationJSON(w, http.StatusOK, page, totalItems, pageSize, employees)
 	})
 }
+
+// GetAllAttendanceHandler fetches all attendance records
+func GetAllAttendanceHandler(employeeService *employee.EmployeeService) http.HandlerFunc {
+	// return utils.NewPaginatedHandler(func(w http.ResponseWriter, r *http.Request, page, pageSize int, sortBy, sortOrder string) {
+	// 	var req employee.GetAttendanceRequest
+	// 	// req.EmployeeID = r.URL.Query().Get("employee_id")
+	// 	// fmt.Println("employee_id", req.EmployeeID)
+	// 	req.AttendanceDate = r.URL.Query().Get("attendance_date")
+	// 	req.Page = page
+	// 	req.PageSize = pageSize
+	// 	req.SortBy = sortBy
+	// 	req.SortOrder = sortOrder
+
+	// 	// validate struct
+	// 	err := utils.ValidateStruct(req)
+	// 	if err != nil {
+	// 		utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, err))
+	// 		return
+	// 	}
+
+	// 	attendances, errService := employeeService.GetAllAttendance(req)
+	// 	if errService != nil {
+	// 		utils.ErrorJSON(w, errService)
+	// 		return
+	// 	}
+
+	// 	utils.WritePaginationJSON(w, http.StatusOK, page, totalItems, pageSize, attendances)
+	// })
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req employee.GetAttendanceRequest
+		req.AttendanceDate = r.URL.Query().Get("attendance_date")
+		// req.EmployeeID = r.URL.Query().Get("employee_id")
+		// fmt.Println("employee_id", req.EmployeeID)
+
+		// req.Page = page
+		// req.PageSize = pageSize
+		// req.SortBy = sortBy
+		// req.SortOrder = sortOrder
+		
+		// validate struct
+		err := utils.ValidateStruct(req)
+		if err != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, err))
+			return
+		}
+
+		attendances, errService := employeeService.GetAllAttendance(req)
+		if errService != nil {
+			utils.ErrorJSON(w, errService)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, attendances)
+
+		// utils.WritePaginationJSON(w, http.StatusOK, page, totalItems, pageSize, attendances)
+	}
+}
+
+// UpdateAttendanceHandler updates an attendance record
+func UpdateAttendanceHandler(employeeService *employee.EmployeeService) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var req employee.UpdateAttendanceRequest
+
+		validationErrors := utils.DecodeAndValidate(r, &req)
+		if validationErrors != nil {
+			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
+			return
+		}
+
+		errService := employeeService.UpdateAttendance(req)
+		if errService != nil {
+			utils.ErrorJSON(w, errService)
+			return
+		}
+
+		utils.WriteJSON(w, http.StatusOK, utils.WriteMessage("Attendance berhasil diperbaharui"))
+	}
+}

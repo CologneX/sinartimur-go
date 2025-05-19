@@ -1,8 +1,9 @@
 package employee
 
 import (
-	"github.com/google/uuid"
 	"sinartimur-go/utils"
+
+	"github.com/google/uuid"
 )
 
 type Employee struct {
@@ -15,6 +16,51 @@ type Employee struct {
 	CreatedAt string    `json:"created_at"`
 	UpdatedAt string    `json:"updated_at"`
 	DeletedAt string    `json:"deleted_at"`
+}
+
+// enum of attendance status "present", "absent", "late"
+type AttendanceStatus string
+
+const (
+	Present AttendanceStatus = "present"
+	Absent  AttendanceStatus = "absent"
+	Late    AttendanceStatus = "late"
+)
+
+type EmployeeAttendance struct {
+	ID               string           `json:"id"`
+	EmployeeID       string           `json:"employee_id"`
+	AttendanceDate   string           `json:"attendance_date"`
+	AttendanceStatus AttendanceStatus `json:"attendance_status"`
+	Description      string           `json:"description"`
+	CreatedAt        string           `json:"created_at"`
+	UpdatedAt        string           `json:"updated_at"`
+}
+
+type GetAttendanceRequest struct {
+	// EmployeeID     string `json:"employee_id,omitempty" validate:"uuid,omitempty"`
+	AttendanceDate string `json:"attendance_date" validate:"required,rfc3339"`
+	// utils.PaginationParameter
+}
+
+type UpdateAttendanceRequest struct {
+	EmployeeID       string           `json:"employee_id" validate:"required,uuid"`
+	AttendanceDate   string           `json:"attendance_date" validate:"required,rfc3339"`
+	AttendanceStatus AttendanceStatus `json:"attendance_status" validate:"required,oneof=present absent late"`
+	Description      string           `json:"description,omitempty"`
+}
+
+type GetAttendanceResponse struct {
+	EmployeeID       string            `json:"employee_id"`
+	EmployeeName     string            `json:"employee_name"`
+	AttendanceDate   *string           `json:"attendance_date"`
+	AttendanceStatus *AttendanceStatus `json:"attendance_status"`
+	Description      *string           `json:"description,omitempty"`
+}
+
+type GetAllAttendanceResponse struct {
+	Items []GetAttendanceResponse `json:"items"`
+	// utils.PaginationResponse
 }
 
 type GetEmployeeResponse struct {

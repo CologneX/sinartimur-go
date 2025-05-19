@@ -56,6 +56,18 @@ Create Table
         Deleted_At Timestamptz Default Null
     );
 
+CREATE TABLE
+    Attendance (
+        Id UUID PRIMARY KEY DEFAULT UUID_GENERATE_V4 (),
+        Employee_Id UUID NOT NULL REFERENCES Employee (Id) ON DELETE CASCADE,
+        Attendance_Date DATE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        Status VARCHAR(50) NOT NULL CHECK (Status IN ('present', 'absent', 'late')),
+        Description TEXT,
+        Created_At TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        Updated_At TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (Employee_Id, Attendance_Date) -- Add unique constraint here
+);
+
 -- Table: Inventory
 Create Table
     Category (
@@ -346,7 +358,7 @@ Create Table
         Sales_Order_Id Uuid References Sales_Order (Id) On Delete Set Null,
         Description TEXT,
         Is_System BOOLEAN Default True,
-        Transaction_Date Timestamptz Not Null DEFAULT now(),
+        Transaction_Date Timestamptz Not Null DEFAULT now (),
         Created_At Timestamptz Default Current_Timestamp,
         Edited_At Timestamptz Default Null,
         Deleted_At Timestamptz Default Null
@@ -602,3 +614,7 @@ CREATE INDEX Idx_Sales_Order_Return_Sales_Order_Id ON Sales_Order_Return (Sales_
 CREATE INDEX Idx_Sales_Order_Return_Sales_Detail_Id ON Sales_Order_Return (Sales_Detail_Id);
 
 CREATE INDEX Idx_Sales_Order_Return_Batch_Return_Id ON Sales_Order_Return_Batch (Sales_Return_Id);
+
+CREATE INDEX Idx_Attendance_Employee_Id ON Attendance (Employee_Id);
+
+CREATE INDEX Idx_Attendance_Date ON Attendance (Attendance_Date);

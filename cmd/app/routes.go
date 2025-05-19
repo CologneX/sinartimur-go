@@ -72,6 +72,8 @@ func RegisterEmployeeRoutes(router *mux.Router, employeeService *employee.Employ
 	router.HandleFunc("/employee/{id}", v1.UpdateEmployeeHandler(employeeService)).Methods("PUT")
 	router.HandleFunc("/employee/{id}", v1.DeleteEmployeeHandler(employeeService)).Methods("DELETE")
 	router.HandleFunc("/employees", v1.GetAllEmployeesHandler(employeeService)).Methods("GET")
+	router.HandleFunc("/employee/attendance", v1.GetAllAttendanceHandler(employeeService)).Methods("GET")
+	router.HandleFunc("/employee/attendance", v1.UpdateAttendanceHandler(employeeService)).Methods("POST")
 }
 
 func RegisterWageRoutes(router *mux.Router, wageService *wage.WageService) {
