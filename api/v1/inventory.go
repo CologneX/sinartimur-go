@@ -229,6 +229,7 @@ func GetAllBatchHandler(storageService *inventory.StorageService) http.HandlerFu
 		// Extract query parameters for filtering
 		req.ProductID = r.URL.Query().Get("product_id")
 		req.SKU = r.URL.Query().Get("sku")
+		req.StorageID = r.URL.Query().Get("storage_id")
 
 		// Set pagination parameters
 		req.Page = page

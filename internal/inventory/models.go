@@ -72,6 +72,19 @@ type GetAllBatchesRequest struct {
 	utils.PaginationParameter
 }
 
+// // GetAllBatchForMoveResponse is used when returning batch data for moving products
+// type GetAllBatchForMoveResponse struct {
+// 	ProductBatch
+// }
+
+// // GetAllBatchForMoveRequest holds query parameters for batch search for moving products
+// type GetAllBatchForMoveRequest struct {
+// 	ProductID string `json:"product_id," validate:"omitempty,uuid"`
+// 	SKU       string `json:"sku" validate:"omitempty"`
+// 	StorageID string `json:"storage_id" validate:"uuid"`
+// 	utils.PaginationParameter
+// }
+
 // GetAllBatchResponse is used when returning batch data to clients
 type GetAllBatchResponse struct {
 	ID              string  `json:"id"`
