@@ -295,8 +295,8 @@ func (r *financeTransactionRepositoryImpl) Cancel(req CancelFinanceTransactionRe
 func (r *financeTransactionRepositoryImpl) GetSummary(startDate, endDate time.Time) (*FinanceTransactionSummary, error) {
 	query := `
 		SELECT
-			COALESCE(SUM(CASE WHEN Type IN ('income', 'sale') THEN Amount ELSE 0 END), 0) AS total_income,
-			COALESCE(SUM(CASE WHEN Type IN ('expense', 'purchase') THEN Amount ELSE 0 END), 0) AS total_expense
+			COALESCE(SUM(CASE WHEN Type IN ('debit') THEN Amount ELSE 0 END), 0) AS total_income,
+			COALESCE(SUM(CASE WHEN Type IN ('credit') THEN Amount ELSE 0 END), 0) AS total_expense
 		FROM
 			Financial_Transaction_Log
 		WHERE
