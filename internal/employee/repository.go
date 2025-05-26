@@ -166,20 +166,11 @@ func (r *employeeRepositoryImpl) GetAttendance(req GetAttendanceRequest) ([]GetA
         FROM Employee e
         LEFT JOIN Attendance a ON e.Id = a.Employee_Id AND a.Attendance_Date = $1
         WHERE e.Deleted_At IS NULL
+		AND e.Hired_Date <= $1
     `)
 
 	// Add the parameter for Attendance_Date
 	queryBuilder.Params = append(queryBuilder.Params, req.AttendanceDate)
-
-	// // Add sorting and pagination
-	// if req.SortBy != "" {
-	//     direction := "ASC"
-	//     if req.SortOrder == "desc" {
-	//         direction = "DESC"
-	//     }
-	//     queryBuilder.Query.WriteString(fmt.Sprintf(" ORDER BY %s %s", req.SortBy, direction))
-	// }
-	// queryBuilder.AddPagination(req.PageSize, req.Page)
 
 	// Execute the query
 	query, params := queryBuilder.Build()
