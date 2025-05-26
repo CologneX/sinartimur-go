@@ -28,7 +28,7 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           port: ${{ secrets.EC2_SSH_PORT }}
-          source: "sinartimur-app,dbcmd,migrations/,create-admin.sh,migrate.sh,docker-compose.db.yaml"
+          source: "sinartimur-app,dbcmd,migrations/,create-admin.sh,migrate.sh,docker-compose.prod.yaml"
           target: "~/app"
 
       - name: Deploy and restart
@@ -44,7 +44,7 @@ jobs:
             set +o allexport
             cd ~/app
             chmod +x sinartimur-app dbcmd create-admin.sh migrate.sh
-            docker compose -f docker-compose.db.yaml up -d
+            docker compose -f docker-compose.prod.yaml up -d
             sleep 10
             sudo systemctl stop sinartimur || true
             sudo systemctl start sinartimur
