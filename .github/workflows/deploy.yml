@@ -22,7 +22,7 @@ jobs:
           CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -o dbcmd ./cmd/db
 
       - name: Copy files to EC2
-        uses: appleboy/scp-action@v0.1.2
+        uses: appleboy/scp-action@v1
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
@@ -32,7 +32,7 @@ jobs:
           target: "~/app"
 
       - name: Deploy and restart
-        uses: appleboy/ssh-action@v0.1.7
+        uses: appleboy/ssh-action@v1.2.2
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
