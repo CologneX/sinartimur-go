@@ -206,7 +206,7 @@ func CancelPurchaseOrderReturnHandler(purchaseOrderService *purchase_order.Purch
 
 		var req purchase_order.CancelReturnPurchaseOrderItemRequest
 		req.ReturnID = id
-		validationErrors := utils.DecodeAndValidate(r, &req)
+		validationErrors := utils.ValidateStruct(&req)
 		if validationErrors != nil {
 			utils.ErrorJSON(w, dto.NewAPIError(http.StatusBadRequest, validationErrors))
 			return

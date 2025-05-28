@@ -127,12 +127,17 @@ type PurchaseOrderItem struct {
 	ProductName      string   `json:"product_name"`
 	Quantity         float64  `json:"quantity"`
 	Price            float64  `json:"price"`
-	ReturnedQuantity *float64 `json:"returned_quantity,omitempty"`
 	ReceivedQuantity *float64 `json:"received_quantity,omitempty"`
-	IsReturned       bool     `json:"is_returned"`
-	ReturnReason     *string  `json:"return_reason,omitempty"`
+	CurrentQuantity  float64 `json:"current_quantity,omitempty"`
 	CreatedAt        string   `json:"created_at"`
 	UpdatedAt        string   `json:"updated_at"`
+
+	// Return information (only populated for returned orders)
+	ReturnID       *string  `json:"return_id,omitempty"`
+	ReturnQuantity *float64 `json:"return_quantity,omitempty"`
+	ReturnReason   *string  `json:"return_reason,omitempty"`
+	ReturnedAt     *string  `json:"returned_at,omitempty"`
+	ReturnedBy     *string  `json:"returned_by,omitempty"`
 }
 
 type GetPurchaseOrderResponse struct {

@@ -2,6 +2,7 @@ package purchase_order
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"sinartimur-go/internal/product"
 	"sinartimur-go/utils"
@@ -174,13 +175,13 @@ func (r *RepositoryImpl) GetByID(id string) (*GetPurchaseOrderDetailResponse, er
             Po.Payment_Due_Date, Po.Created_By, U.Username As Createdbyname,
             Po.Checked_By, U2.Username As Checkedbyname,
             Po.Created_At, Po.Updated_At,
-			S.Address As Supplieraddress, S.Telephone As Supplierphone,
-			Po.Cancelled_At, Po.Cancelled_By, U3.Username As Cancelledbyname
+            S.Address As Supplieraddress, S.Telephone As Supplierphone,
+            Po.Cancelled_At, Po.Cancelled_By, U3.Username As Cancelledbyname
         From Purchase_Order Po
         Left Join Supplier S On Po.Supplier_Id = S.Id
         Left Join Appuser U On Po.Created_By = U.Id
         Left Join Appuser U2 On Po.Checked_By = U2.Id
-		Left Join Appuser U3 On Po.Cancelled_By = U3.Id
+        Left Join Appuser U3 On Po.Cancelled_By = U3.Id
         Where Po.Id = $1
     `, id).Scan(
 		&po.ID, &po.SerialID, &po.SupplierID, &po.SupplierName,
@@ -193,7 +194,7 @@ func (r *RepositoryImpl) GetByID(id string) (*GetPurchaseOrderDetailResponse, er
 	)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, fmt.Errorf("purchase order not found")
 		}
 		return nil, fmt.Errorf("failed to get purchase order: %w", err)
@@ -204,28 +205,36 @@ func (r *RepositoryImpl) GetByID(id string) (*GetPurchaseOrderDetailResponse, er
         Select 
             Pod.Id, Pod.Product_Id, P.Name As Productname,
             Pod.Requested_Quantity, Pod.Unit_Price,
-            Coalesce(
-                (Select Sum(Por.Return_Quantity) 
-                 From Purchase_Order_Return Por 
-                 Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'),
-                0
-            ) As Returnedquantity,
-            Coalesce(
-                (Select Sum(Pb.Initial_Quantity)
-                 From Product_Batch Pb
-                 Where Pb.Purchase_Order_Id = Pod.Purchase_Order_Id And Pb.Product_Id = Pod.Product_Id),
-                0
-            ) As Receivedquantity,
-            Case When 
-                (Select Count(*) From Purchase_Order_Return Por 
-                 Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned') > 0 
-                Then True Else False 
-            End As Isreturned,
+            (Select pb.current_quantity
+            From product_batch pb 
+            Where pb.purchase_order_id = Pod.purchase_order_id
+            And pb.product_id = Pod.product_id
+            ) As CurrentQuantity,
+            (Select Por.Return_Quantity 
+			From Purchase_Order_Return Por 
+			Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'
+			Order By Por.Returned_At Desc
+			Limit 1) As Returnquantity,
+            (Select Por.Id 
+             From Purchase_Order_Return Por 
+             Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'
+             Order By Por.Returned_At Desc
+             Limit 1) As Returnid,
             (Select Por.Reason 
              From Purchase_Order_Return Por 
              Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'
              Order By Por.Returned_At Desc
              Limit 1) As Returnreason,
+            (Select Por.Returned_At 
+             From Purchase_Order_Return Por 
+             Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'
+             Order By Por.Returned_At Desc
+             Limit 1) As Returnedat,
+            (Select Por.Returned_By 
+             From Purchase_Order_Return Por 
+             Where Por.Product_Detail_Id = Pod.Id And Por.Status = 'returned'
+             Order By Por.Returned_At Desc
+             Limit 1) As Returnedby,
             Pod.Created_At, Pod.Updated_At
         From Purchase_Order_Detail Pod
         Join Product P On Pod.Product_Id = P.Id
@@ -239,20 +248,40 @@ func (r *RepositoryImpl) GetByID(id string) (*GetPurchaseOrderDetailResponse, er
 
 	for rows.Next() {
 		var item PurchaseOrderItem
-		var returnReason sql.NullString
+		var returnID, returnReason, returnedBy sql.NullString
+		var returnedAt sql.NullTime
 
 		err := rows.Scan(
 			&item.ID, &item.ProductID, &item.ProductName,
-			&item.Quantity, &item.Price,
-			&item.ReturnedQuantity, &item.ReceivedQuantity, &item.IsReturned, &returnReason,
+			&item.Quantity, &item.Price, &item.CurrentQuantity,
+			&item.ReturnQuantity,
+			&returnID, &returnReason, &returnedAt, &returnedBy,
 			&item.CreatedAt, &item.UpdatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan order item: %w", err)
 		}
 
+		// Populate return fields if they exist
+		if returnID.Valid {
+			item.ReturnID = &returnID.String
+		}
+
+		// if returnQuantity.Valid {
+		//     item.ReturnQuantity = &returnQuantity.Float64
+		// }
+
 		if returnReason.Valid {
 			item.ReturnReason = &returnReason.String
+		}
+
+		if returnedAt.Valid {
+			returnedAtStr := returnedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+			item.ReturnedAt = &returnedAtStr
+		}
+
+		if returnedBy.Valid {
+			item.ReturnedBy = &returnedBy.String
 		}
 
 		po.Items = append(po.Items, item)
@@ -575,7 +604,7 @@ func (r *RepositoryImpl) CancelReturnPurchaseOrderItem(req CancelReturnPurchaseO
     `, req.ReturnID).Scan(&purchaseOrderID, &productDetailID, &returnQuantity, &status)
 
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return fmt.Errorf("return record not found")
 		}
 		return fmt.Errorf("failed to get return record: %w", err)
